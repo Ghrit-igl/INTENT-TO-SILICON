@@ -1,0 +1,161 @@
+# ==============================================================================
+# AAYU Standard Library: Autograd Engine (std/autograd.aayu)
+# 100% Pure AAYU - Reverse-Mode Automatic Differentiation & Computational Graph
+# Zero Python, Zero PyTorch dependencies, Microsecond Gradient Calculation
+# ==============================================================================
+
+import "std/math.aayu"
+
+state AG_NODE_COUNTER = 0
+
+# Create leaf variable in computational graph
+action ag_var(value)
+    AG_NODE_COUNTER = AG_NODE_COUNTER + 1
+    return {
+        "id": AG_NODE_COUNTER,
+        "val": value * 1.0,
+        "grad": 0.0,
+        "op": "LEAF",
+        "p1": null,
+        "p2": null
+    }
+end
+
+# Addition: out = n1 + n2
+action ag_add(n1, n2)
+    AG_NODE_COUNTER = AG_NODE_COUNTER + 1
+    return {
+        "id": AG_NODE_COUNTER,
+        "val": n1["val"] + n2["val"],
+        "grad": 0.0,
+        "op": "ADD",
+        "p1": n1,
+        "p2": n2
+    }
+end
+
+# Subtraction: out = n1 - n2
+action ag_sub(n1, n2)
+    AG_NODE_COUNTER = AG_NODE_COUNTER + 1
+    return {
+        "id": AG_NODE_COUNTER,
+        "val": n1["val"] - n2["val"],
+        "grad": 0.0,
+        "op": "SUB",
+        "p1": n1,
+        "p2": n2
+    }
+end
+
+# Multiplication: out = n1 * n2
+action ag_mul(n1, n2)
+    AG_NODE_COUNTER = AG_NODE_COUNTER + 1
+    return {
+        "id": AG_NODE_COUNTER,
+        "val": n1["val"] * n2["val"],
+        "grad": 0.0,
+        "op": "MUL",
+        "p1": n1,
+        "p2": n2
+    }
+end
+
+# Square: out = n^2
+action ag_square(n)
+    AG_NODE_COUNTER = AG_NODE_COUNTER + 1
+    let v = n["val"]
+    return {
+        "id": AG_NODE_COUNTER,
+        "val": v * v,
+        "grad": 0.0,
+        "op": "SQUARE",
+        "p1": n,
+        "p2": null
+    }
+end
+
+# ReLU activation: out = max(0, n)
+action ag_relu(n)
+    AG_NODE_COUNTER = AG_NODE_COUNTER + 1
+    let v = n["val"]
+    let out_val = 0.0
+    if v > 0.0
+        out_val = v
+    end
+    return {
+        "id": AG_NODE_COUNTER,
+        "val": out_val,
+        "grad": 0.0,
+        "op": "RELU",
+        "p1": n,
+        "p2": null
+    }
+end
+
+# Helper to build reverse topological tape
+action ag_build_tape(node, visited_ids, tape)
+    if node == null
+        return tape
+    end
+    let nid = node["id"]
+    if visited_ids[nid] != null
+        return tape
+    end
+    visited_ids[nid] = 1
+
+    if node["p1"] != null
+        tape = ag_build_tape(node["p1"], visited_ids, tape)
+    end
+    if node["p2"] != null
+        tape = ag_build_tape(node["p2"], visited_ids, tape)
+    end
+
+    tape = tape + [node]
+    return tape
+end
+
+# Reverse-Mode Automatic Differentiation Pass
+action ag_backward(root_node)
+    root_node["grad"] = 1.0
+
+    let visited = {}
+    let tape = ag_build_tape(root_node, visited, [])
+
+    # Process tape in reverse order (root to leaves)
+    let n = len(tape)
+    let idx = n - 1
+    while idx >= 0
+        let curr = tape[idx]
+        let out_grad = curr["grad"]
+        let op = curr["op"]
+        let p1 = curr["p1"]
+        let p2 = curr["p2"]
+
+        if op == "ADD"
+            p1["grad"] = p1["grad"] + out_grad
+            p2["grad"] = p2["grad"] + out_grad
+        elif op == "SUB"
+            p1["grad"] = p1["grad"] + out_grad
+            p2["grad"] = p2["grad"] - out_grad
+        elif op == "MUL"
+            p1["grad"] = p1["grad"] + (p2["val"] * out_grad)
+            p2["grad"] = p2["grad"] + (p1["val"] * out_grad)
+        elif op == "SQUARE"
+            p1["grad"] = p1["grad"] + (2.0 * p1["val"] * out_grad)
+        elif op == "RELU"
+            if p1["val"] > 0.0
+                p1["grad"] = p1["grad"] + out_grad
+            end
+        end
+
+        idx = idx - 1
+    end
+    return root_node
+end
+
+# SGD Parameter Step
+action ag_sgd_step(var_node, learning_rate)
+    var_node["val"] = var_node["val"] - (learning_rate * var_node["grad"])
+    var_node["grad"] = 0.0
+    return var_node
+end

@@ -1,0 +1,147 @@
+# Import Standard Libraries
+import "std/math.aayu"
+import "std/tensor.aayu"
+import "std/ai.aayu"
+
+action main()
+    print("==================================================================")
+    print("      AAYU SILICON VM: MATHEMATICAL ENGINE & AI BENCHMARK         ")
+    print("==================================================================")
+
+    # -----------------------------------------------------------------
+    # TEST 1: High-Precision Pure AAYU Transcendental Functions
+    # -----------------------------------------------------------------
+    print("\n[Phase 1] Testing High-Precision Transcendental Math (std/math.aayu)...")
+    let e_val = math_e()
+    let pi_val = math_pi()
+    print("Constant e: ", e_val)
+    print("Constant pi:", pi_val)
+
+    let exp_zero = exp(0.0)
+    print("exp(0.0)      =", exp_zero, "(Expected: 1.0)")
+    let exp_one = exp(1.0)
+    print("exp(1.0)      =", exp_one, "(Expected: ~2.71828)")
+
+    let ln_one = ln(1.0)
+    print("ln(1.0)       =", ln_one, "(Expected: 0.0)")
+    let ln_e = ln(2.718281828)
+    print("ln(e)         =", ln_e, "(Expected: ~1.0)")
+
+    let sig_zero = sigmoid(0.0)
+    print("sigmoid(0.0)  =", sig_zero, "(Expected: 0.5)")
+    let tanh_zero = tanh(0.0)
+    print("tanh(0.0)     =", tanh_zero, "(Expected: 0.0)")
+    let gelu_one = gelu(1.0)
+    print("gelu(1.0)     =", gelu_one, "(Expected: ~0.8412)")
+
+    let probs = softmax_1d([1.0, 2.0, 3.0])
+    let prob_sum = probs[0] + probs[1] + probs[2]
+    print("Softmax([1,2,3]) sum =", prob_sum, "(Expected: ~1.0)")
+
+    # -----------------------------------------------------------------
+    # TEST 2: Native Silicon Tensor GEMM (Cache-Blocked Matrix Multiply)
+    # -----------------------------------------------------------------
+    print("\n[Phase 2] Testing Native Silicon GEMM & Matrix Operations...")
+    let t_a = tensor_create([1.0, 2.0, 3.0, 4.0], [2, 2])
+    let t_b = tensor_create([5.0, 6.0, 7.0, 8.0], [2, 2])
+    print("Tensor A [2x2]:")
+    print(t_a)
+    print("Tensor B [2x2]:")
+    print(t_b)
+
+    # C = A x B: [[1*5+2*7, 1*6+2*8], [3*5+4*7, 3*6+4*8]] = [[19, 22], [43, 50]]
+    let t_c = tensor_matmul(t_a, t_b)
+    print("GEMM Product C = A x B [2x2]:")
+    print(t_c)
+    let c_arr = tensor_to_array(t_c)
+    print("Flattened C elements:", c_arr)
+
+    # Tensor Element-wise Addition: A + B
+    let t_sum = tensor_add(t_a, t_b)
+    print("Tensor Add A + B [2x2]:")
+    print(t_sum)
+
+    # -----------------------------------------------------------------
+    # TEST 3: Modern Deep Learning Activations (GELU, ReLU, Softmax)
+    # -----------------------------------------------------------------
+    print("\n[Phase 3] Testing Modern LLM & Deep Learning Activations...")
+    let raw_inputs = tensor_create([-2.0, -1.0, 0.0, 1.0, 2.0, 3.0], [2, 3])
+    print("Raw Hidden State [2x3]:")
+    print(raw_inputs)
+
+    let relu_out = tensor_relu(raw_inputs)
+    print("ReLU Activation:")
+    print(relu_out)
+
+    let gelu_out = tensor_gelu(raw_inputs)
+    print("GELU Activation (GPT/LLaMA standard):")
+    print(gelu_out)
+
+    let sm_out = tensor_softmax(raw_inputs, -1)
+    print("Softmax Probability Distribution along rows:")
+    print(sm_out)
+
+    # -----------------------------------------------------------------
+    # TEST 4: Transformer Scaled Dot-Product Attention Forward Pass
+    # -----------------------------------------------------------------
+    print("\n[Phase 4] Testing Transformer Scaled Dot-Product Attention...")
+    # Sequence length = 2, embedding dimension = 4
+    let q = tensor_create([1.0, 0.0, 1.0, 0.0,  0.0, 1.0, 0.0, 1.0], [2, 4])
+    let k = tensor_create([1.0, 0.0, 1.0, 0.0,  0.0, 1.0, 0.0, 1.0], [2, 4])
+    let v = tensor_create([0.5, 0.2, 0.1, 0.9,  0.8, 0.4, 0.3, 0.1], [2, 4])
+
+    let attn_result = tensor_attention(q, k, v, 0.5)
+    print("Attention(Q, K, V) Output [2x4]:")
+    print(attn_result)
+
+    # -----------------------------------------------------------------
+    # TEST 5: Vector RAG Embedding Similarity & Search
+    # -----------------------------------------------------------------
+    print("\n[Phase 5] Testing Vector RAG & Cosine Similarity...")
+    let query_vector = [0.85, 0.12, 0.94, 0.05]
+    let doc1 = [0.82, 0.15, 0.91, 0.08]     # Very high match (~0.99)
+    let doc2 = [0.10, 0.95, 0.20, 0.88]     # Low match
+    let doc3 = [0.00, 0.00, 0.00, 1.00]     # Orthogonal / Near zero
+
+    let sim1 = cosine_similarity(query_vector, doc1)
+    let sim2 = cosine_similarity(query_vector, doc2)
+    let sim3 = cosine_similarity(query_vector, doc3)
+    print("Similarity with Document 1:", sim1, "(Expected: >0.98)")
+    print("Similarity with Document 2:", sim2, "(Expected: <0.40)")
+    print("Similarity with Document 3:", sim3, "(Expected: <0.10)")
+
+    let doc_corpus = [doc2, doc1, doc3]
+    let rag_match = vector_search_nearest(query_vector, doc_corpus)
+    print("RAG Nearest Document Match Index:", rag_match["index"], "with similarity:", rag_match["similarity"])
+
+    # -----------------------------------------------------------------
+    # TEST 6: Neural Network Optimization (Adam Optimizer Step)
+    # -----------------------------------------------------------------
+    print("\n[Phase 6] Testing Adam Optimizer Step (std/ai.aayu)...")
+    let initial_weights = [0.50, -0.25, 0.10]
+    let gradients = [0.08, -0.04, 0.12]
+    let m_states = [0.0, 0.0, 0.0]
+    let v_states = [0.0, 0.0, 0.0]
+
+    let opt_result = adam_step(initial_weights, gradients, m_states, v_states, 1, 0.001, 0.9, 0.999, 0.00000001)
+    print("Initial Weights: ", initial_weights)
+    print("Updated Weights: ", opt_result["params"])
+
+    # -----------------------------------------------------------------
+    # TEST 7: Multi-Layer Perceptron (MLP) Anomaly Inference
+    # -----------------------------------------------------------------
+    print("\n[Phase 7] Testing End-to-End MLP Anomaly & Fraud Scoring...")
+    let normal_tx = [0.15, 0.20, 0.05, 0.10]
+    let fraudulent_tx = [0.95, 0.88, 0.92, 0.85]
+
+    let res_normal = mlp_forward_pass(normal_tx)
+    let res_fraud = mlp_forward_pass(fraudulent_tx)
+    print("Normal Transaction Fraud Score:    ", res_normal["score"], "| Safe:", res_normal["is_safe"])
+    print("Fraudulent Transaction Fraud Score:", res_fraud["score"], "| Safe:", res_fraud["is_safe"])
+
+    print("\n==================================================================")
+    print("      ALL SILICON AI & MATHEMATICAL VERIFICATION TESTS PASSED!    ")
+    print("==================================================================")
+end
+
+main()

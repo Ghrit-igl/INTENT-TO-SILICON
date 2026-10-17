@@ -1,0 +1,16 @@
+# Math helper module for namespace testing
+let MODULE_NAME = "math_helper"
+let PI_APPROX = 3
+
+action square(x)
+    return x * x
+end
+
+action hypot_sq(a, b)
+    # Intra-module call to square
+    return square(a) + square(b)
+end
+
+action multiply_add(a, b, c)
+    return (a * b) + c
+end

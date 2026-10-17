@@ -1,21 +1,20 @@
-﻿"use client";
-import React, { useEffect, useState } from "react";
+"use client";
+import React, { useState } from "react";
 
 export default function DownloadTerminal() {
-  const [os, setOs] = useState("windows");
-
-  useEffect(() => {
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    if (userAgent.includes("android") || userAgent.includes("iphone") || userAgent.includes("ipad")) {
-      setOs("mobile");
-    } else if (userAgent.includes("mac")) {
-      setOs("mac");
-    } else if (userAgent.includes("linux")) {
-      setOs("linux");
-    } else {
-      setOs("windows");
+  const [os] = useState(() => {
+    if (typeof window !== "undefined") {
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      if (userAgent.includes("android") || userAgent.includes("iphone") || userAgent.includes("ipad")) {
+        return "mobile";
+      } else if (userAgent.includes("mac")) {
+        return "mac";
+      } else if (userAgent.includes("linux")) {
+        return "linux";
+      }
     }
-  }, []);
+    return "windows";
+  });
 
   if (os === "mobile") {
     return (
@@ -39,8 +38,6 @@ export default function DownloadTerminal() {
     );
   }
 
-  const isMac = os === "mac";
-  const isLinux = os === "linux";
   const isWindows = os === "windows";
 
   return (

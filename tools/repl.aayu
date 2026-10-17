@@ -3,7 +3,7 @@
 
 action print_banner()
     print("==================================================")
-    print("     AAYU Silicon Interactive Shell (REPL) v1.2.0 ")
+    print("     AAYU Silicon Interactive Shell (REPL) v1.5.0 ")
     print("     Architecture: Native Intent-to-Silicon       ")
     print("     Type 'exit' to quit, 'help' for guidance.    ")
     print("==================================================")

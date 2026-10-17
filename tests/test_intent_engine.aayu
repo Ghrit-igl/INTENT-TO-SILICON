@@ -1,0 +1,54 @@
+# ==============================================================================
+# Verification Suite: AAYU Intent Engine
+# tests/test_intent_engine.aayu
+# 100% Pure Self-Hosted AAYU (.aayu)
+# ==============================================================================
+import "std/intent.aayu"
+import "std/test.aayu"
+
+action test_intent_workflow()
+    print("[Intent Phase 1] Declaring Structured Intent...")
+    let intent = create_intent("INTENT_AI_MLP_INFERENCE", "Verify fraud anomaly detection within 15ms latency bound", "Ayush Kaushik")
+    
+    intent = intent_add_constraint(intent, "LATENCY_MAX_MS", "Execution must complete under 15ms")
+    intent = intent_add_constraint(intent, "ZERO_EXTERNAL_PACKAGES", "No python/c++ packages permitted")
+    intent = intent_add_invariant(intent, "PROBABILITY_BOUNDS", "Score output must strictly lie in [0.0, 1.0]")
+    intent = intent_add_precondition(intent, "FEATURE_NORMALIZED", "Inputs must be 4 float values")
+    intent = intent_add_postcondition(intent, "IS_SAFE_BOOLEAN", "Output must contain boolean is_safe")
+
+    assert_eq(intent["is_locked"], 0, "intent_unlocked_initially")
+
+    print("[Intent Phase 2] Cryptographically Locking Intent...")
+    let locked = intent_lock(intent)
+    assert_eq(locked["is_locked"], 1, "intent_successfully_locked")
+    print("  -> Cryptographic SHA-256 Intent Seal: " + locked["seal_hash"])
+
+    print("[Intent Phase 3] Verifying Execution Results against Intent Seal...")
+    let mock_result = {
+        "status": "SUCCESS",
+        "score": 0.32,
+        "is_safe": 1
+    }
+    let proof = intent_verify_execution(locked, mock_result)
+    assert_eq(proof["verified"], 1, "intent_execution_verified")
+
+    print("[Intent Phase 4] Generating Traceability Report...")
+    let report = intent_generate_traceability_report(locked, proof)
+    assert_eq(report["intent_id"], "INTENT_AI_MLP_INFERENCE", "traceability_id")
+    assert_eq(report["execution_verified"], 1, "traceability_verified")
+    print("  -> Traceability Verified: Intent-to-Silicon link intact.")
+end
+
+action main()
+    print("==================================================================")
+    print("         AAYU INTENT-TO-SILICON ENGINE VERIFICATION               ")
+    print("==================================================================")
+    test_begin_suite("AAYU Structured Intent Engine")
+    test_intent_workflow()
+    test_end_suite()
+    print("==================================================================")
+    print("         INTENT ENGINE VERIFICATION TESTS PASSED!                 ")
+    print("==================================================================")
+end
+
+main()

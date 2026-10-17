@@ -1,0 +1,127 @@
+# ==============================================================================
+# AAYU Standard Library: Tensor (std/tensor.aayu)
+# 100% Pure AAYU Interface for Silicon Tensor Engine
+# Hardware-Accelerated GEMM, GELU, Softmax, Attention & Vector RAG
+# ==============================================================================
+
+# Create tensor from flat data array and shape array
+action tensor_from_data(data, shape)
+    return tensor_create(data, shape)
+end
+
+# Create zero-filled tensor with given shape
+action tensor_make_zeros(shape)
+    return tensor_zeros(shape)
+end
+
+# Create one-filled tensor with given shape
+action tensor_make_ones(shape)
+    return tensor_ones(shape)
+end
+
+# Create Gaussian normal random tensor with given shape and seed
+action tensor_make_randn(shape, seed)
+    return tensor_randn(shape, seed)
+end
+
+# High-speed Cache-Blocked Matrix Multiplication: C = A x B
+action tensor_dot(a, b)
+    return tensor_matmul(a, b)
+end
+
+# Element-wise addition with broadcasting
+action tensor_plus(a, b)
+    return tensor_add(a, b)
+end
+
+# Element-wise subtraction with broadcasting
+action tensor_minus(a, b)
+    return tensor_sub(a, b)
+end
+
+# Element-wise multiplication (Hadamard product) with broadcasting
+action tensor_times(a, b)
+    return tensor_mul(a, b)
+end
+
+# Element-wise division with broadcasting
+action tensor_divide(a, b)
+    return tensor_div(a, b)
+end
+
+# Multiply tensor elements by scalar number
+action tensor_multiply_scalar(t, scalar)
+    return tensor_scale(t, scalar)
+end
+
+# Activation: ReLU
+action tensor_act_relu(t)
+    return tensor_relu(t)
+end
+
+# Activation: GELU (LLM / Transformer standard)
+action tensor_act_gelu(t)
+    return tensor_gelu(t)
+end
+
+# Activation: Sigmoid
+action tensor_act_sigmoid(t)
+    return tensor_sigmoid(t)
+end
+
+# Activation: Tanh
+action tensor_act_tanh(t)
+    return tensor_tanh(t)
+end
+
+# Activation: SiLU / Swish
+action tensor_act_silu(t)
+    return tensor_silu(t)
+end
+
+# Softmax probability distribution along axis
+action tensor_act_softmax(t, axis)
+    return tensor_softmax(t, axis)
+end
+
+# Layer Normalization: y = ((x - mean) / sqrt(variance + eps)) * gamma + beta
+action tensor_normalize_layer(t, gamma, beta, eps)
+    return tensor_layernorm(t, gamma, beta, eps)
+end
+
+# Scaled Dot-Product Attention: Softmax((Q * K^T) / scale) * V
+action tensor_scaled_attention(q, k, v, scale)
+    return tensor_attention(q, k, v, scale)
+end
+
+# Transpose last two dimensions
+action tensor_transpose_matrix(t)
+    return tensor_transpose(t)
+end
+
+# Reshape tensor to new dimensions
+action tensor_change_shape(t, new_shape)
+    return tensor_reshape(t, new_shape)
+end
+
+# Dense Linear Layer Forward Pass: y = (x * W) + b
+action tensor_dense_forward(x, weights, bias)
+    let xw = tensor_matmul(x, weights)
+    return tensor_add(xw, bias)
+end
+
+# Cosine similarity between two vectors for Vector Search & Embeddings
+action tensor_similarity(v1, v2)
+    return cosine_similarity(v1, v2)
+end
+
+# Summary statistics dictionary
+action tensor_get_stats(t)
+    return {
+        "shape": tensor_shape(t),
+        "sum": tensor_sum(t),
+        "mean": tensor_mean(t),
+        "norm_l2": tensor_norm(t),
+        "argmax": tensor_argmax(t)
+    }
+end

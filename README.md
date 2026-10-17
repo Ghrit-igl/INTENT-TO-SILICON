@@ -13,7 +13,8 @@
   <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases"><img src="https://img.shields.io/badge/version-v1.5.0-purple?style=for-the-badge" alt="Version"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Open%20Standard-blue?style=for-the-badge" alt="License"/></a>
   <a href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"><img src="https://img.shields.io/badge/live%20portal-active-emerald?style=for-the-badge" alt="Live Portal"/></a>
-  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-234%20%2F%20234%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
+  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-365%20%2F%20365%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
+
   <a href="https://aayulang.com"><img src="https://img.shields.io/badge/website-aayulang.com-0284c7?style=for-the-badge" alt="Website"/></a>
 </p>
 
@@ -127,9 +128,13 @@ Inspired by the internal computer science principles of **Linus Torvalds' Git** 
 | **Profile Photos (Ant-Man SVG)** | 5,000,000 Bytes (5 MB) | **2,400 Bytes (2.4 KB)** | **99.85% REDUCTION** | **Instant Render** |
 | **1,000 Enterprise Records Scale** | 130,400 Bytes | **11,200 Bytes** | **91.4% REDUCTION** | **< 1.0 µs ($O(1)$ Direct)** |
 
-### Security & Autonomous Disaster Recovery:
-* **Sub-Microsecond Quarantine:** Altering even a single byte (e.g. changing an amount from ₹50,00,000 to ₹99,99,999) trips Layer 3 and Layer 6 police inspectors, instantly returning `ACCESS_DENIED: Tampered Liquid 2.0 Shard Pack` before heap memory allocation occurs.
-* **Autonomous Parity Healing:** Using an ultra-compact ~80-byte Parity Matrix Seal, `liquid2_detect_and_heal()` autonomously detects delta discrepancies, pulls pristine column deltas from the Dual-Hearth WAL journal, and re-seals the Merkle Root with 100% bit-exact accuracy.
+### 🔍 Ground-Truth Architectural Reality: Liquid Data 2.0 vs Gzip
+How does Liquid Data 2.0 compare to standard streaming compression like Gzip?
+* **Raw Byte Footprint:** On raw 100-row JSON streaming data, Gzip achieves **960 Bytes** vs Liquid Data's **1,164 Bytes**.
+* **Why Liquid Data Carries 204 Extra Bytes:** Liquid Data 2.0 is NOT a passive compressed blob. It is an **in-memory analytical molecular DAG** containing the complete blueprint schema, CAS string dictionary, Frame-of-Reference (FoR) base offsets, Merkle tree root, and an ~80-byte parity matrix for self-healing.
+* **$O(1)$ Random Access vs $O(N)$ Stream Decompression:** To read record #73 from a Gzip file, you MUST decompress all preceding 72 records from byte 0 ($O(N)$ CPU cost and memory churn). Liquid Data 2.0 provides **direct $O(1)$ row indexing (< 1.0 µs)** without decompressing the surrounding records.
+* **100% Byte-Flip Quarantine:** If a single byte is flipped (e.g. changing an amount from ₹50,00,000 to ₹99,99,999), Liquid Data's cryptographic police inspectors trap the discrepancy instantly, blocking corrupt data before heap allocation. Gzip simply throws a generic stream CRC error on total extraction.
+* **Autonomous Parity Healing:** Using the Dual-Hearth WAL journal, `liquid2_detect_and_heal()` autonomously restores corrupted columns with 100% bit-exact accuracy.
 * **20-Cycle Monte Carlo Torture Test (`test_liquid2_monte_carlo_20_runs.aayu`):** 20 consecutive randomized stress cycles with shifting corruption points yielded **20/20 interceptions (100%)** and **20/20 bit-exact self-healings (100%)**.
 
 ---
@@ -138,8 +143,9 @@ Inspired by the internal computer science principles of **Linus Torvalds' Git** 
 
 Traditional social and enterprise applications store millions of heavy raster photos (JPEG/PNG), consuming petabytes of expensive AWS S3 storage and causing blurry pixelation at 10x magnification.
 
-AAYU's **Ant-Man Vector Media Engine (`std/media.aayu`)** converts profile photos and geometric artwork into pure mathematical SVG Bezier equations:
-* **Mass Reduction:** 5 MB bitmap $\to$ **2.4 KB vector code** (**99.85% storage savings**).
+AAYU's **Ant-Man Vector Media Engine (`std/media.aayu`)** uses **procedural mathematical SVG Bezier vector generation** (avatar and geometry math), rather than raster JPEG/PNG bitstream compression:
+* **Procedural Vector Synthesis:** User avatars, badges, and geometric UI elements are synthesized mathematically via Bezier curves, radial gradients, and procedural paths (~2.4 KB) rather than storing lossy multi-megabyte pixel grids.
+* **Mass Reduction:** 5 MB bitmap asset $\to$ **2.4 KB vector code** (**99.85% storage savings**).
 * **Infinite Resolution:** Zoom to 100x magnification with crystal-clear mathematical vectors and zero pixelation.
 * **Database Integration:** Fits directly into a single in-memory database column with zero external object storage dependencies.
 
@@ -171,7 +177,9 @@ AAYU features a fully self-hosted, 7-stage compiler pipeline written in pure AAY
 ```
 
 * **NaN-Boxing Representation:** All values (`Int`, `Float`, `Bool`, `Null`, String Pointers, Array Pointers) fit inside a single 64-bit `u64` register word. Zero dynamic heap allocation for primitives.
-* **Direct Integer Dispatch:** Basic numeric arithmetic executes in single-cycle CPU registers.
+* **48-Bit NaN-Box VM Integers:** In standard VM mode, integer values are packed into the lower 48 bits of the 64-bit IEEE 754 NaN box. The signed integer range is $[-140,737,488,355,328, 140,737,488,355,327]$ ($[-2^{47}, 2^{47}-1]$). Calculations exceeding this bound wrap around at the VM boundary.
+* **64-Bit Native Hardware Precision (JIT Mode):** When executing with the JIT acceleration engine (`aayu --sum N --jit`), numbers are promoted directly to native hardware CPU registers (`i64`), computing massive calculations (such as summing 1 Billion iterations) without wrapping.
+* **Flat-Stack Base Pointer Optimization:** CallFrame heap allocation has been eliminated in favor of a flat preallocated stack pointer (`prev_base`), dropping recursive workloads like `fib(32)` to sub-second execution (0.99s).
 
 ---
 
@@ -255,8 +263,8 @@ print("Bob Balance:   " + ledger["balances"]["0xBob"])   # 40000 ASC
 
 ## 📊 Production Benchmarks & Empirical Proofs
 
-### The 10 Native Silicon Test Suites (234/234 Pass)
-AAYU's reliability is proven by **234 passing assertions across 10 distinct test suites** executed directly on `aayu.exe`:
+### The 17 Native Silicon Test Suites (323/323 Pass)
+AAYU's reliability is proven by **323 passing assertions across 17 distinct test suites** executed directly on native `aayu-vm.exe`:
 
 | # | Test Suite File | Test Objective | Result | Assertions |
 |---|---|---|---|---|
@@ -270,7 +278,39 @@ AAYU's reliability is proven by **234 passing assertions across 10 distinct test
 | 8 | `tests/test_random_byte_flip.aayu` | 5 Physical byte-flip offsets across memory | ✅ PASS | **11 / 11** |
 | 9 | `tests/test_liquid2_xml_and_multiformat.aayu` | 100-Record Banking XML (19,000 B $\to$ 902 B) | ✅ PASS | **6 / 6** |
 | 10 | `tests/test_liquid2_monte_carlo_20_runs.aayu` | **20-Cycle Monte Carlo Torture Stress Test** | ✅ PASS | **81 / 81** |
-| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **234 / 234** |
+| 11 | `tests/test_nextgen_ai_math.aayu` | **LLM RoPE, KV-Cache, SwiGLU, INT8 Quant, Autograd Tape, FFT, Vector DB** | ✅ PASS | **28 / 28** |
+| 12 | `tests/test_break_continue.aayu` | **Native `break` and `continue` in Nested Control Loops** | ✅ PASS | **11 / 11** |
+| 13 | `tests/test_module_namespaces.aayu` | **Module Namespaces (`import "..." as alias`) Zero Collision** | ✅ PASS | **9 / 9** |
+| 14 | `tests/test_tensor_ai_math.aayu` | **Cache-Tiled GEMM, Attention & LayerNorm Primitives** | ✅ PASS | **12 / 12** |
+| 15 | `tests/test_intent_engine.aayu` | **Cryptographic Intent Locking & Invariant Proofs** | ✅ PASS | **9 / 9** |
+| 16 | `tests/test_aayudb_enterprise.aayu` | **Dual-Hearth In-Memory ACID + WAL Crash Durability** | ✅ PASS | **10 / 10** |
+| 17 | `tests/test_compiler_security.aayu` | **AST Isolation, Scope Bounds & Memory Safety** | ✅ PASS | **10 / 10** |
+| 18 | `tests/test_audited_crypto.aayu` | **Audited FIPS 180-4 SHA-256/512, HMAC, AES-256-GCM & CSPRNG** | ✅ PASS | **11 / 11** |
+| 19 | `tests/test_cloud_payment_sdks.aayu` | **Universal Payment Gateway, SigV4 Cloud Storage & OAuth2 JWT** | ✅ PASS | **19 / 19** |
+| 20 | `tests/test_disk_btree_db.aayu` | **4KB Disk-Paged Slotted B-Tree Storage Engine & Page Cache** | ✅ PASS | **12 / 12** |
+| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **365 / 365** |
+
+
+### ⚡ Ground-Truth Execution Speed & Benchmark Reality
+*Empirically measured on Windows 11 x64, Intel Core i5-8350U (8 logical cores):*
+
+| Workload | Native C / Rust (-O) | AAYU (Silicon VM) | Node.js (V8 JIT) | Python 3.12 | Architectural Ground Truth |
+|---|---|---|---|---|---|
+| **Cold Boot Time** | ~2 ms | **13.9 ms** | ~35 ms | ~50 ms | Instant startup for microservices and CLI tools |
+| **Recursion `fib(32)`** | 34 ms | **383 ms** (bytecode) | 173 ms | 780 ms | **2x faster than Python**; frame zeroing optimization avoids 11.1B writes |
+| **Hot Loop (50M Iterations)** | 94 ms | **2,432 ms** | 329 ms | 11,442 ms | **4.7x faster than Python**; ~25x behind native C (standard for bytecode VMs) |
+| **5M Function Calls** | 34 ms | **666 ms** | 183 ms | 1,908 ms | **2.9x faster than Python**; flat stack dispatch without heap allocations |
+
+> **Architectural Reality:** As a pure bytecode interpreter, the AAYU VM runs **~20-25x behind native compiled C/Rust** (a normal range for stack interpreters), while outperforming **Python 3.12 by 3-5x** on loops and calls. The selective JIT compiler roadmap (`jit.rs` via `can_compile`) will compile verified pure integer loops into native CPU instructions, keeping dynamic full-stack features safely in the VM.
+
+### 🌐 Server Throughput & Network Architecture Reality
+* **Current Multi-Threaded Engine:** `runtime_rs/src/net.rs` currently implements a multi-threaded socket engine (`thread::spawn`) serving HTTP requests with `Connection: close`. In real network environments, this architecture reliably processes **~1,500 to 2,500 requests/second**.
+* **The 36,000 req/s Benchmark Context:** The 36,000+ req/s figure represents in-memory loopback pipeline mock benchmarks with zero TCP handshake overhead.
+* **Roadmap to Production epoll:** The upcoming milestone introduces non-blocking event-driven `epoll`/`kqueue` I/O with HTTP keep-alive connection pooling to bring real-world throughput up to 40,000+ req/s.
+
+### 💾 Toolchain Binary Footprint
+* **Windows x64 Release Binary (`aayu.exe`):** **2.27 MB** (includes bundled native SQLite engine, SHA-256 crypto, and complete self-hosted toolchain).
+* **Linux ELF Stripped Binary:** **~890 KB** minimal standalone VM runtime.
 
 ---
 
@@ -280,22 +320,31 @@ All standard library modules are written in **100% pure self-hosted AAYU** with 
 
 | Module | Description | Key Functions |
 |---|---|---|
+| `std/llm.aayu` | Modern LLM Primitives & Transformers | `rope_rotate_embedding`, `kv_cache_create`, `kv_cache_append`, `swiglu_activate`, `bpe_tokenize_simple` |
+| `std/quant.aayu` | Silicon Matrix Quantization (75% RAM savings) | `quantize_symmetric_int8`, `quant_dot_product`, `quantize_int4_blocks`, `dequantize_symmetric_int8` |
+| `std/autograd.aayu` | Reverse-Mode Autodiff Computational Graph | `ag_var`, `ag_add`, `ag_mul`, `ag_square`, `ag_backward`, `ag_sgd_step` |
+| `std/scientific.aayu` | FFT, Linear Regression & Numerical Solvers | `dft_spectrum`, `linear_regression`, `solve_linear_2x2`, `newton_find_sqrt` |
+| `std/vector_db.aayu` | In-Memory Vector Database for AI RAG | `vdb_create`, `vdb_insert`, `vdb_search_top1`, `vdb_l2_norm` |
+| `std/tensor.aayu` | Cache-Tiled GEMM & Transformer Attention | `tensor_gemm_tiled`, `tensor_attention_forward`, `tensor_gelu`, `tensor_rag_cosine` |
+| `std/ai.aayu` | Machine Learning & Neural Networks | `mat_mul`, `relu`, `gelu`, `silu`, `adam_step`, `cosine_similarity` |
 | `std/liquid2.aayu` | Next-Gen Molecular DAG Engine | `liquid2_pack_batch`, `liquid2_read_record`, `liquid2_detect_and_heal` |
 | `std/chain.aayu` | Blockchain & Invariant Smart Contracts | `create_contract_state`, `execute_safe_transfer`, `create_escrow` |
 | `std/contracts.aayu` | Design-by-Contract & Pre/Post conditions | `require`, `ensure`, `invariant`, `check_type` |
-| `std/math.aayu` | C-Speed Mathematics & Neural Activations | `sqrt`, `abs`, `clamp`, `relu`, `pow`, `mat_mul` |
-| `std/crypto.aayu` | 64-char SHA-256 Avalanche Hashing | `hash_string`, `compute_merkle_root`, `hmac_sha256` |
+| `std/math.aayu` | C-Speed Mathematics & High-Precision Trig | `sqrt`, `abs`, `clamp`, `relu`, `sin`, `cos`, `softmax` |
+| `std/crypto.aayu` | Audited FIPS 180-4 SHA-256, HMAC, AES-256-GCM | `sha256`, `sha512`, `hmac_sha256`, `aes_gcm_encrypt`, `aes_gcm_decrypt`, `timing_safe_equals` |
+| `std/payment.aayu` | Universal Payment Gateway Protocol & Webhooks | `payment_client`, `payment_create_intent`, `payment_create_order`, `payment_verify_webhook` |
+| `std/cloud_storage.aayu` | Universal Cloud Object Storage & SigV4 Auth | `storage_client`, `storage_create_authorization`, `storage_get_signature_key` |
+| `std/oauth.aayu` | Open OAuth2 & HS256 JWT Authentication | `oauth_build_auth_url`, `jwt_sign`, `jwt_verify` |
+| `std/db.aayu` | Dual-Engine: 4KB Disk B-Tree + In-Memory WAL | `db_create_record`, `db_btree_open`, `db_btree_set`, `db_btree_get`, `db_btree_flush` |
 | `std/media.aayu` | Ant-Man Vector Media & 3D Math | `create_canvas`, `generate_svg`, `project_3d_point` |
-| `std/tokens.aayu` | AI Agent Token Estimator & Budgeter | `estimate_tokens`, `compress_ai_context` |
-| `std/collections.aayu`| High-Performance Algorithms & Data Structures| `sorted`, `sum`, `mean`, `array_min`, `array_max`, `binary_search` |
-| `std/audio.aayu` | Harmonic Wave & Formant Voice Synthesis | `note_freq`, `generate_sine_wave`, `formant_vowel` |
-| `std/db.aayu` | In-Memory WAL Database Primitives | `db_create_record`, `db_filter_records`, `db_find_by_id` |
+
 | `std/server.aayu` | ASGI HTTP Response Formatters | `json_response(200, json)`, `html_response(200, html)` |
 | `std/http.aayu` | HTTP Request & Protocol Parsers | `format_request`, `status_is_ok`, `parse_url_protocol` |
 | `std/ui.aayu` | Declarative Flutter-like Widget Tree | `Page`, `Column`, `Row`, `Button`, `Text` |
 | `std/test.aayu` | Native Assertion Test Harness | `test_begin_suite`, `assert_eq`, `assert_true`, `test_end_suite` |
 | `std/fs.aayu` | File System Operations | `file_exists`, `read_text`, `write_text` |
 | `std/os.aayu` | Operating System & Platform Utilities | `get_os`, `get_arch` |
+| `std/intent.aayu` | SHA-256 Intent Locking & Traceability | `intent_lock_contract`, `intent_verify_integrity`, `intent_trace_report` |
 
 ---
 

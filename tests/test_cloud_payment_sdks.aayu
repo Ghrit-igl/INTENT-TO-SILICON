@@ -1,0 +1,80 @@
+import "std/test.aayu"
+import "std/crypto.aayu" as crypto
+import "std/payment.aayu" as payment
+import "std/cloud_storage.aayu" as storage
+import "std/oauth.aayu" as oauth
+
+print("==================================================================")
+print("     AAYU CLOUD & PAYMENT TURNKEY PROTOCOLS VERIFICATION          ")
+print("==================================================================")
+
+test_begin_suite("AAYU Cloud, Payment & Auth Turnkey Protocols")
+
+# 1. Universal Payment Gateway Protocol
+print("[Phase 1] Testing Universal Payment Gateway Protocol...")
+let p_client = payment.payment_client("sec_key_test_1234567890", "https://api.gateway.example.com/v1")
+assert_eq(p_client["api_key"], "sec_key_test_1234567890", "Payment client initialized with api key")
+assert_eq(p_client["base_url"], "https://api.gateway.example.com/v1", "Payment client initialized with v1 endpoint")
+
+let pi = payment.payment_create_intent(p_client, 4999, "usd", "ref_99812")
+assert_eq(pi["status"], "requires_payment_method", "PaymentIntent status is 'requires_payment_method'")
+assert_eq(pi["amount"], 4999, "PaymentIntent amount is 4999 cents ($49.99)")
+assert_eq(pi["currency"], "usd", "PaymentIntent currency is USD")
+
+let cust = payment.payment_create_customer(p_client, "alice@enterprise.com", "Alice Smith")
+assert_eq(cust["email"], "alice@enterprise.com", "Payment customer email matches")
+
+# Payment Webhook Verification Test
+let webhook_secret = "whsec_test_secret_998877"
+let payload = "{\"id\":\"evt_1001\",\"type\":\"payment_intent.succeeded\"}"
+let timestamp = "1729180800"
+let expected_sig = crypto.hmac_sha256(webhook_secret, timestamp + "." + payload)
+let sig_header = "t=" + timestamp + ",v1=" + expected_sig
+
+let webhook_valid = payment.payment_verify_webhook(payload, sig_header, webhook_secret)
+assert_true(webhook_valid, "Payment webhook signature verified cleanly via HMAC-SHA256")
+
+let webhook_invalid = payment.payment_verify_webhook(payload, sig_header, "wrong_secret")
+assert_eq(webhook_invalid, false, "Payment webhook rejects tampered secret")
+
+# 2. Payment Orders & Verification
+print("[Phase 2] Testing Payment Order & Signature Verification...")
+let order = payment.payment_create_order(p_client, 250000, "INR", "receipt_inv_88")
+assert_eq(order["amount"], 250000, "Payment order amount is 250000 units (2,500.00)")
+assert_eq(order["currency"], "INR", "Payment order currency is INR")
+assert_eq(order["status"], "created", "Payment order status is created")
+
+# Payment Signature Verification
+let r_order_id = "order_998811"
+let r_payment_id = "pay_776655"
+let r_secret = "gateway_secret_key_prod"
+let r_valid_sig = crypto.hmac_sha256(r_secret, r_order_id + "|" + r_payment_id)
+
+let rz_verified = payment.payment_verify_order_signature(r_order_id, r_payment_id, r_valid_sig, r_secret)
+assert_true(rz_verified, "Payment signature verified cleanly via HMAC-SHA256")
+
+# 3. Universal Cloud Object Storage SDK (SigV4)
+print("[Phase 3] Testing Universal Cloud Storage & SigV4 Authentication...")
+let st_client = storage.storage_client("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "us-east-1", "enterprise-bucket", "enterprise-bucket.storage.example.com")
+assert_eq(st_client["bucket"], "enterprise-bucket", "Cloud storage bucket configuration matches")
+
+let auth_res = storage.storage_create_authorization(st_client, "PUT", "/data/financial_report.pdf", "sample_pdf_binary_content", "20261017", "20261017T200000Z")
+assert_eq(len(auth_res["signature"]), 64, "Cloud SigV4 generates 64-char HMAC-SHA256 signature")
+assert_eq(auth_res["x-amz-date"], "20261017T200000Z", "Cloud x-amz-date formatted correctly")
+
+# 4. OAuth2 & JWT Authentication Protocol
+print("[Phase 4] Testing OAuth2 & JWT Authentication Protocol...")
+let auth_url = oauth.oauth_build_auth_url("https://auth.example.com/oauth2/v2/auth", "client_123.apps.example.com", "https://app.aayu.io/callback", "openid email profile", "state_xyz")
+assert_true(len(auth_url) > 50, "Universal OAuth2 URL constructed properly")
+
+let jwt_secret = "production_super_jwt_secret_key_8833"
+let jwt_token = oauth.jwt_sign("{}", "{\"sub\":\"user_102\",\"role\":\"admin\"}", jwt_secret)
+assert_true(len(jwt_token) > 20, "JWT token generated with header.payload.signature structure")
+
+let verify_res = oauth.jwt_verify(jwt_token, jwt_secret)
+assert_eq(verify_res["valid"], 1, "JWT token verified with valid secret")
+
+let fail_res = oauth.jwt_verify(jwt_token, "wrong_secret_key")
+assert_eq(fail_res["valid"], 0, "JWT token verification rejected with wrong secret key")
+
+test_end_suite()

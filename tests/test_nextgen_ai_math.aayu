@@ -1,0 +1,158 @@
+# ==============================================================================
+# AAYU NEXT-GEN AI & MATHEMATICS COMPREHENSIVE VERIFICATION SUITE
+# Tests std/llm.aayu, std/quant.aayu, std/autograd.aayu, std/scientific.aayu, std/vector_db.aayu
+# 100% Pure AAYU, Zero External Dependencies, Zero Python
+# ==============================================================================
+
+import "std/test.aayu"
+import "std/math.aayu"
+import "std/llm.aayu" as llm
+import "std/quant.aayu" as q
+import "std/autograd.aayu" as ag
+import "std/scientific.aayu" as sci
+import "std/vector_db.aayu" as vdb
+
+print("==================================================================")
+print("     AAYU NEXT-GEN AI & MATHEMATICAL SUITE VERIFICATION          ")
+print("==================================================================")
+
+test_begin_suite("AAYU Next-Gen AI & Advanced Math")
+
+# ------------------------------------------------------------------------------
+# PHASE 1: Modern LLM Primitives (RoPE, KV-Cache, SwiGLU)
+# ------------------------------------------------------------------------------
+print("[Phase 1] Testing Modern LLM Primitives (std/llm.aayu)...")
+
+let v_in = [1.0, 0.0, 0.0, 1.0]
+let v_rope = llm.apply_rope_to_vector(v_in, 0)
+# At pos=0, theta=0, cos(0)=1, sin(0)=0 -> rotation matrix is identity
+assert_eq(v_rope[0], 1.0, "RoPE at pos 0 preserves x0 (1.0)")
+assert_eq(v_rope[1], 0.0, "RoPE at pos 0 preserves x1 (0.0)")
+
+# KV-Cache Verification
+let cache = llm.kv_cache_create(16, 2)
+let k1 = [1.0, 0.0]
+let v1 = [10.0, 20.0]
+cache = llm.kv_cache_append(cache, k1, v1)
+
+let k2 = [0.0, 1.0]
+let v2 = [30.0, 40.0]
+cache = llm.kv_cache_append(cache, k2, v2)
+
+assert_eq(llm.kv_cache_length(cache), 2, "KV-Cache contains exactly 2 tokens")
+
+# Query [1.0, 0.0] aligns with k1 -> should attend primarily to v1
+let attn_out = llm.kv_cache_attend(cache, [1.0, 0.0])
+assert_true(attn_out[0] > 10.0, "KV-Cache attention output dim 0 matches weighted target")
+
+# SwiGLU Verification
+let swiglu_val = llm.swiglu_forward([1.0, 2.0], [0.5, 0.5], [1.0, 1.0])
+assert_true(swiglu_val > 1.0, "SwiGLU activation computes positive non-linear projection")
+
+# ------------------------------------------------------------------------------
+# PHASE 2: Silicon Quantization Engine (INT8 & INT4)
+# ------------------------------------------------------------------------------
+print("[Phase 2] Testing Silicon Quantization (std/quant.aayu)...")
+
+let float_weights = [-10.0, -5.0, 0.0, 5.0, 10.0]
+let q_weights = q.quantize_int8(float_weights)
+assert_eq(q_weights["bits"], 8, "Quantized object format is 8-bit")
+
+let q_data = q_weights["data"]
+assert_eq(q_data[0], -127, "Minimum float (-10.0) quantizes to -127")
+assert_eq(q_data[2], 0, "Zero float (0.0) quantizes to 0")
+assert_eq(q_data[4], 127, "Maximum float (10.0) quantizes to 127")
+
+let deq_weights = q.dequantize_int8(q_weights)
+let mse_err = q.quantization_error(float_weights, deq_weights)
+assert_true(mse_err < 0.005, "INT8 quantization MSE reconstruction error is negligible (<0.005)")
+
+# Quantized Dot Product
+let q_a = q.quantize_int8([2.0, 4.0])
+let q_b = q.quantize_int8([3.0, 5.0])
+# Expected dot: 2*3 + 4*5 = 6 + 20 = 26.0
+let q_dot = q.matmul_quantized_int8(q_a, q_b)
+assert_true(abs(q_dot - 26.0) < 0.1, "Quantized integer dot product matches expected 26.0 (<0.1 tolerance)")
+
+# ------------------------------------------------------------------------------
+# PHASE 3: Pure AAYU Autograd Engine (Automatic Reverse Differentiation)
+# ------------------------------------------------------------------------------
+print("[Phase 3] Testing Reverse-Mode Autograd (std/autograd.aayu)...")
+
+# z = (x * y) + x^2
+# For x = 3.0, y = 4.0:
+# z = 12 + 9 = 21.0
+# dz/dx = y + 2*x = 4 + 6 = 10.0
+# dz/dy = x = 3.0
+let node_x = ag.ag_var(3.0)
+let node_y = ag.ag_var(4.0)
+
+let node_xy = ag.ag_mul(node_x, node_y)
+let node_x2 = ag.ag_square(node_x)
+let node_z = ag.ag_add(node_xy, node_x2)
+
+assert_eq(node_z["val"], 21.0, "Forward pass z = x*y + x^2 computes exactly 21.0")
+
+# Run Backward Pass
+ag.ag_backward(node_z)
+
+assert_eq(node_x["grad"], 10.0, "Exact analytical gradient dz/dx is 10.0")
+assert_eq(node_y["grad"], 3.0, "Exact analytical gradient dz/dy is 3.0")
+
+# Optimizer step
+node_x = ag.ag_sgd_step(node_x, 0.1)
+assert_eq(node_x["val"], 2.0, "SGD step updates x = 3.0 - (0.1 * 10.0) to exactly 2.0")
+
+# ------------------------------------------------------------------------------
+# PHASE 4: Scientific & Statistical Math (FFT, Regression, 2x2 Solver)
+# ------------------------------------------------------------------------------
+print("[Phase 4] Testing Scientific & Statistical Math (std/scientific.aayu)...")
+
+# Discrete Fourier Transform / FFT on constant DC signal [1, 1, 1, 1]
+let dft_res = sci.dft_spectrum([1.0, 1.0, 1.0, 1.0])
+let mags = dft_res["magnitude"]
+assert_true(abs(mags[0] - 4.0) < 0.001, "FFT DC component magnitude is sum of elements (4.0)")
+assert_true(mags[1] < 0.001, "FFT AC frequency component 1 is 0 for constant DC signal")
+assert_true(mags[2] < 0.001, "FFT AC frequency component 2 is 0 for constant DC signal")
+
+# Linear Regression on y = 2x + 1: (1, 3), (2, 5), (3, 7), (4, 9)
+let reg = sci.linear_regression([1.0, 2.0, 3.0, 4.0], [3.0, 5.0, 7.0, 9.0])
+assert_eq(reg["slope"], 2.0, "Linear regression slope is exactly 2.0")
+assert_eq(reg["intercept"], 1.0, "Linear regression intercept is exactly 1.0")
+assert_eq(reg["r_squared"], 1.0, "Coefficient of determination R^2 is exactly 1.0")
+
+# 2x2 Linear System Solver:
+# 2x + 1y = 5
+# 1x + 3y = 5
+# Solution: x = 2.0, y = 1.0
+let sol = sci.solve_linear_2x2(2.0, 1.0, 5.0, 1.0, 3.0, 5.0)
+assert_true(sol["success"], "Cramer solver successfully inverts non-singular 2x2 system")
+assert_eq(sol["x"], 2.0, "System variable x resolves to 2.0")
+assert_eq(sol["y"], 1.0, "System variable y resolves to 1.0")
+
+# Newton-Raphson square root of 49.0
+let n_root = sci.newton_find_sqrt(49.0, 8)
+assert_true(abs(n_root - 7.0) < 0.000000001, "Newton-Raphson converges to sqrt(49) = 7.0")
+
+# ------------------------------------------------------------------------------
+# PHASE 5: Scalable Vector Database & RAG
+# ------------------------------------------------------------------------------
+print("[Phase 5] Testing Scalable Vector Database (std/vector_db.aayu)...")
+
+let db = vdb.vdb_create(3)
+db = vdb.vdb_insert(db, "doc_ai", [1.0, 0.0, 0.0], "Machine learning neural networks")
+db = vdb.vdb_insert(db, "doc_cook", [0.0, 1.0, 0.0], "Culinary recipes and baking")
+
+assert_eq(db["count"], 2, "Vector DB contains 2 indexed document embeddings")
+
+# Search query close to AI topic [0.95, 0.05, 0.0]
+let search_res = vdb.vdb_search_top1(db, [0.95, 0.05, 0.0])
+assert_eq(search_res["id"], "doc_ai", "Vector search correctly retrieves 'doc_ai' as top match")
+assert_true(search_res["similarity"] > 0.99, "Cosine similarity score is >0.99 for aligned query")
+
+test_end_suite()
+
+print("")
+print("==================================================================")
+print("     ALL NEXT-GEN AI & MATHEMATICS TESTS PASSED 100%!             ")
+print("==================================================================")

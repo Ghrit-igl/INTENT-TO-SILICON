@@ -61,7 +61,45 @@ impl HttpResponse {
     }
 }
 
+pub struct ServerThreadPool {
+
+    sender: std::sync::mpsc::SyncSender<Box<dyn FnOnce() + Send + 'static>>,
+}
+
+impl ServerThreadPool {
+    pub fn new(workers: usize, queue_cap: usize) -> Self {
+        let (sender, receiver) = std::sync::mpsc::sync_channel::<Box<dyn FnOnce() + Send + 'static>>(queue_cap);
+        let receiver = Arc::new(std::sync::Mutex::new(receiver));
+
+        for _ in 0..workers {
+            let rx = Arc::clone(&receiver);
+            thread::spawn(move || {
+                loop {
+                    let job = match rx.lock() {
+                        Ok(lock) => match lock.recv() {
+                            Ok(j) => j,
+                            Err(_) => break,
+                        },
+                        Err(_) => break,
+                    };
+                    let _ = catch_unwind(AssertUnwindSafe(job));
+                }
+            });
+        }
+
+        Self { sender }
+    }
+
+    pub fn execute<F>(&self, f: F) -> Result<(), std::sync::mpsc::TrySendError<Box<dyn FnOnce() + Send + 'static>>>
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        self.sender.try_send(Box::new(f))
+    }
+}
+
 pub struct HttpServer {
+
     pub port: u16,
     pub is_tls: bool,
     pub tls_cert: Option<String>,
@@ -121,15 +159,23 @@ impl HttpServer {
         };
 
         let handler = Arc::new(handler);
+        let num_workers = (thread::available_parallelism().map(|n| n.get()).unwrap_or(8) * 8).clamp(32, 256);
+        let pool = ServerThreadPool::new(num_workers, 16384);
 
         for stream in listener.incoming() {
             match stream {
                 Ok(mut stream) => {
                     let _ = stream.set_nodelay(true);
+                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
                     let handler_clone = Arc::clone(&handler);
                     let tls_config_clone = tls_config.clone();
+                    let stream_for_worker = match stream.try_clone() {
+                        Ok(s) => s,
+                        Err(_) => continue,
+                    };
 
-                    thread::spawn(move || {
+                    let sent = pool.execute(move || {
+                        let mut stream = stream_for_worker;
                         let _ = catch_unwind(AssertUnwindSafe(|| {
                             if let Some(tls_cfg) = tls_config_clone {
                                 if let Ok(conn) = ServerConnection::new(tls_cfg) {
@@ -141,6 +187,11 @@ impl HttpServer {
                             }
                         }));
                     });
+
+                    if sent.is_err() {
+                        let _ = stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nRetry-After: 1\r\nContent-Length: 21\r\n\r\nServer Under Pressure");
+                    }
+
                 }
                 Err(e) => {
                     eprintln!("[AAYU Server] TCP accept error: {}", e);
@@ -148,6 +199,7 @@ impl HttpServer {
             }
         }
     }
+
 
     fn init_tls_config(&self) -> ServerConfig {
         let provider = Arc::new(rustls::crypto::ring::default_provider());
@@ -225,88 +277,125 @@ impl HttpServer {
     fn handle_connection<S: Read + Write>(stream: &mut S, handler: &Arc<impl Fn(HttpRequest) -> HttpResponse>) {
         let mut buffer = Vec::with_capacity(8192);
         let mut temp = [0u8; 4096];
-        let mut content_length: Option<usize> = None;
-        let mut header_end: Option<usize> = None;
+        let mut keep_alive_count = 0;
+        const MAX_KEEP_ALIVE: usize = 100;
 
         loop {
-            match stream.read(&mut temp) {
-                Ok(0) => break,
-                Ok(n) => {
-                    buffer.extend_from_slice(&temp[..n]);
+            let mut content_length: Option<usize> = None;
+            let mut header_end: Option<usize> = None;
+            let mut is_keep_alive = false;
+            let mut is_close = false;
 
-                    if header_end.is_none() {
-                        if let Some(pos) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
-                            header_end = Some(pos + 4);
-                            let header_str = String::from_utf8_lossy(&buffer[..pos]);
-                            for line in header_str.lines() {
-                                if line.to_ascii_lowercase().starts_with("content-length:") {
-                                    if let Some(val_str) = line.split(':').nth(1) {
-                                        if let Ok(cl) = val_str.trim().parse::<usize>() {
-                                            content_length = Some(cl);
-                                        }
+            loop {
+                // Check if buffer already contains a complete header
+                if header_end.is_none() {
+                    if let Some(pos) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
+                        header_end = Some(pos + 4);
+                        let header_str = String::from_utf8_lossy(&buffer[..pos]);
+                        for line in header_str.lines() {
+                            let lower = line.to_ascii_lowercase();
+                            if lower.starts_with("content-length:") {
+                                if let Some(val_str) = line.split(':').nth(1) {
+                                    if let Ok(cl) = val_str.trim().parse::<usize>() {
+                                        content_length = Some(cl);
                                     }
                                 }
+                            } else if lower.starts_with("connection:") {
+                                if lower.contains("close") {
+                                    is_close = true;
+                                } else if lower.contains("keep-alive") {
+                                    is_keep_alive = true;
+                                }
                             }
-                        } else if let Some(pos) = buffer.windows(2).position(|w| w == b"\n\n") {
-                            header_end = Some(pos + 2);
                         }
-                    }
-
-                    if let Some(hend) = header_end {
-                        let current_body_len = buffer.len() - hend;
-                        let required_len = content_length.unwrap_or(0);
-                        if current_body_len >= required_len {
-                            break;
-                        }
+                    } else if let Some(pos) = buffer.windows(2).position(|w| w == b"\n\n") {
+                        header_end = Some(pos + 2);
                     }
                 }
-                Err(_) => break,
+
+                if let Some(hend) = header_end {
+                    let current_body_len = buffer.len() - hend;
+                    let required_len = content_length.unwrap_or(0);
+                    if current_body_len >= required_len {
+                        break;
+                    }
+                }
+
+                match stream.read(&mut temp) {
+                    Ok(0) => return,
+                    Ok(n) => {
+                        buffer.extend_from_slice(&temp[..n]);
+                    }
+                    Err(_) => return,
+                }
+            }
+
+            let hend = match header_end {
+                Some(h) => h,
+                None => return,
+            };
+            let req_total_len = hend + content_length.unwrap_or(0);
+            if req_total_len > buffer.len() { return; }
+
+            let raw_request = String::from_utf8_lossy(&buffer[..req_total_len]).to_string();
+            buffer.drain(..req_total_len);
+
+            let req = Self::parse_request(&raw_request);
+
+            let res = if req.method == "OPTIONS" {
+                HttpResponse {
+                    status: 204,
+                    content_type: "text/plain".to_string(),
+                    body: String::new(),
+                    raw_bytes: None,
+                }
+            } else {
+                handler(req)
+            };
+
+            let status_text = match res.status {
+                200 => "OK",
+                201 => "Created",
+                204 => "No Content",
+                400 => "Bad Request",
+                401 => "Unauthorized",
+                403 => "Forbidden",
+                404 => "Not Found",
+                500 => "Internal Server Error",
+                _ => "Unknown",
+            };
+
+            let body_bytes = match &res.raw_bytes {
+                Some(bytes) => bytes.as_slice(),
+                None => res.body.as_bytes(),
+            };
+
+            keep_alive_count += 1;
+            let should_keep_alive = !is_close && (is_keep_alive || keep_alive_count < MAX_KEEP_ALIVE);
+            let connection_header = if should_keep_alive {
+                "Connection: keep-alive\r\nKeep-Alive: timeout=5, max=100\r\n"
+            } else {
+                "Connection: close\r\n"
+            };
+
+            let response_header = format!(
+                "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\n{}{}\r\n",
+                res.status,
+                status_text,
+                res.content_type,
+                body_bytes.len(),
+                connection_header,
+                ""
+            );
+
+            if stream.write_all(response_header.as_bytes()).is_err() { return; }
+            if stream.write_all(body_bytes).is_err() { return; }
+            if stream.flush().is_err() { return; }
+
+            if !should_keep_alive || keep_alive_count >= MAX_KEEP_ALIVE {
+                break;
             }
         }
-
-        if buffer.is_empty() { return; }
-        let raw_request = String::from_utf8_lossy(&buffer);
-
-        let req = Self::parse_request(&raw_request);
-
-        let res = if req.method == "OPTIONS" {
-            HttpResponse {
-                status: 204,
-                content_type: "text/plain".to_string(),
-                body: String::new(),
-                raw_bytes: None,
-            }
-        } else {
-            handler(req)
-        };
-
-        let status_text = match res.status {
-            200 => "OK",
-            201 => "Created",
-            204 => "No Content",
-            400 => "Bad Request",
-            401 => "Unauthorized",
-            403 => "Forbidden",
-            404 => "Not Found",
-            500 => "Internal Server Error",
-            _ => "Unknown",
-        };
-
-        let body_bytes = match &res.raw_bytes {
-            Some(bytes) => bytes.as_slice(),
-            None => res.body.as_bytes(),
-        };
-        let response_header = format!(
-            "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\nConnection: close\r\n\r\n",
-            res.status,
-            status_text,
-            res.content_type,
-            body_bytes.len()
-        );
-
-        let _ = stream.write_all(response_header.as_bytes());
-        let _ = stream.write_all(body_bytes);
-        let _ = stream.flush();
     }
 
     fn parse_request(raw: &str) -> HttpRequest {

@@ -12,6 +12,12 @@ fn escape_html(value: &str) -> String {
     }).collect()
 }
 
+#[derive(Debug, Clone)]
+struct LoopContext {
+    start_ip: usize,
+    break_patches: Vec<usize>,
+}
+
 pub struct Emitter {
     bytecode: Vec<u8>,
     constants: Vec<u8>,
@@ -24,6 +30,7 @@ pub struct Emitter {
     next_slot: usize,
     function_entries: HashMap<String, usize>,
     function_calls: Vec<(usize, String)>,
+    loop_stack: Vec<LoopContext>,
 }
 
 impl Emitter {
@@ -40,6 +47,7 @@ impl Emitter {
             next_slot: 0,
             function_entries: HashMap::new(),
             function_calls: Vec::new(),
+            loop_stack: Vec::new(),
         }
     }
 
@@ -146,7 +154,7 @@ impl Emitter {
     fn collect_declared_locals(body: &[Statement], names: &mut HashSet<String>) {
         for statement in body {
             match statement {
-                Statement::Let { name, .. } => { names.insert(name.clone()); }
+                Statement::Let { name, .. } | Statement::State { name, .. } => { names.insert(name.clone()); }
                 Statement::While { body, .. } => Self::collect_declared_locals(body, names),
                 Statement::If { then_branch, else_branch, .. } => {
                     Self::collect_declared_locals(then_branch, names);
@@ -171,8 +179,8 @@ impl Emitter {
 
     fn emit_statement(&mut self, stmt: &Statement) {
         match stmt {
-            Statement::Import(_) => {}
-            Statement::Let { name, value } | Statement::Assignment { name, value } => {
+            Statement::Import { .. } => {}
+            Statement::Let { name, value } | Statement::Assignment { name, value } | Statement::State { name, value } => {
                 if let Expr::Binary { left, op, right } = value {
                     let (slot, is_global) = self.variable_slot(name);
                     if *op == BinaryOp::Add {
@@ -189,6 +197,11 @@ impl Emitter {
                                     self.bytecode.push((const_idx >> 8) as u8);
                                     self.bytecode.push((const_idx & 0xFF) as u8);
                                     return;
+                                } else {
+                                    self.emit_expression(right);
+                                    self.bytecode.push(if is_global { 47 } else { 46 }); // AddToGlobal / AddToLocal
+                                    self.bytecode.push((slot % 256) as u8);
+                                    return;
                                 }
                             }
                         } else if let Expr::Variable(vname) = &**right {
@@ -203,6 +216,11 @@ impl Emitter {
                                     self.bytecode.push((slot % 256) as u8);
                                     self.bytecode.push((const_idx >> 8) as u8);
                                     self.bytecode.push((const_idx & 0xFF) as u8);
+                                    return;
+                                } else {
+                                    self.emit_expression(left);
+                                    self.bytecode.push(if is_global { 47 } else { 46 }); // AddToGlobal / AddToLocal
+                                    self.bytecode.push((slot % 256) as u8);
                                     return;
                                 }
                             }
@@ -232,13 +250,6 @@ impl Emitter {
                 self.bytecode.push(if is_global { 8 } else { 6 }); // STORE_GLOBAL / STORE_VAR
                 self.bytecode.push((slot % 256) as u8);
             }
-            Statement::State { name, value } => {
-                self.emit_expression(value);
-                let (const_idx, _) = self.add_constant_str(name.clone());
-                self.bytecode.push(48); // STORE_STATE
-                self.bytecode.push((const_idx >> 8) as u8);
-                self.bytecode.push((const_idx & 0xFF) as u8);
-            }
             Statement::Print(expr) => {
                 self.emit_expression(expr);
                 self.bytecode.push(81); // PRINT
@@ -258,6 +269,8 @@ impl Emitter {
                         self.bytecode.push(0);
                         self.bytecode.push(0);
 
+                        self.loop_stack.push(LoopContext { start_ip: loop_start, break_patches: Vec::new() });
+
                         for s in body {
                             self.emit_statement(s);
                         }
@@ -269,6 +282,13 @@ impl Emitter {
                         let exit_target = self.bytecode.len();
                         self.bytecode[exit_patch_idx] = (exit_target >> 8) as u8;
                         self.bytecode[exit_patch_idx + 1] = (exit_target & 0xFF) as u8;
+
+                        if let Some(ctx) = self.loop_stack.pop() {
+                            for patch_ip in ctx.break_patches {
+                                self.bytecode[patch_ip] = (exit_target >> 8) as u8;
+                                self.bytecode[patch_ip + 1] = (exit_target & 0xFF) as u8;
+                            }
+                        }
                         return;
                     }
                 }
@@ -278,6 +298,8 @@ impl Emitter {
                 let jmp_false_idx = self.bytecode.len();
                 self.bytecode.push(0);
                 self.bytecode.push(0);
+
+                self.loop_stack.push(LoopContext { start_ip: loop_start, break_patches: Vec::new() });
 
                 for s in body {
                     self.emit_statement(s);
@@ -290,13 +312,42 @@ impl Emitter {
                 let exit_target = self.bytecode.len();
                 self.bytecode[jmp_false_idx] = (exit_target >> 8) as u8;
                 self.bytecode[jmp_false_idx + 1] = (exit_target & 0xFF) as u8;
+
+                if let Some(ctx) = self.loop_stack.pop() {
+                    for patch_ip in ctx.break_patches {
+                        self.bytecode[patch_ip] = (exit_target >> 8) as u8;
+                        self.bytecode[patch_ip + 1] = (exit_target & 0xFF) as u8;
+                    }
+                }
             }
             Statement::If { cond, then_branch, else_branch } => {
-                self.emit_expression(cond);
-                self.bytecode.push(33); // OP_JMP_IF_FALSE (0x21)
-                let jmp_false_idx = self.bytecode.len();
-                self.bytecode.push(0);
-                self.bytecode.push(0);
+                let jmp_false_idx;
+                if let Expr::Binary { left, op: BinaryOp::Lt, right } = cond {
+                    if let (Expr::Variable(var_name), Expr::Integer(limit)) = (&**left, &**right) {
+                        let (slot, is_global) = self.variable_slot(var_name);
+                        let const_idx = self.add_constant_int(*limit);
+                        let op = if is_global { 31 } else { 37 }; // JmpIfGlobalGteConst / JmpIfLocalGteConst
+                        self.bytecode.push(op);
+                        self.bytecode.push((slot % 256) as u8);
+                        self.bytecode.push((const_idx >> 8) as u8);
+                        self.bytecode.push((const_idx & 0xFF) as u8);
+                        jmp_false_idx = self.bytecode.len();
+                        self.bytecode.push(0);
+                        self.bytecode.push(0);
+                    } else {
+                        self.emit_expression(cond);
+                        self.bytecode.push(33); // OP_JMP_IF_FALSE (0x21)
+                        jmp_false_idx = self.bytecode.len();
+                        self.bytecode.push(0);
+                        self.bytecode.push(0);
+                    }
+                } else {
+                    self.emit_expression(cond);
+                    self.bytecode.push(33); // OP_JMP_IF_FALSE (0x21)
+                    jmp_false_idx = self.bytecode.len();
+                    self.bytecode.push(0);
+                    self.bytecode.push(0);
+                }
 
                 for s in then_branch {
                     self.emit_statement(s);
@@ -336,6 +387,23 @@ impl Emitter {
                     self.bytecode.push((null_idx & 0xFF) as u8);
                 }
                 self.bytecode.push(35); // RET
+            }
+            Statement::Break => {
+                if let Some(ctx) = self.loop_stack.last_mut() {
+                    self.bytecode.push(32); // OP_JMP (0x20)
+                    let patch_ip = self.bytecode.len();
+                    self.bytecode.push(0);
+                    self.bytecode.push(0);
+                    ctx.break_patches.push(patch_ip);
+                }
+            }
+            Statement::Continue => {
+                if let Some(ctx) = self.loop_stack.last() {
+                    let target = ctx.start_ip;
+                    self.bytecode.push(32); // OP_JMP (0x20)
+                    self.bytecode.push((target >> 8) as u8);
+                    self.bytecode.push((target & 0xFF) as u8);
+                }
             }
             Statement::Expr(expr) => {
                 self.emit_expression(expr);
@@ -486,6 +554,31 @@ impl Emitter {
                 self.bytecode.push((slot % 256) as u8);
             }
             Expr::Binary { left, op, right } => {
+                if *op == BinaryOp::Sub {
+                    if let (Expr::Variable(var_name), Expr::Integer(k)) = (&**left, &**right) {
+                        let (slot, is_global) = self.variable_slot(var_name);
+                        if !is_global {
+                            let const_idx = self.add_constant_int(*k);
+                            self.bytecode.push(45); // PushLocalSubConst
+                            self.bytecode.push((slot % 256) as u8);
+                            self.bytecode.push((const_idx >> 8) as u8);
+                            self.bytecode.push((const_idx & 0xFF) as u8);
+                            return;
+                        }
+                    }
+                } else if *op == BinaryOp::Mod {
+                    if let (Expr::Variable(var_name), Expr::Integer(k)) = (&**left, &**right) {
+                        if *k != 0 {
+                            let (slot, is_global) = self.variable_slot(var_name);
+                            let const_idx = self.add_constant_int(*k);
+                            self.bytecode.push(if is_global { 56 } else { 57 }); // PushGlobalModConst / PushLocalModConst
+                            self.bytecode.push((slot % 256) as u8);
+                            self.bytecode.push((const_idx >> 8) as u8);
+                            self.bytecode.push((const_idx & 0xFF) as u8);
+                            return;
+                        }
+                    }
+                }
                 self.emit_expression(left);
                 self.emit_expression(right);
                 match op {
@@ -537,7 +630,25 @@ impl Emitter {
                     self.bytecode.push(1);
                     self.bytecode.push((null_idx >> 8) as u8);
                     self.bytecode.push((null_idx & 0xFF) as u8);
-                } else if callee == "len" || callee == "type" || callee == "typeof" || callee == "platform" || callee == "arch" || callee == "env_get" || callee == "read_file" || callee == "write_file" || callee == "time_micros" || callee == "time_us" || callee == "time_ms" || callee == "file_mtime" || callee == "file_size" || callee == "sleep_ms" {
+                } else if matches!(callee.as_str(),
+                    "len" | "type" | "typeof" | "platform" | "arch" | "env_get" |
+                    "read_file" | "write_file" | "time_micros" | "time_us" | "time_ms" |
+                    "file_mtime" | "file_size" | "sleep_ms" | "os_exec" | "sys_command" |
+                    "dict_keys" | "keys" | "str_contains" |
+                    "tensor" | "tensor_create" | "tensor_zeros" | "tensor_ones" | "tensor_randn" |
+                    "tensor_matmul" | "tensor_add" | "tensor_sub" | "tensor_mul" | "tensor_div" |
+                    "tensor_scale" | "tensor_relu" | "tensor_gelu" | "tensor_sigmoid" |
+                    "tensor_tanh" | "tensor_silu" | "tensor_softmax" | "tensor_layernorm" |
+                    "tensor_attention" | "tensor_transpose" | "tensor_reshape" |
+                    "tensor_to_array" | "tensor_shape" | "tensor_sum" | "tensor_mean" |
+                    "tensor_norm" | "tensor_argmax" | "cosine_similarity" |
+                    "math_exp" | "math_ln" | "math_sqrt" | "math_pow" | "math_sin" |
+                    "math_cos" | "math_tan" | "math_tanh" |
+                    "crypto_sha256" | "crypto_sha512" | "crypto_hmac_sha256" | "crypto_timing_safe_eq" | "crypto_secure_compare" |
+                    "crypto_random_hex" | "crypto_aes_gcm_encrypt" | "crypto_aes_gcm_decrypt" |
+                    "db_btree_open" | "db_btree_set" | "db_btree_get" | "db_btree_count" | "db_btree_flush"
+                ) {
+
                     let (name_idx, _) = self.add_constant_str(callee.clone());
                     self.bytecode.push(1); // PUSH_CONST (func name)
                     self.bytecode.push((name_idx >> 8) as u8);

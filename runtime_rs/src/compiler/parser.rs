@@ -43,7 +43,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone)]
 pub enum Statement {
-    Import(String),
+    Import { path: String, alias: Option<String> },
     Let { name: String, value: Expr },
     Assignment { name: String, value: Expr },
     SubscriptAssignment { object: Expr, key: Expr, value: Expr },
@@ -56,6 +56,8 @@ pub enum Statement {
     Widget { kind: String, text: String, style: String, children: Vec<Statement> },
     Page { name: String, body: Vec<Statement> },
     Return(Option<Expr>),
+    Break,
+    Continue,
     Run(String),
     Expr(Expr),
     Route { path: String, handlers: Vec<(String, Vec<Statement>)> },
@@ -140,7 +142,20 @@ impl Parser {
                 if let Token::StringLiteral(path) = self.current() {
                     let path = path.clone();
                     self.pos += 1;
-                    return Some(Statement::Import(path));
+                    let alias = if self.current() == &Token::As {
+                        self.pos += 1;
+                        if let Token::Identifier(alias_name) = self.current() {
+                            let a = alias_name.clone();
+                            self.pos += 1;
+                            Some(a)
+                        } else {
+                            self.errors.push("expected identifier after 'as' in import".into());
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    return Some(Statement::Import { path, alias });
                 }
                 self.errors.push("import expects a quoted relative file path".into());
             }
@@ -155,8 +170,18 @@ impl Parser {
             Token::State => {
                 self.pos += 1;
                 if let Token::Identifier(name) = self.current() {
-                    let var_name = name.clone();
+                    let mut var_name = name.clone();
                     self.pos += 1;
+                    while self.current() == &Token::Dot {
+                        self.pos += 1;
+                        if let Token::Identifier(part) = self.current() {
+                            var_name.push('.');
+                            var_name.push_str(part);
+                            self.pos += 1;
+                        } else {
+                            break;
+                        }
+                    }
                     if self.current() == &Token::Equal {
                         self.pos += 1;
                         let expr = self.parse_expression();
@@ -167,8 +192,18 @@ impl Parser {
             Token::Let => {
                 self.pos += 1;
                 if let Token::Identifier(name) = self.current() {
-                    let var_name = name.clone();
+                    let mut var_name = name.clone();
                     self.pos += 1;
+                    while self.current() == &Token::Dot {
+                        self.pos += 1;
+                        if let Token::Identifier(part) = self.current() {
+                            var_name.push('.');
+                            var_name.push_str(part);
+                            self.pos += 1;
+                        } else {
+                            break;
+                        }
+                    }
                     if self.current() == &Token::Equal {
                         self.pos += 1;
                         let expr = self.parse_expression();
@@ -313,9 +348,28 @@ impl Parser {
                     return Some(Statement::Return(None));
                 }
             }
-            Token::Identifier(name) => {
-                let var_name = name.clone();
+            Token::Break => {
                 self.pos += 1;
+                return Some(Statement::Break);
+            }
+            Token::Continue => {
+                self.pos += 1;
+                return Some(Statement::Continue);
+            }
+            Token::Identifier(name) => {
+                let mut var_name = name.clone();
+                self.pos += 1;
+                while self.current() == &Token::Dot {
+                    self.pos += 1;
+                    if let Token::Identifier(part) = self.current() {
+                        var_name.push('.');
+                        var_name.push_str(part);
+                        self.pos += 1;
+                    } else {
+                        self.errors.push("expected identifier after '.'".to_string());
+                        break;
+                    }
+                }
                 if self.current() == &Token::Equal {
                     self.pos += 1;
                     let expr = self.parse_expression();
@@ -625,8 +679,19 @@ impl Parser {
             Token::Null => { self.pos += 1; Expr::Null }
             Token::StringLiteral(s) => { let val = s.clone(); self.pos += 1; Expr::StringLiteral(val) }
             Token::Identifier(name) => {
-                let id = name.clone();
+                let mut id = name.clone();
                 self.pos += 1;
+                while self.current() == &Token::Dot {
+                    self.pos += 1;
+                    if let Token::Identifier(part) = self.current() {
+                        id.push('.');
+                        id.push_str(part);
+                        self.pos += 1;
+                    } else {
+                        self.errors.push("expected identifier after '.'".into());
+                        break;
+                    }
+                }
                 if self.current() == &Token::LeftParen {
                     self.pos += 1;
                     let mut args = Vec::new();

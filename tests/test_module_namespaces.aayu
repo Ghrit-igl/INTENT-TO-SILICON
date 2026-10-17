@@ -1,0 +1,52 @@
+# ==============================================================================
+# AAYU MODULE NAMESPACE VERIFICATION SUITE
+# Tests 'import "path" as alias' and non-colliding qualified calls/variables
+# ==============================================================================
+
+import "std/test.aayu"
+import "tests/modules/math_helper.aayu" as m
+import "tests/modules/stat_helper.aayu" as s
+
+action square(x)
+    # Local square in main program (returns cube to test conflict isolation)
+    return x * x * x
+end
+
+print("==================================================")
+print("  RUNNING SUITE: AAYU Module Namespaces Suite")
+print("==================================================")
+
+test_begin_suite("AAYU Module Namespaces Verification")
+
+# 1. Test qualified function calls across separate modules
+let m_sq = m.square(4)
+assert_eq(m_sq, 16, "m.square(4) produces 16 from math_helper")
+
+let s_sq = s.square(4)
+assert_eq(s_sq, 160, "s.square(4) produces 160 from stat_helper without collision")
+
+let local_sq = square(4)
+assert_eq(local_sq, 64, "local square(4) produces 64 without conflicting with modules")
+
+# 2. Test intra-module function resolution under namespace
+let hyp = m.hypot_sq(3, 4)
+assert_eq(hyp, 25, "m.hypot_sq(3, 4) internally invokes m.square to yield 25")
+
+let var_s = s.variance_sample(10, 8)
+assert_eq(var_s, 40, "s.variance_sample(10, 8) internally invokes s.square to yield 40")
+
+# 3. Test multi-argument qualified functions
+let madd = m.multiply_add(5, 6, 7)
+assert_eq(madd, 37, "m.multiply_add(5, 6, 7) produces 37")
+
+# 4. Test module-level constant / variable access
+assert_eq(m.MODULE_NAME, "math_helper", "m.MODULE_NAME matches math_helper")
+assert_eq(s.MODULE_NAME, "stat_helper", "s.MODULE_NAME matches stat_helper")
+assert_eq(m.PI_APPROX, 3, "m.PI_APPROX matches 3")
+
+test_end_suite()
+
+print("")
+print("==================================================================")
+print("     ALL MODULE NAMESPACE TESTS VERIFIED SUCCESSFULLY!           ")
+print("==================================================================")

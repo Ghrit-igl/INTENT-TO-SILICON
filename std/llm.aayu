@@ -1,0 +1,184 @@
+# ==============================================================================
+# AAYU Standard Library: Modern LLM Primitives (std/llm.aayu)
+# 100% Pure AAYU - RoPE, KV-Cache, SwiGLU & Tokenization Engine
+# Zero Python, Zero External Dependencies, Silicon Speed
+# ==============================================================================
+
+import "std/math.aayu"
+
+# ------------------------------------------------------------------------------
+# 1. Rotary Position Embeddings (RoPE)
+# RoPE applies 2D rotation matrices across consecutive dimension pairs (2*i, 2*i+1):
+# [x0'] = [cos(theta)  -sin(theta)] [x0]
+# [x1'] = [sin(theta)   cos(theta)] [x1]
+# where theta = pos / (10000 ^ (2*i / dim))
+# ------------------------------------------------------------------------------
+action rope_compute_freq(pos, pair_idx, total_dim)
+    let base = 10000.0
+    let exponent = (2.0 * pair_idx) / (total_dim * 1.0)
+    # 10000 ^ exponent approx via exp(exponent * ln(10000))
+    # ln(10000) = 9.210340371976184
+    let denom = exp(exponent * 9.210340371976184)
+    if denom == 0.0
+        return 0.0
+    end
+    return pos / denom
+end
+
+action apply_rope_to_vector(vec, pos)
+    let d = len(vec)
+    let out = []
+    let i = 0
+    while i < d
+        if i + 1 < d
+            let x0 = vec[i]
+            let x1 = vec[i + 1]
+            let theta = rope_compute_freq(pos, i / 2, d)
+            let cos_t = cos(theta)
+            let sin_t = sin(theta)
+
+            let r0 = (x0 * cos_t) - (x1 * sin_t)
+            let r1 = (x0 * sin_t) + (x1 * cos_t)
+
+            out = out + [r0, r1]
+            i = i + 2
+        else
+            out = out + [vec[i]]
+            i = i + 1
+        end
+    end
+    return out
+end
+
+# ------------------------------------------------------------------------------
+# 2. KV-Cache Engine (Key-Value Cache for Autoregressive LLM Generation)
+# Prevents quadratic recomputation of prior tokens during sequential decoding.
+# ------------------------------------------------------------------------------
+action kv_cache_create(max_seq_len, head_dim)
+    return {
+        "max_seq_len": max_seq_len,
+        "head_dim": head_dim,
+        "curr_len": 0,
+        "keys": [],
+        "values": []
+    }
+end
+
+action kv_cache_append(cache, key_vec, val_vec)
+    let curr = cache["curr_len"]
+    if curr >= cache["max_seq_len"]
+        return cache
+    end
+
+    let k_list = cache["keys"]
+    let v_list = cache["values"]
+
+    k_list = k_list + [key_vec]
+    v_list = v_list + [val_vec]
+
+    cache["keys"] = k_list
+    cache["values"] = v_list
+    cache["curr_len"] = curr + 1
+    return cache
+end
+
+action kv_cache_length(cache)
+    return cache["curr_len"]
+end
+
+# Multi-head Key-Value Attention using cached history:
+# Attention(q, cached_keys, cached_values)
+action kv_cache_attend(cache, query_vec)
+    let n = cache["curr_len"]
+    if n == 0
+        return []
+    end
+
+    let d = cache["head_dim"]
+    let scale = 1.0 / sqrt(d * 1.0)
+    let keys = cache["keys"]
+    let values = cache["values"]
+
+    # Compute attention scores: score_i = (query . key_i) * scale
+    let scores = []
+    let i = 0
+    while i < n
+        let k = keys[i]
+        let dot = dot_product(query_vec, k)
+        scores = scores + [dot * scale]
+        i = i + 1
+    end
+
+    # Softmax over scores
+    let weights = softmax_1d(scores)
+
+    # Weighted sum over values
+    let out = []
+    let j = 0
+    while j < d
+        let sum_dim = 0.0
+        let k_idx = 0
+        while k_idx < n
+            let row = values[k_idx]
+            sum_dim = sum_dim + (weights[k_idx] * row[j])
+            k_idx = k_idx + 1
+        end
+        out = out + [sum_dim]
+        j = j + 1
+    end
+
+    return out
+end
+
+# ------------------------------------------------------------------------------
+# 3. SwiGLU Activation Function (Modern Standard in LLaMA / Mistral)
+# SwiGLU(x, W, V) = Swish(x * W) . (x * V)
+# where Swish(u) = u * sigmoid(u)
+# ------------------------------------------------------------------------------
+action swish(x)
+    return x * sigmoid(x)
+end
+
+action swiglu_forward(x_vec, gate_weights, up_weights)
+    let d = len(x_vec)
+    let gate_proj = dot_product(x_vec, gate_weights)
+    let up_proj = dot_product(x_vec, up_weights)
+
+    let activated_gate = swish(gate_proj)
+    return activated_gate * up_proj
+end
+
+# ------------------------------------------------------------------------------
+# 4. Pure AAYU BPE Tokenizer Engine
+# Zero Python regex, zero dependencies tokenization
+# ------------------------------------------------------------------------------
+action tokenizer_create(vocab_dict, merges_list)
+    return {
+        "vocab": vocab_dict,
+        "merges": merges_list
+    }
+end
+
+# Simple character-level and subword tokenizer
+action tokenize_simple(text, vocab)
+    let tokens = []
+    let n = len(text)
+    let i = 0
+    while i < n
+        # Read character
+        let ch = text[i]
+        if dict_keys(vocab)
+            # Check if character is in vocab
+            let val = vocab[ch]
+            if val != null
+                tokens = tokens + [val]
+            else
+                tokens = tokens + [0] # Unknown token
+            end
+        else
+            tokens = tokens + [1]
+        end
+        i = i + 1
+    end
+    return tokens
+end

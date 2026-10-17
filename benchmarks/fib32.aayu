@@ -1,0 +1,13 @@
+action fib(n)
+    if n <= 1
+        return n
+    end
+    return fib(n - 1) + fib(n - 2)
+end
+
+action main()
+    let res = fib(32)
+    print("fib(32) =", res)
+end
+
+main()

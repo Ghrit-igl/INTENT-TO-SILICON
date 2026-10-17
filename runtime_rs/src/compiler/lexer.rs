@@ -8,6 +8,8 @@ pub enum Token {
     Else,
     Global,
     While,
+    Break,
+    Continue,
     End,
     Action,
     Return,
@@ -59,6 +61,8 @@ pub enum Token {
     Equal,
     Comma,
     Colon,
+    Dot,
+    As,
     Newline,
     Invalid(String),
     Eof,
@@ -184,6 +188,8 @@ impl<'a> Lexer<'a> {
                     "else" => tokens.push(Token::Else),
                     "global" => tokens.push(Token::Global),
                     "while" => tokens.push(Token::While),
+                    "break" => tokens.push(Token::Break),
+                    "continue" => tokens.push(Token::Continue),
                     "action" => tokens.push(Token::Action),
                     "return" => tokens.push(Token::Return),
                     "app" => tokens.push(Token::App),
@@ -211,6 +217,7 @@ impl<'a> Lexer<'a> {
                     "true" => tokens.push(Token::True),
                     "false" => tokens.push(Token::False),
                     "null" => tokens.push(Token::Null),
+                    "as" => tokens.push(Token::As),
                     _ => tokens.push(Token::Identifier(word.to_string())),
                 }
             } else if ch.is_ascii_digit() {
@@ -254,6 +261,7 @@ impl<'a> Lexer<'a> {
                     '}' => tokens.push(Token::RightBrace),
                     ',' => tokens.push(Token::Comma),
                     ':' => tokens.push(Token::Colon),
+                    '.' => tokens.push(Token::Dot),
                     '=' => {
                         if self.peek_char() == '=' {
                             self.pos += 1;

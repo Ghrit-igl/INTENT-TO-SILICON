@@ -8,14 +8,14 @@ pub mod emitter;
 
 pub fn compile(source: &str) -> Result<Vec<u8>, String> {
     let ast = parse_source(source)?;
-    if ast.iter().any(|s| matches!(s, parser::Statement::Import(_))) {
+    if ast.iter().any(|s| matches!(s, parser::Statement::Import { .. })) {
         return Err("imports require compiling a file so relative paths can be resolved".into());
     }
     compile_ast(&ast)
 }
 
 pub fn compile_file(path: &Path) -> Result<Vec<u8>, String> {
-    let ast = expand_file(path, &mut HashSet::new(), &mut HashSet::new())?;
+    let ast = expand_file(path, None, &mut HashSet::new(), &mut HashSet::new())?;
     compile_ast(&ast)
 }
 
@@ -61,18 +61,153 @@ fn compile_ast(ast: &[parser::Statement]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-fn expand_file(path: &Path, visiting: &mut HashSet<PathBuf>, loaded: &mut HashSet<PathBuf>) -> Result<Vec<parser::Statement>, String> {
+fn qualify_expr(
+    expr: parser::Expr,
+    ns: &str,
+    actions: &HashSet<String>,
+    vars: &HashSet<String>,
+    local_scope: &HashSet<String>,
+) -> parser::Expr {
+    use parser::Expr;
+    match expr {
+        Expr::Call { mut callee, args } => {
+            let new_args = args.into_iter().map(|a| qualify_expr(a, ns, actions, vars, local_scope)).collect();
+            if actions.contains(&callee) {
+                callee = format!("{}.{}", ns, callee);
+            }
+            Expr::Call { callee, args: new_args }
+        }
+        Expr::Variable(name) => {
+            if !local_scope.contains(&name) && vars.contains(&name) {
+                Expr::Variable(format!("{}.{}", ns, name))
+            } else {
+                Expr::Variable(name)
+            }
+        }
+        Expr::Unary { op, expr } => Expr::Unary { op, expr: Box::new(qualify_expr(*expr, ns, actions, vars, local_scope)) },
+        Expr::Binary { left, op, right } => Expr::Binary {
+            left: Box::new(qualify_expr(*left, ns, actions, vars, local_scope)),
+            op,
+            right: Box::new(qualify_expr(*right, ns, actions, vars, local_scope)),
+        },
+        Expr::Array(items) => Expr::Array(items.into_iter().map(|i| qualify_expr(i, ns, actions, vars, local_scope)).collect()),
+        Expr::Dict(entries) => Expr::Dict(entries.into_iter().map(|(k, v)| (qualify_expr(k, ns, actions, vars, local_scope), qualify_expr(v, ns, actions, vars, local_scope))).collect()),
+        Expr::Index { object, key } => Expr::Index {
+            object: Box::new(qualify_expr(*object, ns, actions, vars, local_scope)),
+            key: Box::new(qualify_expr(*key, ns, actions, vars, local_scope)),
+        },
+        other => other,
+    }
+}
+
+fn qualify_stmt(
+    stmt: parser::Statement,
+    ns: &str,
+    actions: &HashSet<String>,
+    vars: &HashSet<String>,
+    local_scope: &mut HashSet<String>,
+) -> parser::Statement {
+    use parser::Statement;
+    match stmt {
+        Statement::Action { name, args, body } => {
+            let new_name = format!("{}.{}", ns, name);
+            let mut inner_scope: HashSet<String> = args.iter().cloned().collect();
+            let new_body = body.into_iter().map(|s| qualify_stmt(s, ns, actions, vars, &mut inner_scope)).collect();
+            Statement::Action { name: new_name, args, body: new_body }
+        }
+        Statement::Let { name, value } => {
+            if local_scope.is_empty() {
+                let new_name = format!("{}.{}", ns, name);
+                let new_val = qualify_expr(value, ns, actions, vars, local_scope);
+                Statement::Let { name: new_name, value: new_val }
+            } else {
+                local_scope.insert(name.clone());
+                let new_val = qualify_expr(value, ns, actions, vars, local_scope);
+                Statement::Let { name, value: new_val }
+            }
+        }
+        Statement::State { name, value } => {
+            if local_scope.is_empty() {
+                let new_name = format!("{}.{}", ns, name);
+                let new_val = qualify_expr(value, ns, actions, vars, local_scope);
+                Statement::State { name: new_name, value: new_val }
+            } else {
+                local_scope.insert(name.clone());
+                let new_val = qualify_expr(value, ns, actions, vars, local_scope);
+                Statement::State { name, value: new_val }
+            }
+        }
+        Statement::Assignment { name, value } => {
+            let new_name = if !local_scope.contains(&name) && vars.contains(&name) {
+                format!("{}.{}", ns, name)
+            } else {
+                name
+            };
+            let new_val = qualify_expr(value, ns, actions, vars, local_scope);
+            Statement::Assignment { name: new_name, value: new_val }
+        }
+        Statement::SubscriptAssignment { object, key, value } => Statement::SubscriptAssignment {
+            object: qualify_expr(object, ns, actions, vars, local_scope),
+            key: qualify_expr(key, ns, actions, vars, local_scope),
+            value: qualify_expr(value, ns, actions, vars, local_scope),
+        },
+        Statement::While { cond, body } => {
+            let new_cond = qualify_expr(cond, ns, actions, vars, local_scope);
+            let new_body = body.into_iter().map(|s| qualify_stmt(s, ns, actions, vars, local_scope)).collect();
+            Statement::While { cond: new_cond, body: new_body }
+        }
+        Statement::If { cond, then_branch, else_branch } => {
+            let new_cond = qualify_expr(cond, ns, actions, vars, local_scope);
+            let new_then = then_branch.into_iter().map(|s| qualify_stmt(s, ns, actions, vars, local_scope)).collect();
+            let new_else = else_branch.into_iter().map(|s| qualify_stmt(s, ns, actions, vars, local_scope)).collect();
+            Statement::If { cond: new_cond, then_branch: new_then, else_branch: new_else }
+        }
+        Statement::Print(val) => Statement::Print(qualify_expr(val, ns, actions, vars, local_scope)),
+        Statement::Return(Some(val)) => Statement::Return(Some(qualify_expr(val, ns, actions, vars, local_scope))),
+        Statement::Expr(val) => Statement::Expr(qualify_expr(val, ns, actions, vars, local_scope)),
+        Statement::Respond(val) => Statement::Respond(qualify_expr(val, ns, actions, vars, local_scope)),
+        other => other,
+    }
+}
+
+fn apply_namespace(statements: Vec<parser::Statement>, ns: &str) -> Vec<parser::Statement> {
+    use parser::Statement;
+    let mod_actions: HashSet<String> = statements.iter().filter_map(|s| {
+        if let Statement::Action { name, .. } = s {
+            Some(name.clone())
+        } else {
+            None
+        }
+    }).collect();
+
+    let mod_vars: HashSet<String> = statements.iter().filter_map(|s| {
+        match s {
+            Statement::Let { name, .. } | Statement::State { name, .. } => Some(name.clone()),
+            _ => None,
+        }
+    }).collect();
+
+    let mut global_scope = HashSet::new();
+    statements.into_iter().map(|s| qualify_stmt(s, ns, &mod_actions, &mod_vars, &mut global_scope)).collect()
+}
+
+fn expand_file(
+    path: &Path,
+    alias: Option<String>,
+    visiting: &mut HashSet<PathBuf>,
+    loaded: &mut HashSet<(PathBuf, Option<String>)>,
+) -> Result<Vec<parser::Statement>, String> {
     let canonical = fs::canonicalize(path).map_err(|e| format!("cannot resolve module '{}': {}", path.display(), e))?;
     if visiting.contains(&canonical) {
         return Err(format!("cyclic import detected at '{}'", canonical.display()));
     }
-    if !loaded.insert(canonical.clone()) { return Ok(Vec::new()); }
+    if !loaded.insert((canonical.clone(), alias.clone())) { return Ok(Vec::new()); }
     visiting.insert(canonical.clone());
     let source = fs::read_to_string(&canonical).map_err(|e| format!("cannot read module '{}': {}", canonical.display(), e))?;
     let statements = parse_source(&source).map_err(|e| format!("{}: {}", canonical.display(), e))?;
     let mut expanded = Vec::new();
     for statement in statements {
-        if let parser::Statement::Import(import_path) = statement {
+        if let parser::Statement::Import { path: import_path, alias: sub_alias } = statement {
             let requested = Path::new(&import_path);
             if requested.is_absolute() {
                 return Err(format!("{}: imports must use relative paths", canonical.display()));
@@ -129,12 +264,15 @@ fn expand_file(path: &Path, visiting: &mut HashSet<PathBuf>, loaded: &mut HashSe
                     }
                 }
             }
-            expanded.extend(expand_file(&resolved, visiting, loaded)?);
+            expanded.extend(expand_file(&resolved, sub_alias, visiting, loaded)?);
         } else {
             expanded.push(statement);
         }
     }
     visiting.remove(&canonical);
+    if let Some(ref ns) = alias {
+        expanded = apply_namespace(expanded, ns);
+    }
     Ok(expanded)
 }
 
@@ -148,7 +286,24 @@ fn validate_supported(statements: &[parser::Statement]) -> Result<(), String> {
             Expr::Call { callee, args } => {
                 if callee == "len" {
                     if args.len() != 1 { return Err("len() expects exactly one argument".into()); }
-                } else if callee != "print" && callee != "respond" && callee != "hash_str" && callee != "type" && callee != "typeof" && callee != "platform" && callee != "arch" && callee != "env_get" && callee != "read_file" && callee != "write_file" && callee != "time_micros" && callee != "time_us" && callee != "time_ms" && callee != "file_mtime" && callee != "file_size" && callee != "sleep_ms" && callee != "append" && callee != "push" {
+                } else if !matches!(callee.as_str(),
+                    "print" | "respond" | "hash_str" | "type" | "typeof" | "platform" | "arch" | "env_get" |
+                    "read_file" | "write_file" | "time_micros" | "time_us" | "time_ms" | "file_mtime" | "file_size" | "sleep_ms" | "os_exec" | "sys_command" | "append" | "push" |
+                    "dict_keys" | "keys" | "str_contains" |
+                    "tensor" | "tensor_create" | "tensor_zeros" | "tensor_ones" | "tensor_randn" |
+                    "tensor_matmul" | "tensor_add" | "tensor_sub" | "tensor_mul" | "tensor_div" |
+                    "tensor_scale" | "tensor_relu" | "tensor_gelu" | "tensor_sigmoid" |
+                    "tensor_tanh" | "tensor_silu" | "tensor_softmax" | "tensor_layernorm" |
+                    "tensor_attention" | "tensor_transpose" | "tensor_reshape" |
+                    "tensor_to_array" | "tensor_shape" | "tensor_sum" | "tensor_mean" |
+                    "tensor_norm" | "tensor_argmax" | "cosine_similarity" |
+                    "math_exp" | "math_ln" | "math_sqrt" | "math_pow" | "math_sin" |
+                    "math_cos" | "math_tan" | "math_tanh" |
+                    "crypto_sha256" | "crypto_sha512" | "crypto_hmac_sha256" | "crypto_timing_safe_eq" | "crypto_secure_compare" |
+                    "crypto_random_hex" | "crypto_aes_gcm_encrypt" | "crypto_aes_gcm_decrypt" |
+                    "db_btree_open" | "db_btree_set" | "db_btree_get" | "db_btree_count" | "db_btree_flush"
+                ) {
+
                     let expected = functions.get(callee).ok_or_else(|| format!("unknown function '{}'", callee))?;
                     if args.len() != *expected {
                         return Err(format!("function '{}' expects {} arguments, got {}", callee, expected, args.len()));
@@ -234,19 +389,27 @@ fn validate_supported(statements: &[parser::Statement]) -> Result<(), String> {
     }
     if global_vars.len() > 256 { return Err(format!("program requires {} local slots; maximum is 256", global_vars.len())); }
 
-    fn validate_body(statements: &[parser::Statement], functions: &HashMap<String, usize>, in_function: bool) -> Result<(), String> {
+    fn validate_body(statements: &[parser::Statement], functions: &HashMap<String, usize>, in_function: bool, loop_depth: usize) -> Result<(), String> {
         for statement in statements {
             use parser::Statement;
             match statement {
                 Statement::Action { body, .. } => {
                     if in_function { return Err("nested action declarations are not supported".into()); }
-                    validate_body(body, functions, true)?;
+                    validate_body(body, functions, true, 0)?;
                 }
                 Statement::Let { value, .. } | Statement::Assignment { value, .. } |
                 Statement::Print(value) | Statement::State { value, .. } => check_expr(value, functions)?,
-                Statement::While { cond, body } => { check_expr(cond, functions)?; validate_body(body, functions, in_function)?; },
+                Statement::While { cond, body } => { check_expr(cond, functions)?; validate_body(body, functions, in_function, loop_depth + 1)?; },
                 Statement::If { cond, then_branch, else_branch } => {
-                    check_expr(cond, functions)?; validate_body(then_branch, functions, in_function)?; validate_body(else_branch, functions, in_function)?;
+                    check_expr(cond, functions)?;
+                    validate_body(then_branch, functions, in_function, loop_depth)?;
+                    validate_body(else_branch, functions, in_function, loop_depth)?;
+                }
+                Statement::Break => {
+                    if loop_depth == 0 { return Err("break is only valid inside a while loop".into()); }
+                }
+                Statement::Continue => {
+                    if loop_depth == 0 { return Err("continue is only valid inside a while loop".into()); }
                 }
                 Statement::Return(Some(value)) => {
                     if !in_function { return Err("return is only valid inside an action".into()); }
@@ -262,15 +425,16 @@ fn validate_supported(statements: &[parser::Statement]) -> Result<(), String> {
                 Statement::Respond(value) => check_expr(value, functions)?,
                 Statement::Route { handlers, .. } => {
                     for (_, h_body) in handlers {
-                        validate_body(h_body, functions, in_function)?;
+                        validate_body(h_body, functions, in_function, loop_depth)?;
                     }
                 }
                 Statement::Model { .. } => {}
-                Statement::Page { body, .. } | Statement::Widget { children: body, .. } => validate_body(body, functions, in_function)?,
+                Statement::Page { body, .. } | Statement::Widget { children: body, .. } => validate_body(body, functions, in_function, loop_depth)?,
                 _ => {}
             }
         }
         Ok(())
     }
-    validate_body(statements, &functions, false)
+
+    validate_body(statements, &functions, false, 0)
 }

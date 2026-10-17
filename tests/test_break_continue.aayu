@@ -1,0 +1,127 @@
+# ==============================================================================
+# AAYU Test Suite: Loop Control Flow (break & continue)
+# Tests: Simple break, simple continue, nested break/continue, action scope break
+# 100% Pure Self-Hosted AAYU - Verified on Silicon VM
+# ==============================================================================
+import "std/test.aayu"
+
+action find_first_above(arr, threshold)
+    let i = 0
+    let n = len(arr)
+    let found = -1
+    while i < n
+        if arr[i] > threshold
+            found = arr[i]
+            break
+        end
+        i = i + 1
+    end
+    return found
+end
+
+action main()
+    test_begin_suite("AAYU Break and Continue Verification Suite")
+
+    # TEST 1: Simple Break in While Loop
+    print("\n[Test 1] Simple Break...")
+    state i = 0
+    while i < 100
+        if i == 5
+            break
+        end
+        i = i + 1
+    end
+    assert_eq(i, 5, "Simple break terminates loop at exactly i == 5")
+
+    # TEST 2: Immediate Break on First Iteration
+    print("\n[Test 2] Immediate Break on First Iteration...")
+    state z = 0
+    while z < 10
+        break
+        z = z + 100
+    end
+    assert_eq(z, 0, "Immediate break exits before executing remaining body")
+
+    # TEST 3: Simple Continue (Summing Odd Numbers)
+    print("\n[Test 3] Simple Continue...")
+    state c = 0
+    state sum_odds = 0
+    while c < 10
+        c = c + 1
+        if c % 2 == 0
+            continue
+        end
+        sum_odds = sum_odds + c
+    end
+    # Odd numbers in 1..10 are 1, 3, 5, 7, 9 -> sum = 25
+    assert_eq(sum_odds, 25, "Continue skips even numbers and sums odds to 25")
+    assert_eq(c, 10, "Loop with continue completes full iteration count 10")
+
+    # TEST 4: Nested Loops with Break (Inner loop break only)
+    print("\n[Test 4] Nested Loops with Break...")
+    state outer = 0
+    state hits = 0
+    while outer < 3
+        state inner = 0
+        while inner < 10
+            if inner == 2
+                break
+            end
+            hits = hits + 1
+            inner = inner + 1
+        end
+        outer = outer + 1
+    end
+    # Outer runs 3 times; inner stops at 2 (executing for inner=0 and inner=1) -> 2 * 3 = 6
+    assert_eq(hits, 6, "Break in inner loop breaks only inner loop")
+    assert_eq(outer, 3, "Outer loop completes all 3 passes")
+
+    # TEST 5: Nested Loops with Continue
+    print("\n[Test 5] Nested Loops with Continue...")
+    state row = 0
+    state cell_hits = 0
+    while row < 4
+        row = row + 1
+        state col = 0
+        while col < 4
+            col = col + 1
+            if col == 2
+                continue
+            end
+            cell_hits = cell_hits + 1
+        end
+    end
+    # 4 rows, each row executes col=1, 3, 4 (skips 2) -> 3 * 4 = 12
+    assert_eq(cell_hits, 12, "Continue in inner loop skips only designated column")
+    assert_eq(row, 4, "Row counter reaches 4")
+
+    # TEST 6: Break Inside Action Function
+    print("\n[Test 6] Break Inside Action Function...")
+    let sample = [10, 20, 35, 42, 50]
+    let result = find_first_above(sample, 30)
+    assert_eq(result, 35, "Break inside action correctly locates first value > 30 (35)")
+
+    let result2 = find_first_above(sample, 100)
+    assert_eq(result2, -1, "Action returns -1 when threshold not met")
+
+    # TEST 7: Multiple Break Conditions Under Nested Logic
+    print("\n[Test 7] Multiple Break Conditions Under Nested Logic...")
+    state x = 0
+    while x < 50
+        if x > 10
+            if x % 3 == 0
+                break
+            end
+        end
+        x = x + 1
+    end
+    # x goes 0..10. At x=11: 11%3!=0. At x=12: 12%3==0 -> break!
+    assert_eq(x, 12, "Nested conditional break stops exactly at x == 12")
+
+    test_end_suite()
+    print("\n==================================================================")
+    print("        ALL BREAK & CONTINUE TESTS PASSED CLEANLY!                ")
+    print("==================================================================")
+end
+
+main()

@@ -1,0 +1,113 @@
+# ==============================================================================
+# AAYU Standard Library: Universal Payment & Webhook Verification (std/payment.aayu)
+# 100% Pure AAYU - Standardized Payment Intents, Orders & Webhook Cryptography
+# Zero Python, Zero C, Zero External Dependencies, Zero Proprietary Trademarks
+# ==============================================================================
+import "std/crypto.aayu" as crypto
+
+# Initializes a universal payment gateway client
+action payment_client(api_key, base_url)
+    return {
+        "api_key": api_key,
+        "base_url": base_url
+    }
+end
+
+# Creates a standardized Payment Intent (amount in base currency units/cents)
+action payment_create_intent(client, amount_units, currency, reference_id)
+    let token = crypto.random_hex(12)
+    let secret_tok = crypto.random_hex(16)
+    return {
+        "status": "requires_payment_method",
+        "id": "pay_" + token,
+        "client_secret": "pay_" + token + "_secret_" + secret_tok,
+        "amount": amount_units,
+        "currency": currency,
+        "reference": reference_id,
+        "livemode": 0
+    }
+end
+
+# Creates a standardized payment order
+action payment_create_order(client, amount_units, currency, receipt_id)
+    let order_id = "order_" + crypto.random_hex(14)
+    return {
+        "id": order_id,
+        "entity": "order",
+        "amount": amount_units,
+        "amount_paid": 0,
+        "amount_due": amount_units,
+        "currency": currency,
+        "receipt": receipt_id,
+        "status": "created",
+        "attempts": 0
+    }
+end
+
+# Creates a customer profile
+action payment_create_customer(client, email, name)
+    let cust_id = "cus_" + crypto.random_hex(14)
+    return {
+        "id": cust_id,
+        "email": email,
+        "name": name,
+        "currency": "usd",
+        "delinquent": 0
+    }
+end
+
+# Verifies universal webhook signature using constant-time HMAC-SHA256
+action payment_verify_webhook(payload, sig_header, endpoint_secret)
+    let current = ""
+    let i = 0
+    let l = len(sig_header)
+    let timestamp = ""
+    let signature = ""
+    while i < l
+        if sig_header[i] == ","
+            if len(current) > 2
+                if current[0] == "t"
+                    if current[1] == "="
+                        let t_val = ""
+                        let k = 2
+                        while k < len(current)
+                            t_val = t_val + current[k]
+                            k = k + 1
+                        end
+                        timestamp = t_val
+                    end
+                end
+            end
+            current = ""
+        else
+            current = current + sig_header[i]
+        end
+        i = i + 1
+    end
+    if len(current) > 3
+        if current[0] == "v"
+            if current[1] == "1"
+                if current[2] == "="
+                    let s_val = ""
+                    let k = 3
+                    while k < len(current)
+                        s_val = s_val + current[k]
+                        k = k + 1
+                    end
+                    signature = s_val
+                end
+            end
+        end
+    end
+
+    let signed_payload = timestamp + "." + payload
+    let expected_sig = crypto.hmac_sha256(endpoint_secret, signed_payload)
+    return crypto.timing_safe_equals(signature, expected_sig)
+end
+
+# Verifies payment signature (HMAC-SHA256 of order_id|payment_id)
+action payment_verify_order_signature(order_id, payment_id, signature, secret_key)
+    let data_to_sign = order_id + "|" + payment_id
+    let expected_sig = crypto.hmac_sha256(secret_key, data_to_sign)
+    return crypto.timing_safe_equals(signature, expected_sig)
+end

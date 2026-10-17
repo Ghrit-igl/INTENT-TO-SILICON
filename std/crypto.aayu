@@ -1,127 +1,76 @@
 # ==============================================================================
-# AAYU Standard Library: Crypto (std/crypto.aayu)
-# 100% Pure AAYU - Cryptographic Hashing, Merkle Trees & Invariant Verification
-# Zero Python, Zero C, Zero External Dependencies
+# AAYU Standard Library: Enterprise Audited Cryptography (std/crypto.aayu)
+# Hardware-Accelerated FIPS 180-4 SHA-256, SHA-512, RFC 2104 HMAC,
+# NIST SP 800-38D AES-256-GCM Authenticated Encryption, CSPRNG & Merkle Trees.
+# Backed by audited BoringSSL / ring hardware cryptography.
+# 100% Pure AAYU Interface - Zero Python, Zero Unaudited Algorithms
 # ==============================================================================
 
-# Helper to extract printable ASCII byte values in pure AAYU
-action get_char_byte(ch)
-    let chars = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-    let idx = 0
-    let len_chars = len(chars)
-    while idx < len_chars
-        if chars[idx] == ch
-            return idx + 32
-        end
-        idx = idx + 1
-    end
-    if ch == "\n"
-        return 10
-    end
-    if ch == "\t"
-        return 9
-    end
-    if ch == "\r"
-        return 13
-    end
-    return 63
+# Hardware-accelerated SHA-256 (FIPS 180-4 standard, 64-char lowercase hex)
+action sha256(data)
+    return crypto_sha256(data)
 end
 
-# Deterministic Hexadecimal Cryptographic Digest in Pure AAYU
+# Hardware-accelerated SHA-512 (128-char lowercase hex)
+action sha512(data)
+    return crypto_sha512(data)
+end
+
+# RFC 2104 HMAC-SHA256 Authenticated Message Authentication Code
+action hmac_sha256(key, data)
+    return crypto_hmac_sha256(key, data)
+end
+
+# Constant-time string equality check to eliminate side-channel timing attacks
+action timing_safe_equals(a, b)
+    return crypto_timing_safe_eq(a, b)
+end
+
+action secure_compare(a, b)
+    return crypto_timing_safe_eq(a, b)
+end
+
+# Cryptographically Secure Pseudorandom Number Generator (CSPRNG)
+action random_hex(count)
+    return crypto_random_hex(count)
+end
+
+action random_token(bytes_count)
+    return crypto_random_hex(bytes_count)
+end
+
+# NIST SP 800-38D AES-256-GCM Authenticated Encryption
+# Encrypts plaintext and appends 16-byte authentication tag
+action aes_gcm_encrypt(key, nonce, plaintext)
+    return crypto_aes_gcm_encrypt(key, nonce, plaintext)
+end
+
+# NIST SP 800-38D AES-256-GCM Authenticated Decryption
+# Verifies authentication tag; returns plaintext or null if tampered
+action aes_gcm_decrypt(key, nonce, ciphertext_hex)
+    return crypto_aes_gcm_decrypt(key, nonce, ciphertext_hex)
+end
+
+# Backward compatibility alias: hash_string now uses FIPS SHA-256
 action hash_string(data)
-    let hex_chars = "0123456789abcdef"
-    let h1 = 2166136261
-    let h2 = 16777619
-    let h3 = 104729
-    let h4 = 524287
-    let l = len(data)
-    let i = 0
-
-    while i < l
-        let b = get_char_byte(data[i])
-        # Dual-polynomial cryptographic accumulator mixing every byte
-        h1 = (h1 * 31 + b * 17 + i * 7) % 2147483647
-        if h1 < 0
-            h1 = 0 - h1
-        end
-        h2 = (h2 * 37 + b * 19 + i * 11) % 2147483647
-        if h2 < 0
-            h2 = 0 - h2
-        end
-        h3 = (h3 * 41 + b * 23 + l * 13) % 2147483647
-        if h3 < 0
-            h3 = 0 - h3
-        end
-        h4 = (h4 * 43 + b * 29 + (l - i) * 17) % 2147483647
-        if h4 < 0
-            h4 = 0 - h4
-        end
-        i = i + 1
-    end
-
-    # Synthesize unique 64-character hexadecimal digest with inter-round avalanche mixing
-    let out = ""
-    let k = 0
-    let a1 = h1
-    let a2 = h2
-    let a3 = h3
-    let a4 = h4
-    while k < 16
-        let v1 = (a1 + k * 19 + a3) % 16
-        if v1 < 0
-            v1 = 0 - v1
-        end
-        let v2 = (a2 + k * 23 + a4) % 16
-        if v2 < 0
-            v2 = 0 - v2
-        end
-        let v3 = (a3 + k * 29 + a1) % 16
-        if v3 < 0
-            v3 = 0 - v3
-        end
-        let v4 = (a4 + k * 31 + a2) % 16
-        if v4 < 0
-            v4 = 0 - v4
-        end
-        out = out + hex_chars[v1] + hex_chars[v2] + hex_chars[v3] + hex_chars[v4]
-        # Inter-round avalanche bit-shift and register diffusion
-        a1 = (a1 / 16 + a2 * 13 + a4) % 2147483647
-        if a1 < 0
-            a1 = 0 - a1
-        end
-        a2 = (a2 / 16 + a3 * 17 + a1) % 2147483647
-        if a2 < 0
-            a2 = 0 - a2
-        end
-        a3 = (a3 / 16 + a4 * 19 + a2) % 2147483647
-        if a3 < 0
-            a3 = 0 - a3
-        end
-        a4 = (a4 / 16 + a1 * 23 + a3) % 2147483647
-        if a4 < 0
-            a4 = 0 - a4
-        end
-        k = k + 1
-    end
-    return out
+    return crypto_sha256(data)
 end
 
-# Fast hash alias for hash_string
 action hash_str(data)
-    return hash_string(data)
+    return crypto_sha256(data)
 end
 
-# Cryptographic combination of two hashes (for Merkle Trees)
+# Merkle Tree child combiner using audited SHA-256
 action hash_combine(left_hash, right_hash)
     let combined = left_hash + ":" + right_hash
-    return hash_string(combined)
+    return crypto_sha256(combined)
 end
 
 # Pure AAYU Binary Merkle Tree Root Computation
 action compute_merkle_root(tx_hashes)
     let count = len(tx_hashes)
     if count == 0
-        return hash_string("EMPTY_MEMPOOL")
+        return crypto_sha256("EMPTY_MEMPOOL")
     end
     if count == 1
         return tx_hashes[0]
@@ -150,8 +99,8 @@ action compute_merkle_root(tx_hashes)
     return current_level[0]
 end
 
-# Verifies if hash satisfies Proof-of-Work difficulty (leading zeros)
-action verify_pow_difficulty(hash_str, leading_zeros)
+# Proof-of-work difficulty verifier (counts leading zeros)
+action verify_pow_difficulty(hash_val, leading_zeros)
     let prefix = ""
     let z = 0
     while z < leading_zeros
@@ -159,13 +108,13 @@ action verify_pow_difficulty(hash_str, leading_zeros)
         z = z + 1
     end
     let l_pref = len(prefix)
-    if len(hash_str) < l_pref
+    if len(hash_val) < l_pref
         return 0
     end
     let sub = ""
     let s = 0
     while s < l_pref
-        sub = sub + hash_str[s]
+        sub = sub + hash_val[s]
         s = s + 1
     end
     if sub == prefix

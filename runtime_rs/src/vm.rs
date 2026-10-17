@@ -8,7 +8,7 @@ use crate::ui::{UiNode, Style};
 pub struct NanVal(u64);
 
 const TAG_INT: u64 = 0x7FF8_0000_0000_0000;
-
+const TAG_TENSOR: u64 = 0x7FF9_0000_0000_0000;
 const TAG_BOOL: u64 = 0x7FFA_0000_0000_0000;
 const TAG_NULL: u64 = 0x7FFB_0000_0000_0000;
 const TAG_STR: u64  = 0x7FFC_0000_0000_0000;
@@ -37,11 +37,13 @@ impl NanVal {
     #[inline(always)] pub fn string(idx: usize) -> Self { NanVal(TAG_STR | (idx as u64 & 0x0000_FFFF_FFFF_FFFF)) }
     #[inline(always)] pub fn array(idx: usize) -> Self { NanVal(TAG_ARR | (idx as u64 & 0x0000_FFFF_FFFF_FFFF)) }
     #[inline(always)] pub fn dict(idx: usize) -> Self { NanVal(TAG_DICT | (idx as u64 & 0x0000_FFFF_FFFF_FFFF)) }
+    #[inline(always)] pub fn tensor(idx: usize) -> Self { NanVal(TAG_TENSOR | (idx as u64 & 0x0000_FFFF_FFFF_FFFF)) }
 
     #[inline(always)] pub fn is_int(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_INT }
+    #[inline(always)] pub fn is_tensor(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_TENSOR }
     #[inline(always)] pub fn is_float(self) -> bool {
         let tag = self.0 & 0xFFFF_0000_0000_0000;
-        !matches!(tag, TAG_INT | TAG_BOOL | TAG_NULL | TAG_STR | TAG_ARR | TAG_DICT)
+        !matches!(tag, TAG_INT | TAG_TENSOR | TAG_BOOL | TAG_NULL | TAG_STR | TAG_ARR | TAG_DICT)
     }
     #[inline(always)] pub fn is_bool(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_BOOL }
     #[inline(always)] pub fn is_null(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_NULL }
@@ -53,6 +55,7 @@ impl NanVal {
         (((self.0 & 0x0000_FFFF_FFFF_FFFF) << 16) as i64) >> 16
     }
     #[inline(always)] pub fn as_float(self) -> f64 { f64::from_bits(self.0) }
+    #[inline(always)] pub fn as_tensor_idx(self) -> usize { (self.0 & 0x0000_FFFF_FFFF_FFFF) as usize }
     #[inline(always)]
     pub fn as_bool(self) -> bool {
         if self.is_bool() {
@@ -114,6 +117,7 @@ impl std::fmt::Display for NanVal {
         else if self.is_string() { write!(f, "<String at {}>", self.as_string_idx()) }
         else if self.is_array() { write!(f, "<Array at {}>", self.as_array_idx()) }
         else if self.is_dict() { write!(f, "<Dict at {}>", self.as_dict_idx()) }
+        else if self.is_tensor() { write!(f, "<Tensor at {}>", self.as_tensor_idx()) }
         else { write!(f, "<Unknown>") }
     }
 }
@@ -122,7 +126,8 @@ pub struct AayuVM {
     stack: [NanVal; 4096],
     sp: usize,
     ip: usize,
-    locals: [NanVal; 256],
+    locals: Vec<NanVal>,
+    base: usize,
     globals: [NanVal; 256],
     bytecode: Vec<u8>,
     constants: Vec<NanVal>,
@@ -133,12 +138,13 @@ pub struct AayuVM {
     
     pub tensor_heap: Vec<Tensor>,
     pub db_engine: DbEngine,
+    pub btree_dbs: Vec<crate::btree::BTreeDb>,
     pub state: std::collections::HashMap<String, NanVal>,
 }
 
 struct CallFrame {
     return_ip: usize,
-    locals: [NanVal; 256],
+    prev_base: usize,
 }
 
 impl AayuVM {
@@ -150,19 +156,22 @@ impl AayuVM {
             stack: [NanVal::null(); 4096],
             sp: 0,
             ip: 0,
-            locals: [NanVal::null(); 256],
+            locals: vec![NanVal::null(); 256 * (Self::MAX_CALL_DEPTH + 2)],
+            base: 0,
             globals: [NanVal::null(); 256],
             bytecode,
             constants,
             string_heap: strings,
             memory: crate::memory::MemoryManager::new(),
             call_depth: 0,
-            call_frames: Vec::new(),
+            call_frames: Vec::with_capacity(Self::MAX_CALL_DEPTH),
             tensor_heap: Vec::new(),
             db_engine: DbEngine::new("aayu_db.rsdb"),
+            btree_dbs: Vec::new(),
             state: std::collections::HashMap::new(),
         }
     }
+
 
     #[inline(always)]
     fn vals_eq(&self, a: NanVal, b: NanVal) -> bool {
@@ -200,6 +209,93 @@ impl AayuVM {
         } else {
             Some(a.0.cmp(&b.0))
         }
+    }
+
+    pub fn allocate_tensor(&mut self, t: Tensor) -> NanVal {
+        let idx = self.tensor_heap.len();
+        self.tensor_heap.push(t);
+        NanVal::tensor(idx)
+    }
+
+    pub fn extract_tensor(&self, val: NanVal) -> Result<&Tensor, String> {
+        if !val.is_tensor() {
+            return Err("Expected Tensor argument".to_string());
+        }
+        let idx = val.as_tensor_idx();
+        if idx >= self.tensor_heap.len() {
+            return Err(format!("Tensor index {} out of bounds", idx));
+        }
+        Ok(&self.tensor_heap[idx])
+    }
+
+    pub fn extract_f64_vec(&self, val: NanVal) -> Result<Vec<f64>, String> {
+        if val.is_tensor() {
+            let t = self.extract_tensor(val)?;
+            return Ok(t.to_vec());
+        }
+        if !val.is_array() {
+            return Err("Expected Array of numbers".to_string());
+        }
+        if let crate::memory::HeapObject::AArray(arr) = self.memory.get(val.as_array_idx()) {
+            let mut out = Vec::with_capacity(arr.len());
+            for item in arr {
+                if item.is_int() {
+                    out.push(item.as_int() as f64);
+                } else if item.is_float() {
+                    out.push(item.as_float());
+                } else if item.is_array() {
+                    let sub_vec = self.extract_f64_vec(*item)?;
+                    out.extend(sub_vec);
+                } else {
+                    return Err("Tensor data array elements must be numbers".to_string());
+                }
+            }
+            Ok(out)
+        } else {
+            Err("Invalid array reference".to_string())
+        }
+    }
+
+    pub fn extract_shape_vec(&self, val: NanVal) -> Result<Vec<usize>, String> {
+        if !val.is_array() {
+            return Err("Expected Array for shape (e.g. [2, 3])".to_string());
+        }
+        if let crate::memory::HeapObject::AArray(arr) = self.memory.get(val.as_array_idx()) {
+            let mut out = Vec::with_capacity(arr.len());
+            for item in arr {
+                if item.is_int() {
+                    let v = item.as_int();
+                    if v < 0 {
+                        return Err(format!("Shape dimension cannot be negative: {}", v));
+                    }
+                    out.push(v as usize);
+                } else if item.is_float() {
+                    let v = item.as_float() as i64;
+                    if v < 0 {
+                        return Err(format!("Shape dimension cannot be negative: {}", v));
+                    }
+                    out.push(v as usize);
+                } else {
+                    return Err("Shape array elements must be integers".to_string());
+                }
+            }
+            Ok(out)
+        } else {
+            Err("Invalid array reference".to_string())
+        }
+    }
+
+    pub fn tensor_to_nanval_array(&mut self, t: &Tensor) -> NanVal {
+        let vec = t.to_vec();
+        let nanvals: Vec<NanVal> = vec.into_iter().map(NanVal::float).collect();
+        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(nanvals));
+        NanVal::array(idx)
+    }
+
+    pub fn shape_to_nanval_array(&mut self, shape: &[usize]) -> NanVal {
+        let nanvals: Vec<NanVal> = shape.iter().map(|&s| NanVal::int(s as i64)).collect();
+        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(nanvals));
+        NanVal::array(idx)
     }
 
     pub fn validate(&self) -> Result<(), String> {
@@ -258,13 +354,17 @@ impl AayuVM {
                     if pc + 1 > len { return Err(format!("Truncated operand for Inc/Dec at offset {}", op_pc)); }
                     pc += 1;
                 }
-                27 | 28 | 29 | 30 => { // Add/Sub Local/Global Const (1 byte slot + 2 byte const_idx)
+                27 | 28 | 29 | 30 | 45 | 56 | 57 => { // Add/Sub Const / PushLocalSubConst / PushModConst (1 byte slot + 2 byte const_idx)
                     if pc + 3 > len { return Err(format!("Truncated operand for Add/Sub Const at offset {}", op_pc)); }
                     let const_idx = ((self.bytecode[pc + 1] as usize) << 8) | self.bytecode[pc + 2] as usize;
                     pc += 3;
                     if const_idx >= self.constants.len() {
                         return Err(format!("Constant index {} exceeds constant pool size ({}) at offset {}", const_idx, self.constants.len(), op_pc));
                     }
+                }
+                46 | 47 => { // AddToLocal / AddToGlobal (1 byte slot)
+                    if pc + 1 > len { return Err(format!("Truncated operand for AddToLocal/Global at offset {}", op_pc)); }
+                    pc += 1;
                 }
                 31 | 37 => { // JmpIfGlobal/Local Gte Const (1 byte slot + 2 byte const_idx + 2 byte target)
                     if pc + 5 > len { return Err(format!("Truncated operand for JmpIfGteConst at offset {}", op_pc)); }
@@ -450,6 +550,14 @@ impl AayuVM {
                     27..=30 => { // Add/Sub Const: 3 bytes operand, net stack depth change is 0
                         pc += 3;
                     }
+                    45 | 56 | 57 => { // PushLocalSubConst / PushModConst: 3 bytes operand, pushes 1
+                        pc += 3;
+                        depth += 1;
+                    }
+                    46 | 47 => { // AddToLocal / AddToGlobal: 1 byte operand, pops 1
+                        pc += 1;
+                        depth -= 1;
+                    }
                     31 | 37 => { // JmpIfGteConst: 5 bytes operand, net stack depth change is 0
                         let target = ((self.bytecode[pc + 3] as usize) << 8) | self.bytecode[pc + 4] as usize;
                         pc += 5;
@@ -622,13 +730,13 @@ impl AayuVM {
                 0x05 => { // LOAD_VAR
                     let idx = self.bytecode[self.ip] as usize;
                     self.ip += 1;
-                    self.stack[self.sp] = self.locals[idx];
+                    self.stack[self.sp] = self.locals[self.base + idx];
                     self.sp += 1;
                 }
                 0x06 => { // STORE_VAR
                     let idx = self.bytecode[self.ip] as usize;
                     self.ip += 1;
-                    self.locals[idx] = self.stack[self.sp - 1];
+                    self.locals[self.base + idx] = self.stack[self.sp - 1];
                     self.sp -= 1;
                 }
                 0x07 => { // LOAD_GLOBAL
@@ -646,27 +754,39 @@ impl AayuVM {
                 23 => { // IncLocalBy1
                     let idx = self.bytecode[self.ip] as usize;
                     self.ip += 1;
-                    let v = self.locals[idx];
+                    let v = self.locals[self.base + idx];
                     if v.is_int() {
-                        self.locals[idx] = NanVal::int(v.as_int().wrapping_add(1));
+                        let new_val = v.as_int().wrapping_add(1);
+                        self.locals[self.base + idx] = NanVal::int(new_val);
+                        if self.ip + 3 <= len && self.bytecode[self.ip] == 32 {
+                            let jump_target = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
+                            if jump_target + 5 <= len && self.bytecode[jump_target] == 37 && self.bytecode[jump_target + 1] as usize == idx {
+                                let const_idx = ((self.bytecode[jump_target + 2] as usize) << 8) | self.bytecode[jump_target + 3] as usize;
+                                let limit = self.constants[const_idx];
+                                if limit.is_int() && new_val < limit.as_int() {
+                                    self.ip = jump_target + 6;
+                                    continue;
+                                }
+                            }
+                        }
                     } else if v.is_float() {
-                        self.locals[idx] = NanVal::float(v.as_float() + 1.0);
+                        self.locals[self.base + idx] = NanVal::float(v.as_float() + 1.0);
                     } else if v.is_string() {
                         let mut s = self.string_heap.get(v.as_string_idx()).cloned().unwrap_or_default();
                         s.push_str("1");
                         let s_idx = self.string_heap.len();
                         self.string_heap.push(s);
-                        self.locals[idx] = NanVal::string(s_idx);
+                        self.locals[self.base + idx] = NanVal::string(s_idx);
                     }
                 }
                 24 => { // DecLocalBy1
                     let idx = self.bytecode[self.ip] as usize;
                     self.ip += 1;
-                    let v = self.locals[idx];
+                    let v = self.locals[self.base + idx];
                     if v.is_int() {
-                        self.locals[idx] = NanVal::int(v.as_int().wrapping_sub(1));
+                        self.locals[self.base + idx] = NanVal::int(v.as_int().wrapping_sub(1));
                     } else if v.is_float() {
-                        self.locals[idx] = NanVal::float(v.as_float() - 1.0);
+                        self.locals[self.base + idx] = NanVal::float(v.as_float() - 1.0);
                     }
                 }
                 25 => { // IncGlobalBy1
@@ -674,7 +794,19 @@ impl AayuVM {
                     self.ip += 1;
                     let v = self.globals[idx];
                     if v.is_int() {
-                        self.globals[idx] = NanVal::int(v.as_int().wrapping_add(1));
+                        let new_val = v.as_int().wrapping_add(1);
+                        self.globals[idx] = NanVal::int(new_val);
+                        if self.ip + 3 <= len && self.bytecode[self.ip] == 32 {
+                            let jump_target = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
+                            if jump_target + 5 <= len && self.bytecode[jump_target] == 31 && self.bytecode[jump_target + 1] as usize == idx {
+                                let const_idx = ((self.bytecode[jump_target + 2] as usize) << 8) | self.bytecode[jump_target + 3] as usize;
+                                let limit = self.constants[const_idx];
+                                if limit.is_int() && new_val < limit.as_int() {
+                                    self.ip = jump_target + 6;
+                                    continue;
+                                }
+                            }
+                        }
                     } else if v.is_float() {
                         self.globals[idx] = NanVal::float(v.as_float() + 1.0);
                     } else if v.is_string() {
@@ -699,14 +831,14 @@ impl AayuVM {
                     let slot = self.bytecode[self.ip] as usize;
                     let const_idx = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
                     self.ip += 3;
-                    let v = self.locals[slot];
+                    let v = self.locals[self.base + slot];
                     let c = self.constants[const_idx];
                     if v.is_int() && c.is_int() {
-                        self.locals[slot] = NanVal::int(v.as_int().wrapping_add(c.as_int()));
+                        self.locals[self.base + slot] = NanVal::int(v.as_int().wrapping_add(c.as_int()));
                     } else if v.is_float() || c.is_float() {
                         let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
                         let fc = if c.is_float() { c.as_float() } else { c.as_int() as f64 };
-                        self.locals[slot] = NanVal::float(fv + fc);
+                        self.locals[self.base + slot] = NanVal::float(fv + fc);
                     } else if v.is_string() || c.is_string() {
                         let sv = if v.is_string() { self.string_heap.get(v.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", v) };
                         let sc = if c.is_string() { self.string_heap.get(c.as_string_idx()).cloned().unwrap_or_default() } else if c.is_int() { format!("{}", c.as_int()) } else { format!("{}", c) };
@@ -714,7 +846,7 @@ impl AayuVM {
                         res.push_str(&sc);
                         let s_idx = self.string_heap.len();
                         self.string_heap.push(res);
-                        self.locals[slot] = NanVal::string(s_idx);
+                        self.locals[self.base + slot] = NanVal::string(s_idx);
                     }
                 }
                 28 => { // AddGlobalConst
@@ -743,14 +875,14 @@ impl AayuVM {
                     let slot = self.bytecode[self.ip] as usize;
                     let const_idx = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
                     self.ip += 3;
-                    let v = self.locals[slot];
+                    let v = self.locals[self.base + slot];
                     let c = self.constants[const_idx];
                     if v.is_int() && c.is_int() {
-                        self.locals[slot] = NanVal::int(v.as_int().wrapping_sub(c.as_int()));
+                        self.locals[self.base + slot] = NanVal::int(v.as_int().wrapping_sub(c.as_int()));
                     } else if v.is_float() || c.is_float() {
                         let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
                         let fc = if c.is_float() { c.as_float() } else { c.as_int() as f64 };
-                        self.locals[slot] = NanVal::float(fv - fc);
+                        self.locals[self.base + slot] = NanVal::float(fv - fc);
                     }
                 }
                 30 => { // SubGlobalConst
@@ -789,7 +921,7 @@ impl AayuVM {
                     let const_idx = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
                     let target = ((self.bytecode[self.ip + 3] as usize) << 8) | self.bytecode[self.ip + 4] as usize;
                     self.ip += 5;
-                    let v = self.locals[slot];
+                    let v = self.locals[self.base + slot];
                     let c = self.constants[const_idx];
                     if v.is_int() && c.is_int() {
                         if v.as_int() >= c.as_int() {
@@ -799,6 +931,119 @@ impl AayuVM {
                         if ord != std::cmp::Ordering::Less {
                             self.ip = target;
                         }
+                    }
+                }
+                45 => { // PushLocalSubConst (1 byte slot + 2 byte const_idx)
+                    let slot = self.bytecode[self.ip] as usize;
+                    let const_idx = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
+                    self.ip += 3;
+                    let v = self.locals[self.base + slot];
+                    let c = self.constants[const_idx];
+                    if v.is_int() && c.is_int() {
+                        self.stack[self.sp] = NanVal::int(v.as_int().wrapping_sub(c.as_int()));
+                    } else if v.is_float() || c.is_float() {
+                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
+                        let fc = if c.is_float() { c.as_float() } else { c.as_int() as f64 };
+                        self.stack[self.sp] = NanVal::float(fv - fc);
+                    } else {
+                        self.stack[self.sp] = NanVal::int(v.as_int().wrapping_sub(c.as_int()));
+                    }
+                    self.sp += 1;
+                }
+                46 => { // AddToLocal (1 byte slot)
+                    let slot = self.bytecode[self.ip] as usize;
+                    self.ip += 1;
+                    let val = self.stack[self.sp - 1];
+                    self.sp -= 1;
+                    let v = self.locals[self.base + slot];
+                    if v.is_int() && val.is_int() {
+                        let sum = v.as_int().checked_add(val.as_int()).ok_or_else(|| "Integer addition overflow".to_string())?;
+                        self.locals[self.base + slot] = checked_boxed_int(sum)?;
+                    } else if v.is_float() || val.is_float() {
+                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
+                        let fval = if val.is_float() { val.as_float() } else { val.as_int() as f64 };
+                        self.locals[self.base + slot] = NanVal::float(fv + fval);
+                    }
+                }
+                47 => { // AddToGlobal (1 byte slot)
+                    let slot = self.bytecode[self.ip] as usize;
+                    self.ip += 1;
+                    let val = self.stack[self.sp - 1];
+                    self.sp -= 1;
+                    let v = self.globals[slot];
+                    if v.is_int() && val.is_int() {
+                        let sum = v.as_int().checked_add(val.as_int()).ok_or_else(|| "Integer addition overflow".to_string())?;
+                        self.globals[slot] = checked_boxed_int(sum)?;
+                    } else if v.is_float() || val.is_float() {
+                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
+                        let fval = if val.is_float() { val.as_float() } else { val.as_int() as f64 };
+                        self.globals[slot] = NanVal::float(fv + fval);
+                    }
+                }
+                56 => { // PushGlobalModConst (1 byte slot + 2 byte const_idx)
+                    let slot = self.bytecode[self.ip] as usize;
+                    let const_idx = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
+                    self.ip += 3;
+                    let v = self.globals[slot];
+                    let c = self.constants[const_idx];
+                    if v.is_int() && c.is_int() {
+                        let divisor = c.as_int();
+                        if divisor != 0 {
+                            let mod_res = v.as_int() % divisor;
+                            if self.ip + 2 <= len && self.bytecode[self.ip] == 47 {
+                                let dst_slot = self.bytecode[self.ip + 1] as usize;
+                                self.ip += 2;
+                                let dst_v = self.globals[dst_slot];
+                                if dst_v.is_int() {
+                                    let sum = dst_v.as_int().wrapping_add(mod_res);
+                                    self.globals[dst_slot] = NanVal::int(sum);
+                                    continue;
+                                }
+                            }
+                            self.stack[self.sp] = NanVal::int(mod_res);
+                            self.sp += 1;
+                        } else {
+                            return Err("Division by zero in modulo".into());
+                        }
+                    } else {
+                        let a = v.as_int();
+                        let b = c.as_int();
+                        if b == 0 { return Err("Division by zero in modulo".into()); }
+                        self.stack[self.sp] = NanVal::int(a % b);
+                        self.sp += 1;
+                    }
+                }
+                57 => { // PushLocalModConst (1 byte slot + 2 byte const_idx)
+                    let slot = self.bytecode[self.ip] as usize;
+                    let const_idx = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
+                    self.ip += 3;
+                    let v = self.locals[self.base + slot];
+                    let c = self.constants[const_idx];
+                    if v.is_int() && c.is_int() {
+                        let divisor = c.as_int();
+                        if divisor != 0 {
+                            let mod_res = v.as_int() % divisor;
+                            if self.ip + 2 <= len && self.bytecode[self.ip] == 46 {
+                                let dst_slot = self.bytecode[self.ip + 1] as usize;
+                                self.ip += 2;
+                                let dst_v = self.locals[self.base + dst_slot];
+                                if dst_v.is_int() {
+                                    let sum = dst_v.as_int().wrapping_add(mod_res);
+                                    self.locals[self.base + dst_slot] = NanVal::int(sum);
+                                    continue;
+                                }
+                            }
+                            self.stack[self.sp] = NanVal::int(mod_res);
+                            self.sp += 1;
+                        } else {
+                            return Err("Division by zero in modulo".into());
+                        }
+                    } else {
+                        let a = v.as_int();
+                        let b = c.as_int();
+                        if b == 0 { return Err("Division by zero in modulo".into()); }
+                        self.stack[self.sp] = NanVal::int(a % b);
+                        self.sp += 1;
                     }
                 }
                 0x10 => { // ADD (Polymorphic: Int, Float, String, Array)
@@ -874,7 +1119,7 @@ impl AayuVM {
                     if self.sp > 0 {
                         let val = self.stack[self.sp - 1];
                         self.sp -= 1;
-                        self.locals[idx % 256] = val;
+                        self.locals[self.base + (idx % 256)] = val;
                         let var_name = if idx < self.constants.len() && self.constants[idx].is_string() {
                             let s_idx = self.constants[idx].as_string_idx();
                             if s_idx < self.string_heap.len() { self.string_heap[s_idx].clone() } else { format!("var_{}", idx) }
@@ -900,7 +1145,7 @@ impl AayuVM {
                     let val = if let Some(&v) = self.state.get(&var_name) {
                         v
                     } else {
-                        self.locals[idx % 256]
+                        self.locals[self.base + (idx % 256)]
                     };
                     self.stack[self.sp] = val;
                     self.sp += 1;
@@ -928,6 +1173,8 @@ impl AayuVM {
                                 let a = self.stack[self.sp - argc + i];
                                 if a.is_string() && a.as_string_idx() < self.string_heap.len() {
                                     print!("{}", self.string_heap[a.as_string_idx()]);
+                                } else if a.is_tensor() && a.as_tensor_idx() < self.tensor_heap.len() {
+                                    self.tensor_heap[a.as_tensor_idx()].print();
                                 } else {
                                     print!("{}", a);
                                 }
@@ -945,9 +1192,43 @@ impl AayuVM {
                                 if let crate::memory::HeapObject::AArray(arr) = self.memory.get(a.as_array_idx()) {
                                     arr.len()
                                 } else { 0 }
+                            } else if a.is_tensor() && a.as_tensor_idx() < self.tensor_heap.len() {
+                                self.tensor_heap[a.as_tensor_idx()].numel()
                             } else { 0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::int(l as i64);
+                            self.sp += 1;
+                        } else if func_name == "dict_keys" || func_name == "keys" {
+                            let a = if argc > 0 { self.stack[self.sp - 1] } else { NanVal::null() };
+                            let mut key_vec = Vec::new();
+                            if a.is_dict() {
+                                if let crate::memory::HeapObject::ADict(map) = self.memory.get(a.as_dict_idx()) {
+                                    for k in map.keys() {
+                                        let idx = self.string_heap.len();
+                                        self.string_heap.push(k.clone());
+                                        key_vec.push(NanVal::string(idx));
+                                    }
+                                }
+                            }
+                            self.sp -= argc + 1;
+                            let arr_idx = self.memory.allocate(crate::memory::HeapObject::AArray(key_vec));
+                            self.stack[self.sp] = NanVal::array(arr_idx);
+                            self.sp += 1;
+                        } else if func_name == "str_contains" {
+                            let needle = if argc > 1 {
+                                let n = self.stack[self.sp - 1];
+                                if n.is_string() && n.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[n.as_string_idx()].clone()
+                                } else { format!("{}", n) }
+                            } else { String::new() };
+                            let haystack = if argc > 0 {
+                                let h = self.stack[self.sp - argc];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::bool(haystack.contains(&needle));
                             self.sp += 1;
                         } else if func_name == "type" || func_name == "typeof" {
                             let a = if argc > 0 { self.stack[self.sp - 1] } else { NanVal::null() };
@@ -965,6 +1246,8 @@ impl AayuVM {
                                 "Array"
                             } else if a.is_dict() {
                                 "Dictionary"
+                            } else if a.is_tensor() {
+                                "Tensor"
                             } else {
                                 "Unknown"
                             };
@@ -1087,9 +1370,600 @@ impl AayuVM {
                             std::thread::sleep(std::time::Duration::from_millis(ms));
                             self.stack[self.sp] = NanVal::null();
                             self.sp += 1;
+                        } else if func_name == "os_exec" || func_name == "sys_command" {
+                            let cmd = if argc > 0 {
+                                let c = self.stack[self.sp - 1];
+                                if c.is_string() && c.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[c.as_string_idx()].clone()
+                                } else { String::new() }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let output = if cfg!(target_os = "windows") {
+                                std::process::Command::new("powershell")
+                                    .arg("-NoProfile")
+                                    .arg("-Command")
+                                    .arg(&cmd)
+                                    .output()
+                            } else {
+                                std::process::Command::new("sh")
+                                    .arg("-c")
+                                    .arg(&cmd)
+                                    .output()
+                            };
+                            let result = match output {
+                                Ok(out) => {
+                                    let s = String::from_utf8_lossy(&out.stdout);
+                                    let e = String::from_utf8_lossy(&out.stderr);
+                                    if !e.trim().is_empty() {
+                                        format!("{}\n{}", s.trim(), e.trim()).trim().to_string()
+                                    } else {
+                                        s.trim().to_string()
+                                    }
+                                }
+                                Err(err) => err.to_string(),
+                            };
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(result);
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "tensor" || func_name == "tensor_create" {
+                            if argc < 2 {
+                                return Err("tensor_create(data, shape) requires 2 arguments".into());
+                            }
+                            let shape_val = self.stack[self.sp - 1];
+                            let data_val = self.stack[self.sp - 2];
+                            let shape = self.extract_shape_vec(shape_val)?;
+                            let data = self.extract_f64_vec(data_val)?;
+                            let t = Tensor::new(shape, data);
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(t);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_zeros" {
+                            if argc < 1 { return Err("tensor_zeros(shape) requires shape argument".into()); }
+                            let shape_val = self.stack[self.sp - 1];
+                            let shape = self.extract_shape_vec(shape_val)?;
+                            let t = Tensor::zeros(shape);
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(t);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_ones" {
+                            if argc < 1 { return Err("tensor_ones(shape) requires shape argument".into()); }
+                            let shape_val = self.stack[self.sp - 1];
+                            let shape = self.extract_shape_vec(shape_val)?;
+                            let t = Tensor::ones(shape);
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(t);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_randn" {
+                            if argc < 1 { return Err("tensor_randn(shape, [seed]) requires at least shape argument".into()); }
+                            let shape_val = self.stack[self.sp - argc];
+                            let shape = self.extract_shape_vec(shape_val)?;
+                            let seed = if argc >= 2 {
+                                let s_val = self.stack[self.sp - argc + 1];
+                                if s_val.is_int() { s_val.as_int() as u64 } else { 12345 }
+                            } else {
+                                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_micros() as u64).unwrap_or(42)
+                            };
+                            let t = Tensor::randn(shape, seed);
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(t);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_matmul" {
+                            if argc < 2 { return Err("tensor_matmul(a, b) requires 2 arguments".into()); }
+                            let b_val = self.stack[self.sp - 1];
+                            let a_val = self.stack[self.sp - 2];
+                            let a = self.extract_tensor(a_val)?.clone();
+                            let b = self.extract_tensor(b_val)?.clone();
+                            let res = a.matmul(&b).map_err(|e| format!("tensor_matmul error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_add" {
+                            if argc < 2 { return Err("tensor_add(a, b) requires 2 arguments".into()); }
+                            let b_val = self.stack[self.sp - 1];
+                            let a_val = self.stack[self.sp - 2];
+                            let a = self.extract_tensor(a_val)?.clone();
+                            let b = self.extract_tensor(b_val)?.clone();
+                            let res = a.add(&b).map_err(|e| format!("tensor_add error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_sub" {
+                            if argc < 2 { return Err("tensor_sub(a, b) requires 2 arguments".into()); }
+                            let b_val = self.stack[self.sp - 1];
+                            let a_val = self.stack[self.sp - 2];
+                            let a = self.extract_tensor(a_val)?.clone();
+                            let b = self.extract_tensor(b_val)?.clone();
+                            let res = a.sub(&b).map_err(|e| format!("tensor_sub error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_mul" {
+                            if argc < 2 { return Err("tensor_mul(a, b) requires 2 arguments".into()); }
+                            let b_val = self.stack[self.sp - 1];
+                            let a_val = self.stack[self.sp - 2];
+                            let a = self.extract_tensor(a_val)?.clone();
+                            let b = self.extract_tensor(b_val)?.clone();
+                            let res = a.mul(&b).map_err(|e| format!("tensor_mul error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_div" {
+                            if argc < 2 { return Err("tensor_div(a, b) requires 2 arguments".into()); }
+                            let b_val = self.stack[self.sp - 1];
+                            let a_val = self.stack[self.sp - 2];
+                            let a = self.extract_tensor(a_val)?.clone();
+                            let b = self.extract_tensor(b_val)?.clone();
+                            let res = a.div(&b).map_err(|e| format!("tensor_div error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_scale" {
+                            if argc < 2 { return Err("tensor_scale(t, scalar) requires 2 arguments".into()); }
+                            let s_val = self.stack[self.sp - 1];
+                            let t_val = self.stack[self.sp - 2];
+                            let scalar = if s_val.is_float() { s_val.as_float() } else if s_val.is_int() { s_val.as_int() as f64 } else { 1.0 };
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.scale(scalar);
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_relu" {
+                            if argc < 1 { return Err("tensor_relu(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.relu();
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_gelu" {
+                            if argc < 1 { return Err("tensor_gelu(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.gelu();
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_sigmoid" {
+                            if argc < 1 { return Err("tensor_sigmoid(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.sigmoid();
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_tanh" {
+                            if argc < 1 { return Err("tensor_tanh(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.tanh_act();
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_silu" {
+                            if argc < 1 { return Err("tensor_silu(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.silu();
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_softmax" {
+                            if argc < 1 { return Err("tensor_softmax(t, [axis]) requires at least 1 argument".into()); }
+                            let t_val = self.stack[self.sp - argc];
+                            let axis = if argc >= 2 {
+                                let a_val = self.stack[self.sp - argc + 1];
+                                if a_val.is_int() { a_val.as_int() as isize } else { -1 }
+                            } else { -1 };
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.softmax(axis).map_err(|e| format!("tensor_softmax error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_layernorm" {
+                            if argc < 1 { return Err("tensor_layernorm(t, [gamma], [beta], [eps]) requires at least 1 argument".into()); }
+                            let t_val = self.stack[self.sp - argc];
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let gamma = if argc >= 2 {
+                                let g_val = self.stack[self.sp - argc + 1];
+                                if g_val.is_tensor() { Some(self.extract_tensor(g_val)?.clone()) } else { None }
+                            } else { None };
+                            let beta = if argc >= 3 {
+                                let b_val = self.stack[self.sp - argc + 2];
+                                if b_val.is_tensor() { Some(self.extract_tensor(b_val)?.clone()) } else { None }
+                            } else { None };
+                            let eps = if argc >= 4 {
+                                let e_val = self.stack[self.sp - argc + 3];
+                                if e_val.is_float() { e_val.as_float() } else { 1e-5 }
+                            } else { 1e-5 };
+                            let res = t.layernorm(gamma.as_ref(), beta.as_ref(), eps).map_err(|e| format!("tensor_layernorm error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_attention" {
+                            if argc < 3 { return Err("tensor_attention(q, k, v, [scale]) requires at least 3 arguments".into()); }
+                            let q_val = self.stack[self.sp - argc];
+                            let k_val = self.stack[self.sp - argc + 1];
+                            let v_val = self.stack[self.sp - argc + 2];
+                            let q = self.extract_tensor(q_val)?.clone();
+                            let k = self.extract_tensor(k_val)?.clone();
+                            let v = self.extract_tensor(v_val)?.clone();
+                            let scale = if argc >= 4 {
+                                let s_val = self.stack[self.sp - argc + 3];
+                                if s_val.is_float() { Some(s_val.as_float()) } else { None }
+                            } else { None };
+                            let res = Tensor::scaled_dot_product_attention(&q, &k, &v, scale).map_err(|e| format!("tensor_attention error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_transpose" {
+                            if argc < 1 { return Err("tensor_transpose(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.transpose();
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_reshape" {
+                            if argc < 2 { return Err("tensor_reshape(t, shape) requires 2 arguments".into()); }
+                            let shape_val = self.stack[self.sp - 1];
+                            let t_val = self.stack[self.sp - 2];
+                            let shape = self.extract_shape_vec(shape_val)?;
+                            let t = self.extract_tensor(t_val)?.clone();
+                            let res = t.reshape(shape).map_err(|e| format!("tensor_reshape error: {}", e))?;
+                            self.sp -= argc + 1;
+                            let res_val = self.allocate_tensor(res);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_to_array" {
+                            if argc < 1 { return Err("tensor_to_array(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?.clone();
+                            self.sp -= argc + 1;
+                            let res_val = self.tensor_to_nanval_array(&t);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_shape" {
+                            if argc < 1 { return Err("tensor_shape(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?;
+                            let shape = t.shape.clone();
+                            self.sp -= argc + 1;
+                            let res_val = self.shape_to_nanval_array(&shape);
+                            self.stack[self.sp] = res_val;
+                            self.sp += 1;
+                        } else if func_name == "tensor_sum" {
+                            if argc < 1 { return Err("tensor_sum(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?;
+                            let s = t.sum_all();
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(s);
+                            self.sp += 1;
+                        } else if func_name == "tensor_mean" {
+                            if argc < 1 { return Err("tensor_mean(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?;
+                            let m = t.mean_all();
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(m);
+                            self.sp += 1;
+                        } else if func_name == "tensor_norm" {
+                            if argc < 1 { return Err("tensor_norm(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?;
+                            let n = t.norm_l2();
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(n);
+                            self.sp += 1;
+                        } else if func_name == "tensor_argmax" {
+                            if argc < 1 { return Err("tensor_argmax(t) requires 1 argument".into()); }
+                            let t_val = self.stack[self.sp - 1];
+                            let t = self.extract_tensor(t_val)?;
+                            let a = t.argmax();
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::int(a as i64);
+                            self.sp += 1;
+                        } else if func_name == "cosine_similarity" {
+                            if argc < 2 { return Err("cosine_similarity(v1, v2) requires 2 arguments".into()); }
+                            let v2_val = self.stack[self.sp - 1];
+                            let v1_val = self.stack[self.sp - 2];
+                            let v1 = self.extract_f64_vec(v1_val)?;
+                            let v2 = self.extract_f64_vec(v2_val)?;
+                            let sim = Tensor::cosine_similarity(&v1, &v2);
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(sim);
+                            self.sp += 1;
+                        } else if func_name == "math_exp" {
+                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.exp());
+                            self.sp += 1;
+                        } else if func_name == "math_ln" {
+                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 1.0 } } else { 1.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(if x > 0.0 { x.ln() } else { 0.0 });
+                            self.sp += 1;
+                        } else if func_name == "math_sqrt" {
+                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(if x >= 0.0 { x.sqrt() } else { 0.0 });
+                            self.sp += 1;
+                        } else if func_name == "math_pow" {
+                            let e = if argc > 1 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 1.0 } } else { 1.0 };
+                            let b = if argc > 0 { let v = self.stack[self.sp - argc]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(b.powf(e));
+                            self.sp += 1;
+                        } else if func_name == "math_sin" {
+                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.sin());
+                            self.sp += 1;
+                        } else if func_name == "math_cos" {
+                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.cos());
+                            self.sp += 1;
+                        } else if func_name == "math_tan" {
+                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.tan());
+                            self.sp += 1;
+                        } else if func_name == "math_tanh" {
+                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.tanh());
+                            self.sp += 1;
+                        } else if func_name == "crypto_sha256" {
+                            let data = if argc > 0 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let digest = crate::crypto::sha256_hex(data.as_bytes());
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(digest);
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "crypto_sha512" {
+                            let data = if argc > 0 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let digest = crate::crypto::sha512_hex(data.as_bytes());
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(digest);
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "crypto_hmac_sha256" {
+                            let data = if argc > 1 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let key = if argc > 0 {
+                                let v = self.stack[self.sp - argc];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let tag = crate::crypto::hmac_sha256_hex(key.as_bytes(), data.as_bytes());
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(tag);
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "crypto_timing_safe_eq" || func_name == "crypto_secure_compare" {
+                            let b = if argc > 1 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let a = if argc > 0 {
+                                let v = self.stack[self.sp - argc];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let eq = crate::crypto::timing_safe_equals(a.as_bytes(), b.as_bytes());
+                            self.stack[self.sp] = NanVal::bool(eq);
+                            self.sp += 1;
+                        } else if func_name == "crypto_random_hex" {
+                            let count = if argc > 0 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_int() { v.as_int().max(1) as usize } else { 16 }
+                            } else { 16 };
+                            self.sp -= argc + 1;
+                            let hex_val = crate::crypto::random_bytes_hex(count).unwrap_or_default();
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(hex_val);
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "crypto_aes_gcm_encrypt" {
+                            let plaintext = if argc > 2 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let nonce = if argc > 1 {
+                                let v = self.stack[self.sp - 2];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let key = if argc > 0 {
+                                let v = self.stack[self.sp - argc];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            match crate::crypto::aes_256_gcm_encrypt(key.as_bytes(), nonce.as_bytes(), plaintext.as_bytes()) {
+                                Ok(cipher_hex) => {
+                                    let idx = self.string_heap.len();
+                                    self.string_heap.push(cipher_hex);
+                                    self.stack[self.sp] = NanVal::string(idx);
+                                }
+                                Err(_) => {
+                                    self.stack[self.sp] = NanVal::null();
+                                }
+                            }
+                            self.sp += 1;
+                        } else if func_name == "crypto_aes_gcm_decrypt" {
+                            let cipher_hex = if argc > 2 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let nonce = if argc > 1 {
+                                let v = self.stack[self.sp - 2];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let key = if argc > 0 {
+                                let v = self.stack[self.sp - argc];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            match crate::crypto::aes_256_gcm_decrypt(key.as_bytes(), nonce.as_bytes(), &cipher_hex) {
+                                Ok(plain) => {
+                                    let idx = self.string_heap.len();
+                                    self.string_heap.push(plain);
+                                    self.stack[self.sp] = NanVal::string(idx);
+                                }
+                                Err(_) => {
+                                    self.stack[self.sp] = NanVal::null();
+                                }
+                            }
+                            self.sp += 1;
+                        } else if func_name == "db_btree_open" {
+                            let path = if argc > 0 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { "app.db".to_string() }
+                            } else { "app.db".to_string() };
+                            self.sp -= argc + 1;
+                            match crate::btree::BTreeDb::open(&path) {
+                                Ok(db) => {
+                                    let handle = self.btree_dbs.len();
+                                    self.btree_dbs.push(db);
+                                    self.stack[self.sp] = NanVal::int(handle as i64);
+                                }
+                                Err(_) => {
+                                    self.stack[self.sp] = NanVal::int(-1);
+                                }
+                            }
+                            self.sp += 1;
+                        } else if func_name == "db_btree_set" {
+                            let val = if argc > 2 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let key = if argc > 1 {
+                                let v = self.stack[self.sp - 2];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let handle = if argc > 0 {
+                                let v = self.stack[self.sp - argc];
+                                if v.is_int() { v.as_int() as usize } else { 0 }
+                            } else { 0 };
+                            self.sp -= argc + 1;
+                            let ok = if handle < self.btree_dbs.len() {
+                                self.btree_dbs[handle].set(&key, &val).is_ok()
+                            } else { false };
+                            self.stack[self.sp] = NanVal::bool(ok);
+                            self.sp += 1;
+                        } else if func_name == "db_btree_get" {
+                            let key = if argc > 1 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_string() && v.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[v.as_string_idx()].clone()
+                                } else { format!("{}", v) }
+                            } else { String::new() };
+                            let handle = if argc > 0 {
+                                let v = self.stack[self.sp - argc];
+                                if v.is_int() { v.as_int() as usize } else { 0 }
+                            } else { 0 };
+                            self.sp -= argc + 1;
+                            if handle < self.btree_dbs.len() {
+                                match self.btree_dbs[handle].get(&key) {
+                                    Ok(Some(v)) => {
+                                        let idx = self.string_heap.len();
+                                        self.string_heap.push(v);
+                                        self.stack[self.sp] = NanVal::string(idx);
+                                    }
+                                    _ => {
+                                        self.stack[self.sp] = NanVal::null();
+                                    }
+                                }
+                            } else {
+                                self.stack[self.sp] = NanVal::null();
+                            }
+                            self.sp += 1;
+                        } else if func_name == "db_btree_count" {
+                            let handle = if argc > 0 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_int() { v.as_int() as usize } else { 0 }
+                            } else { 0 };
+                            self.sp -= argc + 1;
+                            let count = if handle < self.btree_dbs.len() {
+                                self.btree_dbs[handle].count() as i64
+                            } else { 0 };
+                            self.stack[self.sp] = NanVal::int(count);
+                            self.sp += 1;
+                        } else if func_name == "db_btree_flush" {
+                            let handle = if argc > 0 {
+                                let v = self.stack[self.sp - 1];
+                                if v.is_int() { v.as_int() as usize } else { 0 }
+                            } else { 0 };
+                            self.sp -= argc + 1;
+                            let ok = if handle < self.btree_dbs.len() {
+                                self.btree_dbs[handle].flush().is_ok()
+                            } else { false };
+                            self.stack[self.sp] = NanVal::bool(ok);
+                            self.sp += 1;
                         } else {
                             return Err(format!("Unknown built-in function '{}'", func_name));
                         }
+
                     }
                 }
                 36 => { // CALL_LOCAL
@@ -1099,21 +1973,26 @@ impl AayuVM {
                     if self.call_frames.len() >= Self::MAX_CALL_DEPTH {
                         return Err(format!("StackOverflow: maximum call depth of {} exceeded", Self::MAX_CALL_DEPTH));
                     }
-                    if self.sp < argc || argc > self.locals.len() {
+                    if self.sp < argc {
                         return Err(format!("CALL_LOCAL expected {} arguments on the stack", argc));
                     }
-                    let args = self.stack[self.sp - argc..self.sp].to_vec();
+                    let nb = self.base + 256;
+                    if nb + 256 > self.locals.len() {
+                        return Err("StackOverflow: locals space exceeded".into());
+                    }
+                    for i in 0..argc {
+                        self.locals[nb + i] = self.stack[self.sp - argc + i];
+                    }
                     self.sp -= argc;
-                    self.call_frames.push(CallFrame { return_ip: self.ip, locals: self.locals });
-                    self.locals = [NanVal::null(); 256];
-                    self.locals[..argc].copy_from_slice(&args);
+                    self.call_frames.push(CallFrame { return_ip: self.ip, prev_base: self.base });
+                    self.base = nb;
                     self.call_depth = self.call_frames.len();
                     self.ip = target;
                 }
                 35 | 98 => { // Ret / ReturnValue
                     if let Some(frame) = self.call_frames.pop() {
                         let result = if self.sp > 0 { self.sp -= 1; self.stack[self.sp] } else { NanVal::null() };
-                        self.locals = frame.locals;
+                        self.base = frame.prev_base;
                         self.ip = frame.return_ip;
                         self.call_depth = self.call_frames.len();
                         self.stack[self.sp] = result;
@@ -1246,6 +2125,8 @@ impl AayuVM {
                             }
                             println!("}}");
                         }
+                    } else if val.is_tensor() && val.as_tensor_idx() < self.tensor_heap.len() {
+                        self.tensor_heap[val.as_tensor_idx()].print();
                     } else {
                         println!("{}", val);
                     }
@@ -1265,10 +2146,43 @@ impl AayuVM {
                 // --- NEW OPCODES FOR AI / DATA / SERVER ---
                 
                 160 => { // TensorCreate
-                    println!("[Native] Creating PyTorch-style Tensor in Rust...");
-                    let t = Tensor::new(vec![2, 2], vec![1.0, 2.0, 3.0, 4.0]);
-                    self.tensor_heap.push(t);
-                    println!("[Native] Tensor generated and stored in RAM.");
+                    if self.sp >= 2 {
+                        let shape_val = self.stack[self.sp - 1];
+                        let data_val = self.stack[self.sp - 2];
+                        self.sp -= 2;
+                        let shape = self.extract_shape_vec(shape_val)?;
+                        let data = self.extract_f64_vec(data_val)?;
+                        let t = Tensor::new(shape, data);
+                        let res_val = self.allocate_tensor(t);
+                        self.stack[self.sp] = res_val;
+                        self.sp += 1;
+                    }
+                }
+                161 => { // TensorAdd
+                    if self.sp >= 2 {
+                        let b_val = self.stack[self.sp - 1];
+                        let a_val = self.stack[self.sp - 2];
+                        self.sp -= 2;
+                        let a = self.extract_tensor(a_val)?.clone();
+                        let b = self.extract_tensor(b_val)?.clone();
+                        let res = a.add(&b).map_err(|e| format!("TensorAdd failed: {}", e))?;
+                        let res_val = self.allocate_tensor(res);
+                        self.stack[self.sp] = res_val;
+                        self.sp += 1;
+                    }
+                }
+                162 => { // TensorMatMul
+                    if self.sp >= 2 {
+                        let b_val = self.stack[self.sp - 1];
+                        let a_val = self.stack[self.sp - 2];
+                        self.sp -= 2;
+                        let a = self.extract_tensor(a_val)?.clone();
+                        let b = self.extract_tensor(b_val)?.clone();
+                        let res = a.matmul(&b).map_err(|e| format!("TensorMatMul failed: {}", e))?;
+                        let res_val = self.allocate_tensor(res);
+                        self.stack[self.sp] = res_val;
+                        self.sp += 1;
+                    }
                 }
                 
                 170 => { // DbSet
@@ -1385,8 +2299,7 @@ impl AayuVM {
                     if b == 0 {
                         return Err("Modulo by zero".to_string());
                     }
-                    self.stack[self.sp - 2] = checked_boxed_int(a.checked_rem(b)
-                        .ok_or_else(|| "Integer modulo overflow".to_string())?)?;
+                    self.stack[self.sp - 2] = NanVal::int(a.wrapping_rem(b));
                     self.sp -= 1;
                 }
                 38 => { // CmpEq
@@ -2054,7 +2967,7 @@ impl AayuVM {
                                             Ok(v_res) => {
                                                 let stdout_str = String::from_utf8_lossy(&v_res.stdout);
                                                 let stderr_str = String::from_utf8_lossy(&v_res.stderr);
-                                                let mut final_out = format!(">> AAYU VM JIT Execution (v1.2.0):\n");
+                                                let mut final_out = format!(">> AAYU VM JIT Execution (v1.5.0):\n");
                                                 if !stdout_str.trim().is_empty() {
                                                     final_out.push_str(&stdout_str);
                                                 } else if !stderr_str.trim().is_empty() {

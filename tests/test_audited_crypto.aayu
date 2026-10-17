@@ -1,0 +1,64 @@
+import "std/test.aayu"
+import "std/crypto.aayu" as c
+
+print("==================================================================")
+print("     AAYU AUDITED FIPS-COMPLIANT CRYPTOGRAPHY SUITE               ")
+print("==================================================================")
+
+test_begin_suite("AAYU Audited FIPS-Compliant Cryptography Suite")
+
+# 1. Standard NIST SHA-256 Test Vectors
+print("[Phase 1] Testing NIST SP 800-180-4 SHA-256...")
+let h1 = c.sha256("hello")
+assert_eq(h1, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", "SHA-256 NIST Vector: 'hello'")
+
+let h_empty = c.sha256("")
+assert_eq(h_empty, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "SHA-256 NIST Vector: empty string")
+
+# 2. Standard SHA-512 Test Vector Length
+print("[Phase 2] Testing SHA-512 Digest...")
+let h512 = c.sha512("hello")
+assert_eq(len(h512), 128, "SHA-512 length must be exactly 128 hex characters")
+
+# 3. RFC 2104 HMAC-SHA256
+print("[Phase 3] Testing RFC 2104 HMAC-SHA256...")
+let hmac_res = c.hmac_sha256("my_secret_key", "order_id_1002")
+assert_eq(len(hmac_res), 64, "HMAC-SHA256 length must be 64 hex characters")
+
+# 4. Constant-Time Timing Attack Defense
+print("[Phase 4] Testing Constant-Time Timing Attack Defense...")
+let same = c.timing_safe_equals("auth_token_xyz_9988", "auth_token_xyz_9988")
+assert_true(same, "timing_safe_equals matches identical tokens")
+
+let diff = c.timing_safe_equals("auth_token_xyz_9988", "auth_token_xyz_9989")
+assert_eq(diff, false, "timing_safe_equals detects mismatched tokens")
+
+# 5. CSPRNG Random Token Generation
+print("[Phase 5] Testing Hardware CSPRNG Random Generation...")
+let rand_token = c.random_token(16)
+assert_eq(len(rand_token), 32, "CSPRNG 16-byte token produces 32 hex chars")
+
+# 6. NIST SP 800-38D AES-256-GCM Authenticated Encryption & Decryption
+print("[Phase 6] Testing NIST SP 800-38D AES-256-GCM Encryption & Decryption...")
+let key = "enterprise_secret_32_byte_key_!"
+let nonce = "unique_12_byt"
+let plaintext = "Sensitive Transaction Payload: $50,000 to Account #8831"
+
+let encrypted = c.aes_gcm_encrypt(key, nonce, plaintext)
+assert_true(len(encrypted) > 0, "AES-256-GCM produces authenticated ciphertext")
+
+let decrypted = c.aes_gcm_decrypt(key, nonce, encrypted)
+assert_eq(decrypted, plaintext, "AES-256-GCM decrypted text matches original plaintext exactly")
+
+# 7. Backward Compatibility hash_string
+print("[Phase 7] Testing Backward Compatibility with FIPS-180 SHA-256...")
+let legacy_hash = c.hash_string("transaction_record_1")
+assert_eq(len(legacy_hash), 64, "Legacy hash_string produces 64-char FIPS SHA-256 digest")
+
+# 8. Merkle Tree Root Computation
+print("[Phase 8] Testing Merkle Tree Root Hash...")
+let block_txs = ["tx_01", "tx_02", "tx_03", "tx_04"]
+let merkle_root = c.compute_merkle_root(block_txs)
+assert_eq(len(merkle_root), 64, "Merkle Tree root produces 64-char SHA-256 root")
+
+test_end_suite()

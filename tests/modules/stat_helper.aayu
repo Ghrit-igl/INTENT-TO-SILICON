@@ -1,0 +1,12 @@
+# Stat helper module with overlapping action names
+let MODULE_NAME = "stat_helper"
+
+action square(x)
+    # Special stat square with scaling
+    return (x * x) * 10
+end
+
+action variance_sample(x, mean)
+    let diff = x - mean
+    return square(diff)
+end

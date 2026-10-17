@@ -1,6 +1,6 @@
 [package]
 name = "aayu-vm"
-version = "0.3.1"
+version = "1.5.0"
 edition = "2021"
 authors = ["Ayush Ghrit Kaushik <minato95.ayu@gmail.com>"]
 description = "The extreme-performance native Rust Virtual Machine for AAYU"
@@ -16,6 +16,8 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 rustls-pki-types = "1.15"
 rustls-pemfile = "2.2"
 rcgen = "0.14"
+ring = "0.17"
+
 
 [build-dependencies]
 winres = "0.1"

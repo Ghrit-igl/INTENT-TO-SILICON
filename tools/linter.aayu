@@ -163,7 +163,7 @@ action main()
     end
 
     print("==================================================")
-    print("      AAYU SILICON STATIC CODE LINTER (v1.4.0)   ")
+    print("      AAYU SILICON STATIC CODE LINTER (v1.5.0)   ")
     print("==================================================")
     print("Analyzing target: " + target)
     print("Engine: Pure AAYU Static AST & Pattern Inspector")

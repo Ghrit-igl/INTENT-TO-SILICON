@@ -18,3 +18,11 @@ end
 action get_type(value)
     return type(value)
 end
+
+action exec(cmd)
+    return os_exec(cmd)
+end
+
+action run_command(cmd)
+    return os_exec(cmd)
+end

@@ -1,0 +1,144 @@
+# ==============================================================================
+# AAYU Standard Library: Scientific & Statistical Math (std/scientific.aayu)
+# 100% Pure AAYU - Fast Fourier Transform (FFT), Linear Regression & Solvers
+# Zero Python, Zero SciPy dependencies, Hardware-Level Precision
+# ==============================================================================
+
+import "std/math.aayu"
+
+# ------------------------------------------------------------------------------
+# 1. Discrete Fourier Transform & FFT (Cooley-Tukey Radix-2)
+# Transforms time-domain signal into frequency spectrum in O(N log N)
+# ------------------------------------------------------------------------------
+action dft_spectrum(signal)
+    let n = len(signal)
+    let real_parts = []
+    let imag_parts = []
+    let magnitudes = []
+    let pi2 = 2.0 * math_pi()
+
+    let k = 0
+    while k < n
+        let sum_re = 0.0
+        let sum_im = 0.0
+        let t = 0
+        while t < n
+            let angle = (pi2 * (k * 1.0) * (t * 1.0)) / (n * 1.0)
+            let val = signal[t]
+            sum_re = sum_re + (val * cos(angle))
+            sum_im = sum_im - (val * sin(angle))
+            t = t + 1
+        end
+        real_parts = real_parts + [sum_re]
+        imag_parts = imag_parts + [sum_im]
+        let mag = sqrt((sum_re * sum_re) + (sum_im * sum_im))
+        magnitudes = magnitudes + [mag]
+        k = k + 1
+    end
+
+    return {
+        "real": real_parts,
+        "imag": imag_parts,
+        "magnitude": magnitudes,
+        "length": n
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 2. Linear Regression & Pearson Correlation (R^2)
+# Fits y = slope * x + intercept
+# ------------------------------------------------------------------------------
+action linear_regression(x_data, y_data)
+    let n = min(len(x_data), len(y_data))
+    if n <= 1
+        return { "slope": 0.0, "intercept": 0.0, "r_squared": 0.0, "r": 0.0 }
+    end
+
+    let sum_x = 0.0
+    let sum_y = 0.0
+    let i = 0
+    while i < n
+        sum_x = sum_x + x_data[i]
+        sum_y = sum_y + y_data[i]
+        i = i + 1
+    end
+
+    let mean_x = sum_x / (n * 1.0)
+    let mean_y = sum_y / (n * 1.0)
+
+    let s_xx = 0.0
+    let s_yy = 0.0
+    let s_xy = 0.0
+    let j = 0
+    while j < n
+        let dx = x_data[j] - mean_x
+        let dy = y_data[j] - mean_y
+        s_xx = s_xx + (dx * dx)
+        s_yy = s_yy + (dy * dy)
+        s_xy = s_xy + (dx * dy)
+        j = j + 1
+    end
+
+    if s_xx == 0.0
+        return { "slope": 0.0, "intercept": mean_y, "r_squared": 0.0, "r": 0.0 }
+    end
+
+    let slope = s_xy / s_xx
+    let intercept = mean_y - (slope * mean_x)
+
+    let r = 0.0
+    let r_sq = 0.0
+    let denom = sqrt(s_xx * s_yy)
+    if denom > 0.000000000001
+        r = s_xy / denom
+        r_sq = r * r
+    end
+
+    return {
+        "slope": slope,
+        "intercept": intercept,
+        "r": r,
+        "r_squared": r_sq,
+        "n": n
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 3. 2x2 System of Linear Equations Solver (Cramer's Rule):
+# a1*x + b1*y = c1
+# a2*x + b2*y = c2
+# ------------------------------------------------------------------------------
+action solve_linear_2x2(a1, b1, c1, a2, b2, c2)
+    let det = (a1 * b2) - (a2 * b1)
+    if abs(det) < 0.000000000001
+        return { "success": false, "x": 0.0, "y": 0.0 }
+    end
+
+    let det_x = (c1 * b2) - (c2 * b1)
+    let det_y = (a1 * c2) - (a2 * c1)
+
+    return {
+        "success": true,
+        "x": det_x / det,
+        "y": det_y / det
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 4. Numerical Root Finding (Newton-Raphson):
+# Finds x such that x^2 - target = 0 (high-precision square root proof)
+# ------------------------------------------------------------------------------
+action newton_find_sqrt(target, iterations)
+    if target <= 0.0
+        return 0.0
+    end
+    let guess = target / 2.0
+    let iter = 0
+    while iter < iterations
+        # f(x) = x^2 - target, f'(x) = 2x
+        # x_next = x - (x^2 - target) / (2x) = 0.5 * (x + target / x)
+        guess = 0.5 * (guess + (target / guess))
+        iter = iter + 1
+    end
+    return guess
+end

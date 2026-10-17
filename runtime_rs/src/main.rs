@@ -8,7 +8,7 @@ use aayu_vm::jit;
 use aayu_vm::compiler;
 
 fn print_banner() {
-    println!("AAYU Intent-to-Silicon Engine v1.4.0");
+    println!("AAYU Intent-to-Silicon Engine v1.5.0");
     println!("Architecture: {} ({})", env::consts::ARCH, env::consts::OS);
     println!("Runtime: Native Rust Bytecode VM | Embedded Compiler & JIT");
 }
@@ -63,7 +63,7 @@ fn print_sysinfo() {
     println!("==================================================");
     println!("       AAYU INTENT-TO-SILICON ENGINE INFO         ");
     println!("==================================================");
-    println!("Engine Version:   1.2.0 (Self-Hosted Intent-to-Silicon)");
+    println!("Engine Version:   1.5.0 (Self-Hosted Intent-to-Silicon)");
     println!("Operating System: {}", env::consts::OS);
     println!("Architecture:     {}", env::consts::ARCH);
     let is_termux = env::var("TERMUX_VERSION").is_ok()
@@ -102,7 +102,7 @@ fn compile_aayu_file(input_path: &str, output_path: &str) -> bool {
 
 fn run_aayuc_cli(args: &[String]) {
     if args.len() < 2 {
-        println!("AAYU Compiler (aayuc) v1.2.0");
+        println!("AAYU Compiler (aayuc) v1.5.0");
         println!("Usage: aayuc <input.aayu> [-o <output.ayc>]");
         return;
     }
@@ -462,6 +462,44 @@ fn run_disasm(input_file: &str) {
             42 => { println!("  {:04X}: GT", op_pc); }
             43 => { println!("  {:04X}: LTE", op_pc); }
             44 => { println!("  {:04X}: GTE", op_pc); }
+            45 => {
+                if pc + 3 <= len {
+                    let slot = bytecode[pc];
+                    let const_idx = ((bytecode[pc + 1] as usize) << 8) | bytecode[pc + 2] as usize;
+                    pc += 3;
+                    println!("  {:04X}: PUSH_L_SUB_C   slot:{} #{}", op_pc, slot, const_idx);
+                }
+            }
+            46 => {
+                if pc + 1 <= len {
+                    let slot = bytecode[pc];
+                    pc += 1;
+                    println!("  {:04X}: ADD_TO_LOCAL   slot:{}", op_pc, slot);
+                }
+            }
+            47 => {
+                if pc + 1 <= len {
+                    let slot = bytecode[pc];
+                    pc += 1;
+                    println!("  {:04X}: ADD_TO_GLOBAL  slot:{}", op_pc, slot);
+                }
+            }
+            56 => {
+                if pc + 3 <= len {
+                    let slot = bytecode[pc];
+                    let const_idx = ((bytecode[pc + 1] as usize) << 8) | bytecode[pc + 2] as usize;
+                    pc += 3;
+                    println!("  {:04X}: PUSH_G_MOD_C   slot:{} #{}", op_pc, slot, const_idx);
+                }
+            }
+            57 => {
+                if pc + 3 <= len {
+                    let slot = bytecode[pc];
+                    let const_idx = ((bytecode[pc + 1] as usize) << 8) | bytecode[pc + 2] as usize;
+                    pc += 3;
+                    println!("  {:04X}: PUSH_L_MOD_C   slot:{} #{}", op_pc, slot, const_idx);
+                }
+            }
             48 => {
                 if pc + 2 <= len {
                     let slot = ((bytecode[pc] as usize) << 8) | bytecode[pc + 1] as usize;
@@ -520,7 +558,7 @@ fn run_disasm(input_file: &str) {
 
 fn run_repl() {
     println!("==================================================");
-    println!("     AAYU Silicon Interactive Shell (REPL) v1.2.0 ");
+    println!("     AAYU Silicon Interactive Shell (REPL) v1.5.0 ");
     println!("     Architecture: {} ({})", env::consts::ARCH, env::consts::OS);
     println!("     Type 'exit' to quit, 'help' for guidance.    ");
     println!("==================================================");
@@ -937,7 +975,7 @@ fn main() {
             std::process::exit(1);
         }
         println!("==================================================");
-        println!("       AAYU ZERO-CONFIG CODE FORMATTER (v1.3.0)   ");
+        println!("       AAYU ZERO-CONFIG CODE FORMATTER (v1.5.0)   ");
         println!("==================================================");
         println!("Formatting source: {}", target);
         let contents = match std::fs::read_to_string(target) {
@@ -1705,7 +1743,7 @@ fn json_escape(s: &str) -> String {
                 let st = state_clone.lock().unwrap();
                 let uptime = st.start_time.elapsed().as_secs();
                 let resp = format!(
-                    r#"{{"engine":"AAYU Silicon Runtime v1.4.0","ram_mb":2.38,"ram_bytes":2496128,"latency_ms":0.82,"tokens_saved_pct":78.4,"total_users":{},"total_events":{},"uptime_sec":{},"architecture":"Intent-to-Silicon","zero_dependencies":true}}"#,
+                    r#"{{"engine":"AAYU Silicon Runtime v1.5.0","ram_mb":2.38,"ram_bytes":2496128,"latency_ms":0.82,"tokens_saved_pct":78.4,"total_users":{},"total_events":{},"uptime_sec":{},"architecture":"Intent-to-Silicon","zero_dependencies":true}}"#,
                     st.users.len(), st.events.len(), uptime
                 );
                 return aayu_vm::net::HttpResponse::json(200, &resp);
@@ -1761,7 +1799,7 @@ fn json_escape(s: &str) -> String {
                 }
 
                 let resp = format!(
-                    r#"{{"status":"success","engine":"AAYU Silicon Liquid Molecular Engine v1.4.0","compression_ratio":"45.9% In-Memory RAM Saved (Mode A)","fast_cache_key":"{}","cache_lookup_latency_ns":2200,"tamper_proof":true,"layers":[
+                    r#"{{"status":"success","engine":"AAYU Silicon Liquid Molecular Engine v1.5.0","compression_ratio":"45.9% In-Memory RAM Saved (Mode A)","fast_cache_key":"{}","cache_lookup_latency_ns":2200,"tamper_proof":true,"layers":[
                         {{"layer":1,"name":"Schema Invariant & AST Blueprint","size_bytes":{},"hash":"{}","status":"CHECKPOINT_1_VERIFIED"}},
                         {{"layer":2,"name":"Token Entropy & Dictionary Elimination","size_bytes":{},"hash":"{}","status":"CHECKPOINT_2_VERIFIED"}},
                         {{"layer":3,"name":"Vectorized In-Memory Key Space","size_bytes":{},"hash":"{}","status":"CHECKPOINT_3_VERIFIED"}},
@@ -1779,6 +1817,112 @@ fn json_escape(s: &str) -> String {
                     h6_inspectors.len(), h6_inspectors,
                     h7_merkle_root.len(), h7_merkle_root,
                     h7_merkle_root
+                );
+                return aayu_vm::net::HttpResponse::json(200, &resp);
+            }
+
+            // AAYU Official Logo Asset Route
+            if req.path == "/aayu-logo.png" {
+                let candidates = [
+                    "aayu-logo.png",
+                    "./aayu-logo.png",
+                    "website/public/aayu-logo.png",
+                    "assets/icons/aayu-logo.png",
+                    "D:/INTENT-TO-SILICON/website/public/aayu-logo.png",
+                ];
+                for path in &candidates {
+                    if let Ok(bytes) = std::fs::read(path) {
+                        return aayu_vm::net::HttpResponse::binary(200, "image/png", bytes);
+                    }
+                }
+            }
+
+            // AAYU AI Agent Laptop Automation Route (Zero-Python Silicon Command Engine)
+            if req.path == "/api/agent/command" && req.method == "POST" {
+                let req_map = extract_json_map(&req.body);
+                let cmd = req_map.get("cmd").or_else(|| req_map.get("command")).cloned().unwrap_or_default();
+                let wake_word = req_map.get("wake_word").cloned().unwrap_or_else(|| "AAYU".to_string());
+                let lower = cmd.to_lowercase().trim().to_string();
+
+                let t0 = std::time::Instant::now();
+                let mut action_taken = String::new();
+                let mut os_result = String::new();
+
+                if lower.is_empty() {
+                    return aayu_vm::net::HttpResponse::json(400, r#"{"status":"error","message":"Empty command"}"#);
+                }
+
+                // Intent routing for Laptop Automation (Ultra-Fast Native Win32 Dispatch)
+                if lower.contains("notepad") {
+                    action_taken = "Launch Application: Notepad".to_string();
+                    let _ = std::process::Command::new("notepad.exe").spawn();
+                    os_result = "Notepad launched natively on Windows (Silicon Speed)".to_string();
+                } else if lower.contains("chrome") || lower.contains("browser") || lower.contains("portal") || lower.contains("website") {
+                    action_taken = "Launch Web Browser".to_string();
+                    let target_url = if lower.contains("intent") || lower.contains("aayu") || lower.contains("portal") || lower.contains("website") {
+                        "https://intent-to-silicon.vercel.app/"
+                    } else if lower.contains("search") {
+                        "https://www.google.com"
+                    } else {
+                        "https://intent-to-silicon.vercel.app/"
+                    };
+                    let _ = std::process::Command::new("cmd").args(["/c", "start", "", target_url]).spawn();
+                    os_result = format!("Browser launched to: {}", target_url);
+                } else if lower.contains("code") || lower.contains("vscode") || lower.contains("vs code") {
+                    action_taken = "Launch Visual Studio Code".to_string();
+                    let _ = std::process::Command::new("cmd").args(["/c", "code", "."]).spawn();
+                    os_result = "VS Code launched in project directory".to_string();
+                } else if lower.contains("terminal") || lower.contains("powershell") || lower.contains("cmd") {
+                    action_taken = "Launch Terminal".to_string();
+                    let _ = std::process::Command::new("cmd").args(["/c", "start", "powershell"]).spawn();
+                    os_result = "Terminal launched natively".to_string();
+                } else if lower.contains("calc") || lower.contains("calculator") {
+                    action_taken = "Launch Calculator".to_string();
+                    let _ = std::process::Command::new("calc.exe").spawn();
+                    os_result = "Calculator opened".to_string();
+                } else if lower.contains("explorer") || lower.contains("files") || lower.contains("folder") {
+                    action_taken = "Open File Explorer".to_string();
+                    let _ = std::process::Command::new("explorer.exe").spawn();
+                    os_result = "Windows File Explorer opened".to_string();
+                } else if lower.contains("task manager") || lower.contains("taskmgr") {
+                    action_taken = "Launch Task Manager".to_string();
+                    let _ = std::process::Command::new("taskmgr.exe").spawn();
+                    os_result = "Task Manager opened".to_string();
+                } else if lower.contains("lock") {
+                    action_taken = "Lock Workstation".to_string();
+                    let _ = std::process::Command::new("rundll32.exe").args(["user32.dll,LockWorkStation"]).spawn();
+                    os_result = "Laptop screen locked safely".to_string();
+                } else if lower.contains("status") || lower.contains("system") || lower.contains("battery") || lower.contains("specs") {
+                    action_taken = "Inspect Laptop System Diagnostics".to_string();
+                    let comp = std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Windows-PC".to_string());
+                    let os_name = std::env::var("OS").unwrap_or_else(|_| "Windows_NT".to_string());
+                    let proc_id = std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "x86_64".to_string());
+                    os_result = format!("PC: {} | OS: {} | CPU: {} | AAYU Silicon VM Native", comp, os_name, proc_id);
+                } else if lower.contains("speak") || lower.contains("say") {
+                    let speak_text = cmd.replace("speak", "").replace("say", "").trim().to_string();
+                    action_taken = format!("Speech Synthesis: {}", speak_text);
+                    let ps_synth = format!("Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{}')", json_escape(&speak_text));
+                    let _ = std::process::Command::new("powershell").arg("-NoProfile").arg("-Command").arg(&ps_synth).spawn();
+                    os_result = format!("Spoke aloud: \"{}\"", speak_text);
+                } else {
+                    action_taken = format!("Execute Intent: {}", cmd);
+                    if let Ok(out) = std::process::Command::new("cmd").args(["/c", &cmd]).output() {
+                        let s = String::from_utf8_lossy(&out.stdout);
+                        let e = String::from_utf8_lossy(&out.stderr);
+                        os_result = if !e.trim().is_empty() { format!("{}\n{}", s.trim(), e.trim()).trim().to_string() } else { s.trim().to_string() };
+                    } else {
+                        os_result = "Command dispatched".to_string();
+                    }
+                }
+
+                let elapsed_us = t0.elapsed().as_micros();
+                let resp = format!(
+                    r#"{{"status":"success","intent":"{}","action":"{}","result":"{}","wake_word":"{}","latency_us":{},"engine":"AAYU Silicon Runtime v1.5.0"}}"#,
+                    json_escape(&cmd),
+                    json_escape(&action_taken),
+                    json_escape(&os_result),
+                    json_escape(&wake_word),
+                    elapsed_us
                 );
                 return aayu_vm::net::HttpResponse::json(200, &resp);
             }

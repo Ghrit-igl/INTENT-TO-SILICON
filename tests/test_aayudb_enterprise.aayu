@@ -1,0 +1,199 @@
+# ==============================================================================
+# AAYU Enterprise Test Suite: AayuDb 2.0 & Liquid Data Analytics
+# 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
+# Tests: O(1) PK Lookups, ACID Rollback, WAL Recovery, Aggregations, Liquid Compression
+# ==============================================================================
+import "std/db.aayu"
+import "std/liquid2.aayu"
+import "std/test.aayu"
+
+action main()
+    test_begin_suite("AayuDb 2.0 & Liquid Analytics Master Suite")
+
+    # --------------------------------------------------------------------------
+    # PHASE 1: DATABASE & TABLE INITIALIZATION
+    # --------------------------------------------------------------------------
+    print("\n[Phase 1] Database & Table Initialization...")
+    let db = db_init("EnterpriseLedgerDB")
+    assert_eq(db["name"], "EnterpriseLedgerDB", "Database name matches")
+    assert_eq(db["in_transaction"], 0, "Initial transaction state is idle")
+
+    db = db_create_table(db, "accounts", "id")
+    let tbl = db["tables"]["accounts"]
+    assert_eq(tbl["name"], "accounts", "Table name matches")
+    assert_eq(tbl["pk"], "id", "Primary key is id")
+    assert_eq(tbl["count"], 0, "Initial count is 0")
+
+    # --------------------------------------------------------------------------
+    # PHASE 2: O(1) INDEXED RECORD INSERTION & UNIQUE CONSTRAINTS
+    # --------------------------------------------------------------------------
+    print("\n[Phase 2] O(1) Primary Key Indexing & Record Insertion...")
+    let r1 = { "id": 1001, "name": "Alice Sharma", "balance": 75000, "tier": "GOLD" }
+    let r2 = { "id": 1002, "name": "Bob Verma", "balance": 45000, "tier": "SILVER" }
+    let r3 = { "id": 1003, "name": "Charlie Gupta", "balance": 120000, "tier": "PLATINUM" }
+    let r4 = { "id": 1004, "name": "Diana Khan", "balance": 30000, "tier": "SILVER" }
+
+    let ins1 = db_insert(db, "accounts", r1)
+    db = ins1["db"]
+    assert_eq(ins1["status"], "OK", "Insert account 1001 OK")
+
+    let ins2 = db_insert(db, "accounts", r2)
+    db = ins2["db"]
+    let ins3 = db_insert(db, "accounts", r3)
+    db = ins3["db"]
+    let ins4 = db_insert(db, "accounts", r4)
+    db = ins4["db"]
+
+    assert_eq(db["tables"]["accounts"]["count"], 4, "Total accounts is 4")
+
+    # Test Duplicate Primary Key Rejection
+    let dup_r = { "id": 1001, "name": "Impostor", "balance": 0, "tier": "BRONZE" }
+    let dup_ins = db_insert(db, "accounts", dup_r)
+    assert_eq(dup_ins["status"], "ERROR", "Duplicate PK rejected cleanly")
+
+    # Test O(1) Sub-Microsecond PK Lookup
+    let found1003 = db_find_pk(db, "accounts", 1003)
+    assert_eq(found1003["name"], "Charlie Gupta", "O(1) PK Lookup finds Charlie")
+    assert_eq(found1003["balance"], 120000, "O(1) PK Lookup finds balance 120000")
+
+    # --------------------------------------------------------------------------
+    # PHASE 3: RECORD UPDATE & DELETION
+    # --------------------------------------------------------------------------
+    print("\n[Phase 3] In-Place Record Updates & Soft Deletes...")
+    let upd_res = db_update_pk(db, "accounts", 1002, { "balance": 55000, "tier": "GOLD" })
+    db = upd_res["db"]
+    assert_eq(upd_res["status"], "OK", "Account 1002 update OK")
+
+    let updated_bob = db_find_pk(db, "accounts", 1002)
+    assert_eq(updated_bob["balance"], 55000, "Bob balance updated to 55000")
+    assert_eq(updated_bob["tier"], "GOLD", "Bob tier updated to GOLD")
+
+    # Delete Diana (1004)
+    let del_res = db_delete_pk(db, "accounts", 1004)
+    db = del_res["db"]
+    assert_eq(del_res["status"], "OK", "Account 1004 deletion OK")
+    let deleted_check = db_find_pk(db, "accounts", 1004)
+    assert_true(deleted_check == null, "Account 1004 no longer found via PK index")
+    assert_eq(db["tables"]["accounts"]["count"], 3, "Active count is 3")
+
+    # --------------------------------------------------------------------------
+    # PHASE 4: QUERY ENGINE: OPERATORS & AGGREGATIONS
+    # --------------------------------------------------------------------------
+    print("\n[Phase 4] Query Engine: Filter Operators & Aggregations...")
+    # Find all GOLD tier accounts
+    let gold_accounts = db_select_where(db, "accounts", "tier", "==", "GOLD")
+    assert_eq(len(gold_accounts), 2, "Found 2 GOLD tier accounts (Alice & Bob)")
+
+    # Find accounts with balance > 60000
+    let wealthy = db_select_where(db, "accounts", "balance", ">", 60000)
+    assert_eq(len(wealthy), 2, "Found 2 accounts with balance > 60000")
+
+    # Aggregations: SUM, AVG, MIN, MAX, COUNT
+    let total_balance = db_aggregate(db, "accounts", "balance", "sum")
+    # Alice: 75000, Bob: 55000, Charlie: 120000 -> Total: 250000
+    assert_eq(total_balance, 250000, "Total sum across accounts is 250000")
+
+    let min_balance = db_aggregate(db, "accounts", "balance", "min")
+    assert_eq(min_balance, 55000, "Minimum balance is 55000")
+
+    let max_balance = db_aggregate(db, "accounts", "balance", "max")
+    assert_eq(max_balance, 120000, "Maximum balance is 120000")
+
+    let avg_balance = db_aggregate(db, "accounts", "balance", "avg")
+    # 250000 / 3 = 83333
+    assert_eq(avg_balance, 83333, "Average balance is 83333")
+
+    # --------------------------------------------------------------------------
+    # PHASE 5: ACID TRANSACTIONS & ATOMIC ROLLBACK
+    # --------------------------------------------------------------------------
+    print("\n[Phase 5] ACID Transactions: Atomicity & Rollback Guarantee...")
+    # Begin transaction
+    let tx_start = db_begin_transaction(db)
+    db = tx_start["db"]
+    assert_eq(db["in_transaction"], 1, "Transaction is active")
+
+    # Execute mutations inside transaction
+    let r_temp = { "id": 1005, "name": "Temporary User", "balance": 99999, "tier": "TEST" }
+    let ins_temp = db_insert(db, "accounts", r_temp)
+    db = ins_temp["db"]
+    let temp_find = db_find_pk(db, "accounts", 1005)
+    assert_eq(temp_find["name"], "Temporary User", "Temporary user visible inside transaction")
+
+    # ROLLBACK: Simulating invariant failure / error
+    let rb_res = db_rollback_transaction(db)
+    db = rb_res["db"]
+    assert_eq(rb_res["status"], "ROLLED_BACK", "Transaction rolled back cleanly")
+    assert_eq(db["in_transaction"], 0, "Transaction flag reset to 0")
+
+    # Verify state reverted to pristine snapshot!
+    let check_temp = db_find_pk(db, "accounts", 1005)
+    assert_true(check_temp == null, "Rolled-back record 1005 completely wiped from RAM")
+    assert_eq(db["tables"]["accounts"]["count"], 3, "Account count restored to exactly 3")
+
+    # --------------------------------------------------------------------------
+    # PHASE 6: WRITE-AHEAD LOG (WAL) & DISASTER RECOVERY REPLAY
+    # --------------------------------------------------------------------------
+    print("\n[Phase 6] Write-Ahead Log (WAL) & Crash Recovery Replay...")
+    let wal_log = [
+        { "op": "INSERT", "table": "wal_test", "data": { "id": 1, "val": 100 } },
+        { "op": "INSERT", "table": "wal_test", "data": { "id": 2, "val": 200 } },
+        { "op": "UPDATE", "table": "wal_test", "data": { "id": 1, "val": 999 } },
+        { "op": "DELETE", "table": "wal_test", "data": { "pk": 2 } }
+    ]
+
+    let recover_db = db_init("RecoveredDB")
+    recover_db = db_create_table(recover_db, "wal_test", "id")
+    let replay_res = db_wal_replay(recover_db, wal_log)
+    recover_db = replay_res["db"]
+
+    assert_eq(replay_res["replayed_count"], 4, "Replayed all 4 WAL journal entries")
+    let rec1 = db_find_pk(recover_db, "wal_test", 1)
+    assert_eq(rec1["val"], 999, "Record 1 recovered with updated value 999")
+    let rec2 = db_find_pk(recover_db, "wal_test", 2)
+    assert_true(rec2 == null, "Record 2 successfully deleted as per WAL log")
+
+    # --------------------------------------------------------------------------
+    # PHASE 7: LIQUID DATA 2.0 COLUMNAR ANALYTICS ACCELERATION
+    # --------------------------------------------------------------------------
+    print("\n[Phase 7] Liquid Data 2.0 Columnar Analytical Acceleration...")
+    # Prepare banking batch
+    let batch = [
+        { "id": 1, "sender": "0xAlice", "receiver": "0xBob", "amount": 5000, "currency": "INR", "status": "ACTIVE" },
+        { "id": 2, "sender": "0xBob", "receiver": "0xCharlie", "amount": 2500, "currency": "INR", "status": "ACTIVE" },
+        { "id": 3, "sender": "0xCharlie", "receiver": "0xAlice", "amount": 7500, "currency": "INR", "status": "ACTIVE" },
+        { "id": 4, "sender": "0xAlice", "receiver": "0xDavid", "amount": 10000, "currency": "INR", "status": "ACTIVE" },
+        { "id": 5, "sender": "0xDavid", "receiver": "0xBob", "amount": 1500, "currency": "INR", "status": "ACTIVE" }
+    ]
+
+    let pack = liquid2_pack_batch(batch)
+    assert_true(liquid2_verify_pack(pack), "Liquid 2.0 pack verified with cryptographic police inspectors")
+
+    # Test O(1) Instant Column Sum Calculation
+    # Total sum: 5000 + 2500 + 7500 + 10000 + 1500 = 26500
+    let o1_sum = liquid2_column_sum_o1(pack, "amount")
+    assert_eq(o1_sum, 26500, "O(1) Column Sum instantly computes 26500 without loop!")
+
+    # Test Columnar Range Filter on compressed deltas
+    # Filter amounts between 2000 and 6000 (Expected: row 0 [5000] and row 1 [2500])
+    let matched_ranges = liquid2_filter_range_indices(pack, "amount", 2000, 6000)
+    assert_eq(len(matched_ranges), 2, "Columnar range filter found 2 matching rows")
+
+    # Test O(1) Token-Indexed CAS Search for sender '0xAlice' (Expected: row 0 and row 3)
+    let alice_rows = liquid2_search_cas_column(pack, "sender", "0xAlice")
+    assert_eq(len(alice_rows), 2, "CAS Token search found 2 transactions for 0xAlice")
+    assert_eq(alice_rows[0], 0, "First Alice row is 0")
+    assert_eq(alice_rows[1], 3, "Second Alice row is 3")
+
+    # Test Compression Report
+    let raw_estimate = 500
+    let report = liquid2_compression_report(raw_estimate, pack)
+    print("Liquid 2.0 Reduction: " + report["reduction_pct"] + "%")
+    assert_true(report["reduction_pct"] > 0, "Compression report validates significant byte savings")
+
+    test_end_suite()
+    print("\n==================================================================")
+    print("      ALL AAYUDB 2.0 & LIQUID DATA ANALYTICS TESTS PASSED!        ")
+    print("==================================================================")
+end
+
+main()

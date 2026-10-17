@@ -21,6 +21,7 @@ config.local.*
 # Build artifacts
 generated_project/
 *.sqlite*
+*.db
 *.ayc
 !bin/aayuc.ayc
 !hello.ayc

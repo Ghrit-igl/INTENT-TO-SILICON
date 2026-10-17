@@ -76,7 +76,7 @@ action main()
     print("  -> Throughput: ~65,400 ops/sec (estimated 15.2 us/op)")
 
     print("--------------------------------------------------")
-    print("OVERALL RESULT: 100% C-Level Silicon Speed Verified.")
+    print("OVERALL RESULT: Native Silicon VM (3-5x faster than Python; ~20-25x from native C).")
     print("==================================================")
 end
 

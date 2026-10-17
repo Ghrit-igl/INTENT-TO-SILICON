@@ -1,0 +1,54 @@
+import "std/test.aayu"
+
+print("==================================================================")
+print("     AAYU ENTERPRISE 4KB DISK-PAGED B-TREE DB SUITE              ")
+print("==================================================================")
+
+test_begin_suite("AAYU Enterprise 4KB Disk-Paged B-Tree Database")
+
+# Phase 1: Open and write records to 4KB disk-paged database
+print("[Phase 1] Writing records with WAL to 4KB disk-paged B-Tree...")
+let db_path = "tests/test_enterprise_btree.db"
+let h = db_btree_open(db_path)
+assert_true(h >= 0, "B-Tree database opened successfully with valid handle")
+
+let ok1 = db_btree_set(h, "account:001", "{\"owner\":\"Ayush\",\"type\":\"Enterprise\",\"tier\":\"Platinum\"}")
+assert_true(ok1, "Inserted record account:001")
+
+let ok2 = db_btree_set(h, "account:002", "{\"owner\":\"GlobalFinCorp\",\"balance\":15000000,\"currency\":\"USD\"}")
+assert_true(ok2, "Inserted record account:002")
+
+let ok3 = db_btree_set(h, "account:003", "{\"owner\":\"CloudScale\",\"status\":\"ACTIVE\",\"nodes\":64}")
+assert_true(ok3, "Inserted record account:003")
+
+# Phase 2: In-memory LRU Page Cache Lookups (Sub-millisecond)
+print("[Phase 2] Querying records via LRU page cache...")
+let rec1 = db_btree_get(h, "account:001")
+assert_true(rec1 != null, "Found record account:001 in B-Tree page cache")
+
+let rec2 = db_btree_get(h, "account:002")
+assert_true(rec2 != null, "Found record account:002 in B-Tree page cache")
+
+let missing = db_btree_get(h, "account:999")
+assert_eq(missing, null, "Querying non-existent key returns null")
+
+let cnt = db_btree_count(h)
+assert_true(cnt >= 3, "Total record count verified in B-Tree header")
+
+# Phase 3: Flush dirty pages to disk & commit WAL
+print("[Phase 3] Flushing dirty 4KB pages to SSD storage...")
+let flushed = db_btree_flush(h)
+assert_true(flushed, "Dirty pages flushed and fsynced to disk cleanly")
+
+# Phase 4: Cold Reopen from Disk (Persistence Verification)
+print("[Phase 4] Reopening B-Tree database from disk...")
+let h2 = db_btree_open(db_path)
+assert_true(h2 >= 0, "Reopened B-Tree database from disk")
+
+let rec1_cold = db_btree_get(h2, "account:001")
+assert_true(rec1_cold != null, "Record account:001 persisted across cold reopen")
+
+let rec2_cold = db_btree_get(h2, "account:002")
+assert_true(rec2_cold != null, "Record account:002 persisted across cold reopen")
+
+test_end_suite()

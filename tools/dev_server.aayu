@@ -17,7 +17,7 @@ action main()
     end
 
     print("==================================================")
-    print("      AAYU INSTANT LIVE HOT-RELOAD ENGINE (v1.4.0) ")
+    print("      AAYU INSTANT LIVE HOT-RELOAD ENGINE (v1.5.0) ")
     print("==================================================")
     print("Target: " + target)
     print("Engine: Pure AAYU Non-Blocking File Watcher")

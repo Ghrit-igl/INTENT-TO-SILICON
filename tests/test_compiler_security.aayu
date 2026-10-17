@@ -1,0 +1,103 @@
+# ==============================================================================
+# AAYU Compiler Correctness & Security Verification Suite
+# tests/test_compiler_security.aayu
+# 100% Pure Self-Hosted AAYU (.aayu)
+# ==============================================================================
+import "std/contracts.aayu"
+import "std/test.aayu"
+
+action test_type_and_preconditions()
+    print("[Security Suite 1] Testing Type & Contract Invariants...")
+    
+    # Check valid types
+    let c1 = check_type(42, "Int", "test_val")
+    assert_eq(c1, 1, "check_type_int")
+
+    let c2 = check_type("aayu", "String", "test_str")
+    assert_eq(c2, 1, "check_type_string")
+
+    let c3 = check_type([1, 2, 3], "Array", "test_arr")
+    assert_eq(c3, 1, "check_type_array")
+
+    # Invariant testing
+    let state_balance = 1000
+    let inv = invariant(state_balance >= 0, "balance_non_negative")
+    assert_eq(inv, 1, "invariant_check_passed")
+
+    # Precondition & Postcondition
+    let req = require(state_balance > 100, "balance_sufficient")
+    assert_eq(req, 1, "require_passed")
+
+    let ens = ensure(state_balance == 1000, "balance_conserved")
+    assert_eq(ens, 1, "ensure_passed")
+    print("  -> Passed: Invariants & Contracts fully verified.")
+end
+
+action test_boundary_and_stack_safety()
+    print("[Security Suite 2] Testing Boundary & Stack Safety...")
+
+    # Array bounds & operations
+    let arr = [10, 20, 30]
+    assert_eq(len(arr), 3, "array_len")
+    assert_eq(arr[0], 10, "array_first")
+    assert_eq(arr[2], 30, "array_last")
+
+    # String slicing boundary
+    let text = "Silicon"
+    assert_eq(len(text), 7, "string_len")
+
+    # Nested array boundary
+    let matrix = [[1, 2], [3, 4]]
+    assert_eq(len(matrix), 2, "matrix_rows")
+    assert_eq(matrix[0][0], 1, "matrix_00")
+    assert_eq(matrix[1][1], 4, "matrix_11")
+
+    print("  -> Passed: Boundary safety verified.")
+end
+
+action recursive_depth_probe(n)
+    if n <= 0
+        return 0
+    end
+    return 1 + recursive_depth_probe(n - 1)
+end
+
+action test_call_frame_depth()
+    print("[Security Suite 3] Testing Flat-Stack Frame Call Depth...")
+    # Test recursion up to 100 frames to verify flat-stack pointer preservation
+    let depth_reached = recursive_depth_probe(100)
+    assert_eq(depth_reached, 100, "recursive_depth_100")
+    print("  -> Passed: Flat-stack zero-copy call depth 100 successfully unwound.")
+end
+
+action test_mathematical_limits()
+    print("[Security Suite 4] Testing Mathematical Limits & Monomorphic Values...")
+    let large_int = 1000000
+    let sq = large_int * 2
+    assert_eq(sq, 2000000, "large_int_mult")
+
+    let f1 = 0.125
+    let f2 = 0.875
+    let f_sum = f1 + f2
+    assert_eq(f_sum, 1.0, "float_exact_addition")
+    print("  -> Passed: Monomorphic math limits verified.")
+end
+
+action main()
+    print("==================================================================")
+    print("      AAYU COMPILER CORRECTNESS & SECURITY TEST SUITE             ")
+    print("==================================================================")
+    test_begin_suite("AAYU Silicon Security & Compiler Verification")
+
+    test_type_and_preconditions()
+    test_boundary_and_stack_safety()
+    test_call_frame_depth()
+    test_mathematical_limits()
+
+    test_end_suite()
+    print("==================================================================")
+    print("      ALL COMPILER SECURITY & INTEGRITY CHECKS PASSED!            ")
+    print("==================================================================")
+end
+
+main()
