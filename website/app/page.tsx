@@ -89,7 +89,7 @@ export default function Home() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm text-zinc-300 mb-6">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              v1.5 Enterprise Silicon Beast · 365 / 365 Tests Pass · Audited FIPS Crypto &amp; 4KB Slotted B-Tree DB
+              v1.5.0 Enterprise · Native MCP Protocol Server · 55/55 Suites Pass (100%) · 128-bit BigInt Auto-Promotion
             </div>
             
             <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-zinc-500">
@@ -118,7 +118,7 @@ export default function Home() {
             
             <div className="flex flex-wrap gap-4 text-sm font-semibold text-zinc-500">
               <span className="flex items-center gap-1"><Zap className="w-4 h-4 text-yellow-500"/> Rust bytecode VM</span>
-              <span className="flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-emerald-500"/> 365/365 Silicon Tests Pass</span>
+              <span className="flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-emerald-500"/> 55/55 Test Suites Pass (371+ Assertions)</span>
               <span className="flex items-center gap-1"><HardDrive className="w-4 h-4 text-cyan-500"/> 4KB Slotted Disk B-Tree DB</span>
             </div>
           </div>
