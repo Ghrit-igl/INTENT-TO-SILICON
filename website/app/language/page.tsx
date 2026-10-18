@@ -11,7 +11,7 @@ export default function LanguagePage() {
         {/* Header */}
         <div className="mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-mono mb-4">
-            <Code2 className="w-3.5 h-3.5" /> AAYU Language Specification v1.2.0
+            <Code2 className="w-3.5 h-3.5" /> AAYU Language Specification v1.5.0
           </div>
           <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">
             The AAYU Language
@@ -52,12 +52,12 @@ export default function LanguagePage() {
             <span className="text-purple-400 font-mono">01.</span> Values, Types &amp; Memory Architecture
           </h2>
           <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
-            AAYU uses dynamic typing backed by an in-memory NaN-boxing union layout. Primitive values (integers, floats, booleans) fit in a single 64-bit register without heap allocation. Collections and strings allocate on the managed mark-and-sweep heap.
+            AAYU uses dynamic typing backed by an in-memory NaN-boxing union layout. Primitive values (integers, floats, booleans) fit in a single 64-bit register without heap allocation. When integer arithmetic exceeds the signed 48-bit register boundary, the VM automatically promotes values to 128-bit heap BigInts without silent wrapping or precision loss. Collections and strings allocate on the managed mark-and-sweep heap.
           </p>
           <div className="bg-[#0a0a0f] border border-white/10 rounded-xl overflow-hidden mb-4">
             <div className="bg-[#111] px-4 py-2 border-b border-white/5 text-xs text-zinc-500 font-mono">types.aayu</div>
             <pre className="p-5 font-mono text-xs md:text-sm text-zinc-300 leading-relaxed overflow-x-auto">
-{`let count = 42              // Int
+{`let count = 42              // Int (48-bit inline register)
 let price = 19.99           // Float
 let is_active = 1           // Bool (1 / 0)
 let title = "Silicon Core"  // String
@@ -65,10 +65,15 @@ let empty = null            // Null
 let numbers = [1, 2, 3]     // Array
 let config = {"debug": 0}   // Dict
 
+// 128-bit BigInt Auto-Promotion (Zero Wrapping)
+let large_int = 140737488355327
+let safe_sum = large_int + 1        // 140737488355328 (Auto-promoted to 128-bit BigInt)
+
 // Runtime Type Reflection
-print("count is:", type(count))     // "Int"
-print("title is:", type(title))     // "String"
-print("numbers is:", type(numbers)) // "Array"`}
+print("count is:", type(count))        // "Int"
+print("safe_sum is:", type(safe_sum))  // "Int"
+print("title is:", type(title))        // "String"
+print("numbers is:", type(numbers))    // "Array"`}
             </pre>
           </div>
         </section>

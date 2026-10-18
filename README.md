@@ -13,7 +13,7 @@
   <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases"><img src="https://img.shields.io/badge/version-v1.5.0-purple?style=for-the-badge" alt="Version"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Open%20Standard-blue?style=for-the-badge" alt="License"/></a>
   <a href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"><img src="https://img.shields.io/badge/live%20portal-active-emerald?style=for-the-badge" alt="Live Portal"/></a>
-  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-365%20%2F%20365%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
+  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-371%20%2F%20371%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
 
   <a href="https://aayulang.com"><img src="https://img.shields.io/badge/website-aayulang.com-0284c7?style=for-the-badge" alt="Website"/></a>
 </p>
@@ -177,7 +177,7 @@ AAYU features a fully self-hosted, 7-stage compiler pipeline written in pure AAY
 ```
 
 * **NaN-Boxing Representation:** All values (`Int`, `Float`, `Bool`, `Null`, String Pointers, Array Pointers) fit inside a single 64-bit `u64` register word. Zero dynamic heap allocation for primitives.
-* **48-Bit NaN-Box VM Integers:** In standard VM mode, integer values are packed into the lower 48 bits of the 64-bit IEEE 754 NaN box. The signed integer range is $[-140,737,488,355,328, 140,737,488,355,327]$ ($[-2^{47}, 2^{47}-1]$). Calculations exceeding this bound wrap around at the VM boundary.
+* **Hybrid NaN-Box Scalar Engine & 128-Bit BigInt Auto-Promotion:** In standard VM mode, integer values are packed into the lower 48 bits of the 64-bit IEEE 754 NaN box for zero-cost CPU register speed within $[-140,737,488,355,328, 140,737,488,355,327]$ ($[-2^{47}, 2^{47}-1]$). Calculations exceeding this bound **never wrap or corrupt memory**; they are automatically promoted to heap-backed 128-bit BigInts (`ABigInt(i128)`), fully managed by the Mark-and-Sweep garbage collector with zero precision loss.
 * **64-Bit Native Hardware Precision (JIT Mode):** When executing with the JIT acceleration engine (`aayu --sum N --jit`), numbers are promoted directly to native hardware CPU registers (`i64`), computing massive calculations (such as summing 1 Billion iterations) without wrapping.
 * **Flat-Stack Base Pointer Optimization:** CallFrame heap allocation has been eliminated in favor of a flat preallocated stack pointer (`prev_base`), dropping recursive workloads like `fib(32)` to sub-second execution (0.99s).
 
@@ -288,7 +288,8 @@ AAYU's reliability is proven by **323 passing assertions across 17 distinct test
 | 18 | `tests/test_audited_crypto.aayu` | **Audited FIPS 180-4 SHA-256/512, HMAC, AES-256-GCM & CSPRNG** | ✅ PASS | **11 / 11** |
 | 19 | `tests/test_cloud_payment_sdks.aayu` | **Universal Payment Gateway, SigV4 Cloud Storage & OAuth2 JWT** | ✅ PASS | **19 / 19** |
 | 20 | `tests/test_disk_btree_db.aayu` | **4KB Disk-Paged Slotted B-Tree Storage Engine & Page Cache** | ✅ PASS | **12 / 12** |
-| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **365 / 365** |
+| 21 | `tests/test_bigint_overflow.aayu` | **48-Bit Overflow Auto-Promotion & 128-Bit BigInt Heap** | ✅ PASS | **6 / 6** |
+| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **371 / 371** |
 
 
 ### ⚡ Ground-Truth Execution Speed & Benchmark Reality

@@ -14,9 +14,11 @@ const TAG_NULL: u64 = 0x7FFB_0000_0000_0000;
 const TAG_STR: u64  = 0x7FFC_0000_0000_0000;
 const TAG_ARR: u64  = 0x7FFD_0000_0000_0000;
 const TAG_DICT: u64 = 0x7FFE_0000_0000_0000;
+const TAG_BIGINT: u64 = 0x7FFF_0000_0000_0000;
 const MIN_BOXED_INT: i64 = -(1i64 << 47);
 const MAX_BOXED_INT: i64 = (1i64 << 47) - 1;
 
+#[allow(dead_code)]
 fn checked_boxed_int(value: i64) -> Result<NanVal, String> {
     if !(MIN_BOXED_INT..=MAX_BOXED_INT).contains(&value) {
         return Err(format!("Integer overflow: {} is outside the signed 48-bit range", value));
@@ -26,6 +28,7 @@ fn checked_boxed_int(value: i64) -> Result<NanVal, String> {
 
 impl NanVal {
     #[inline(always)] pub fn int(v: i64) -> Self { NanVal(TAG_INT | (v as u64 & 0x0000_FFFF_FFFF_FFFF)) }
+    #[inline(always)] pub fn bigint(idx: usize) -> Self { NanVal(TAG_BIGINT | (idx as u64 & 0x0000_FFFF_FFFF_FFFF)) }
     #[inline(always)] pub fn float(v: f64) -> Self {
         // Positive quiet-NaN payloads overlap the boxed value tags. Keep NaN
         // values in the negative quiet-NaN range so they remain floats.
@@ -40,10 +43,11 @@ impl NanVal {
     #[inline(always)] pub fn tensor(idx: usize) -> Self { NanVal(TAG_TENSOR | (idx as u64 & 0x0000_FFFF_FFFF_FFFF)) }
 
     #[inline(always)] pub fn is_int(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_INT }
+    #[inline(always)] pub fn is_bigint(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_BIGINT }
     #[inline(always)] pub fn is_tensor(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_TENSOR }
     #[inline(always)] pub fn is_float(self) -> bool {
         let tag = self.0 & 0xFFFF_0000_0000_0000;
-        !matches!(tag, TAG_INT | TAG_TENSOR | TAG_BOOL | TAG_NULL | TAG_STR | TAG_ARR | TAG_DICT)
+        !matches!(tag, TAG_INT | TAG_TENSOR | TAG_BOOL | TAG_NULL | TAG_STR | TAG_ARR | TAG_DICT | TAG_BIGINT)
     }
     #[inline(always)] pub fn is_bool(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_BOOL }
     #[inline(always)] pub fn is_null(self) -> bool { (self.0 & 0xFFFF_0000_0000_0000) == TAG_NULL }
@@ -54,6 +58,7 @@ impl NanVal {
     #[inline(always)] pub fn as_int(self) -> i64 {
         (((self.0 & 0x0000_FFFF_FFFF_FFFF) << 16) as i64) >> 16
     }
+    #[inline(always)] pub fn as_bigint_idx(self) -> usize { (self.0 & 0x0000_FFFF_FFFF_FFFF) as usize }
     #[inline(always)] pub fn as_float(self) -> f64 { f64::from_bits(self.0) }
     #[inline(always)] pub fn as_tensor_idx(self) -> usize { (self.0 & 0x0000_FFFF_FFFF_FFFF) as usize }
     #[inline(always)]
@@ -64,6 +69,8 @@ impl NanVal {
             false
         } else if self.is_int() {
             self.as_int() != 0
+        } else if self.is_bigint() {
+            true
         } else if self.is_float() {
             let f = self.as_float();
             f != 0.0 && !f.is_nan()
@@ -118,6 +125,7 @@ impl std::fmt::Display for NanVal {
         else if self.is_array() { write!(f, "<Array at {}>", self.as_array_idx()) }
         else if self.is_dict() { write!(f, "<Dict at {}>", self.as_dict_idx()) }
         else if self.is_tensor() { write!(f, "<Tensor at {}>", self.as_tensor_idx()) }
+        else if self.is_bigint() { write!(f, "<BigInt at {}>", self.as_bigint_idx()) }
         else { write!(f, "<Unknown>") }
     }
 }
@@ -174,19 +182,47 @@ impl AayuVM {
 
 
     #[inline(always)]
+    pub fn get_int128(&self, val: NanVal) -> Option<i128> {
+        if val.is_int() {
+            Some(val.as_int() as i128)
+        } else if val.is_bigint() {
+            if let crate::memory::HeapObject::ABigInt(bi) = self.memory.get(val.as_bigint_idx()) {
+                Some(*bi)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    pub fn make_int128(&mut self, val: i128) -> NanVal {
+        if val >= MIN_BOXED_INT as i128 && val <= MAX_BOXED_INT as i128 {
+            NanVal::int(val as i64)
+        } else {
+            let idx = self.memory.allocate(crate::memory::HeapObject::ABigInt(val));
+            NanVal::bigint(idx)
+        }
+    }
+
+    #[inline(always)]
     fn vals_eq(&self, a: NanVal, b: NanVal) -> bool {
-        if a.is_int() && b.is_int() {
-            a.as_int() == b.as_int()
+        if (a.is_int() || a.is_bigint()) && (b.is_int() || b.is_bigint()) {
+            match (self.get_int128(a), self.get_int128(b)) {
+                (Some(ia), Some(ib)) => ia == ib,
+                _ => false,
+            }
         } else if a.is_float() && b.is_float() {
             a.as_float() == b.as_float()
         } else if a.is_string() && b.is_string() {
             self.string_heap.get(a.as_string_idx()) == self.string_heap.get(b.as_string_idx())
         } else if a.is_bool() && b.is_bool() {
             a.as_bool() == b.as_bool()
-        } else if a.is_bool() && b.is_int() {
-            (if a.as_bool() { 1 } else { 0 }) == b.as_int()
-        } else if a.is_int() && b.is_bool() {
-            a.as_int() == (if b.as_bool() { 1 } else { 0 })
+        } else if a.is_bool() && (b.is_int() || b.is_bigint()) {
+            (if a.as_bool() { 1 } else { 0 }) == self.get_int128(b).unwrap_or(0)
+        } else if (a.is_int() || a.is_bigint()) && b.is_bool() {
+            self.get_int128(a).unwrap_or(0) == (if b.as_bool() { 1 } else { 0 })
         } else {
             a.0 == b.0
         }
@@ -194,11 +230,14 @@ impl AayuVM {
 
     #[inline(always)]
     fn cmp_vals(&self, a: NanVal, b: NanVal) -> Option<std::cmp::Ordering> {
-        if a.is_int() && b.is_int() {
-            Some(a.as_int().cmp(&b.as_int()))
+        if (a.is_int() || a.is_bigint()) && (b.is_int() || b.is_bigint()) {
+            match (self.get_int128(a), self.get_int128(b)) {
+                (Some(ia), Some(ib)) => Some(ia.cmp(&ib)),
+                _ => None,
+            }
         } else if a.is_float() || b.is_float() {
-            let fa = if a.is_float() { a.as_float() } else { a.as_int() as f64 };
-            let fb = if b.is_float() { b.as_float() } else { b.as_int() as f64 };
+            let fa = if a.is_float() { a.as_float() } else if a.is_int() { a.as_int() as f64 } else if a.is_bigint() { self.get_int128(a).unwrap_or(0) as f64 } else { 0.0 };
+            let fb = if b.is_float() { b.as_float() } else if b.is_int() { b.as_int() as f64 } else if b.is_bigint() { self.get_int128(b).unwrap_or(0) as f64 } else { 0.0 };
             fa.partial_cmp(&fb)
         } else if a.is_string() && b.is_string() {
             let sa = self.string_heap.get(a.as_string_idx())?;
@@ -756,19 +795,27 @@ impl AayuVM {
                     self.ip += 1;
                     let v = self.locals[self.base + idx];
                     if v.is_int() {
-                        let new_val = v.as_int().wrapping_add(1);
-                        self.locals[self.base + idx] = NanVal::int(new_val);
-                        if self.ip + 3 <= len && self.bytecode[self.ip] == 32 {
-                            let jump_target = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
-                            if jump_target + 5 <= len && self.bytecode[jump_target] == 37 && self.bytecode[jump_target + 1] as usize == idx {
-                                let const_idx = ((self.bytecode[jump_target + 2] as usize) << 8) | self.bytecode[jump_target + 3] as usize;
-                                let limit = self.constants[const_idx];
-                                if limit.is_int() && new_val < limit.as_int() {
-                                    self.ip = jump_target + 6;
-                                    continue;
+                        let raw = v.as_int();
+                        if raw < MAX_BOXED_INT {
+                            let new_val = raw + 1;
+                            self.locals[self.base + idx] = NanVal::int(new_val);
+                            if self.ip + 3 <= len && self.bytecode[self.ip] == 32 {
+                                let jump_target = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
+                                if jump_target + 5 <= len && self.bytecode[jump_target] == 37 && self.bytecode[jump_target + 1] as usize == idx {
+                                    let const_idx = ((self.bytecode[jump_target + 2] as usize) << 8) | self.bytecode[jump_target + 3] as usize;
+                                    let limit = self.constants[const_idx];
+                                    if limit.is_int() && new_val < limit.as_int() {
+                                        self.ip = jump_target + 6;
+                                        continue;
+                                    }
                                 }
                             }
+                        } else {
+                            self.locals[self.base + idx] = self.make_int128(raw as i128 + 1);
                         }
+                    } else if v.is_bigint() {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        self.locals[self.base + idx] = self.make_int128(iv + 1);
                     } else if v.is_float() {
                         self.locals[self.base + idx] = NanVal::float(v.as_float() + 1.0);
                     } else if v.is_string() {
@@ -784,7 +831,15 @@ impl AayuVM {
                     self.ip += 1;
                     let v = self.locals[self.base + idx];
                     if v.is_int() {
-                        self.locals[self.base + idx] = NanVal::int(v.as_int().wrapping_sub(1));
+                        let raw = v.as_int();
+                        if raw > MIN_BOXED_INT {
+                            self.locals[self.base + idx] = NanVal::int(raw - 1);
+                        } else {
+                            self.locals[self.base + idx] = self.make_int128(raw as i128 - 1);
+                        }
+                    } else if v.is_bigint() {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        self.locals[self.base + idx] = self.make_int128(iv - 1);
                     } else if v.is_float() {
                         self.locals[self.base + idx] = NanVal::float(v.as_float() - 1.0);
                     }
@@ -794,19 +849,27 @@ impl AayuVM {
                     self.ip += 1;
                     let v = self.globals[idx];
                     if v.is_int() {
-                        let new_val = v.as_int().wrapping_add(1);
-                        self.globals[idx] = NanVal::int(new_val);
-                        if self.ip + 3 <= len && self.bytecode[self.ip] == 32 {
-                            let jump_target = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
-                            if jump_target + 5 <= len && self.bytecode[jump_target] == 31 && self.bytecode[jump_target + 1] as usize == idx {
-                                let const_idx = ((self.bytecode[jump_target + 2] as usize) << 8) | self.bytecode[jump_target + 3] as usize;
-                                let limit = self.constants[const_idx];
-                                if limit.is_int() && new_val < limit.as_int() {
-                                    self.ip = jump_target + 6;
-                                    continue;
+                        let raw = v.as_int();
+                        if raw < MAX_BOXED_INT {
+                            let new_val = raw + 1;
+                            self.globals[idx] = NanVal::int(new_val);
+                            if self.ip + 3 <= len && self.bytecode[self.ip] == 32 {
+                                let jump_target = ((self.bytecode[self.ip + 1] as usize) << 8) | self.bytecode[self.ip + 2] as usize;
+                                if jump_target + 5 <= len && self.bytecode[jump_target] == 31 && self.bytecode[jump_target + 1] as usize == idx {
+                                    let const_idx = ((self.bytecode[jump_target + 2] as usize) << 8) | self.bytecode[jump_target + 3] as usize;
+                                    let limit = self.constants[const_idx];
+                                    if limit.is_int() && new_val < limit.as_int() {
+                                        self.ip = jump_target + 6;
+                                        continue;
+                                    }
                                 }
                             }
+                        } else {
+                            self.globals[idx] = self.make_int128(raw as i128 + 1);
                         }
+                    } else if v.is_bigint() {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        self.globals[idx] = self.make_int128(iv + 1);
                     } else if v.is_float() {
                         self.globals[idx] = NanVal::float(v.as_float() + 1.0);
                     } else if v.is_string() {
@@ -822,7 +885,15 @@ impl AayuVM {
                     self.ip += 1;
                     let v = self.globals[idx];
                     if v.is_int() {
-                        self.globals[idx] = NanVal::int(v.as_int().wrapping_sub(1));
+                        let raw = v.as_int();
+                        if raw > MIN_BOXED_INT {
+                            self.globals[idx] = NanVal::int(raw - 1);
+                        } else {
+                            self.globals[idx] = self.make_int128(raw as i128 - 1);
+                        }
+                    } else if v.is_bigint() {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        self.globals[idx] = self.make_int128(iv - 1);
                     } else if v.is_float() {
                         self.globals[idx] = NanVal::float(v.as_float() - 1.0);
                     }
@@ -833,11 +904,13 @@ impl AayuVM {
                     self.ip += 3;
                     let v = self.locals[self.base + slot];
                     let c = self.constants[const_idx];
-                    if v.is_int() && c.is_int() {
-                        self.locals[self.base + slot] = NanVal::int(v.as_int().wrapping_add(c.as_int()));
+                    if (v.is_int() || v.is_bigint()) && (c.is_int() || c.is_bigint()) {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        let ic = self.get_int128(c).unwrap_or(0);
+                        self.locals[self.base + slot] = self.make_int128(iv + ic);
                     } else if v.is_float() || c.is_float() {
-                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
-                        let fc = if c.is_float() { c.as_float() } else { c.as_int() as f64 };
+                        let fv = if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else if v.is_bigint() { self.get_int128(v).unwrap_or(0) as f64 } else { 0.0 };
+                        let fc = if c.is_float() { c.as_float() } else if c.is_int() { c.as_int() as f64 } else if c.is_bigint() { self.get_int128(c).unwrap_or(0) as f64 } else { 0.0 };
                         self.locals[self.base + slot] = NanVal::float(fv + fc);
                     } else if v.is_string() || c.is_string() {
                         let sv = if v.is_string() { self.string_heap.get(v.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", v) };
@@ -855,11 +928,13 @@ impl AayuVM {
                     self.ip += 3;
                     let v = self.globals[slot];
                     let c = self.constants[const_idx];
-                    if v.is_int() && c.is_int() {
-                        self.globals[slot] = NanVal::int(v.as_int().wrapping_add(c.as_int()));
+                    if (v.is_int() || v.is_bigint()) && (c.is_int() || c.is_bigint()) {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        let ic = self.get_int128(c).unwrap_or(0);
+                        self.globals[slot] = self.make_int128(iv + ic);
                     } else if v.is_float() || c.is_float() {
-                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
-                        let fc = if c.is_float() { c.as_float() } else { c.as_int() as f64 };
+                        let fv = if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else if v.is_bigint() { self.get_int128(v).unwrap_or(0) as f64 } else { 0.0 };
+                        let fc = if c.is_float() { c.as_float() } else if c.is_int() { c.as_int() as f64 } else if c.is_bigint() { self.get_int128(c).unwrap_or(0) as f64 } else { 0.0 };
                         self.globals[slot] = NanVal::float(fv + fc);
                     } else if v.is_string() || c.is_string() {
                         let sv = if v.is_string() { self.string_heap.get(v.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", v) };
@@ -877,11 +952,13 @@ impl AayuVM {
                     self.ip += 3;
                     let v = self.locals[self.base + slot];
                     let c = self.constants[const_idx];
-                    if v.is_int() && c.is_int() {
-                        self.locals[self.base + slot] = NanVal::int(v.as_int().wrapping_sub(c.as_int()));
+                    if (v.is_int() || v.is_bigint()) && (c.is_int() || c.is_bigint()) {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        let ic = self.get_int128(c).unwrap_or(0);
+                        self.locals[self.base + slot] = self.make_int128(iv - ic);
                     } else if v.is_float() || c.is_float() {
-                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
-                        let fc = if c.is_float() { c.as_float() } else { c.as_int() as f64 };
+                        let fv = if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else if v.is_bigint() { self.get_int128(v).unwrap_or(0) as f64 } else { 0.0 };
+                        let fc = if c.is_float() { c.as_float() } else if c.is_int() { c.as_int() as f64 } else if c.is_bigint() { self.get_int128(c).unwrap_or(0) as f64 } else { 0.0 };
                         self.locals[self.base + slot] = NanVal::float(fv - fc);
                     }
                 }
@@ -891,11 +968,13 @@ impl AayuVM {
                     self.ip += 3;
                     let v = self.globals[slot];
                     let c = self.constants[const_idx];
-                    if v.is_int() && c.is_int() {
-                        self.globals[slot] = NanVal::int(v.as_int().wrapping_sub(c.as_int()));
+                    if (v.is_int() || v.is_bigint()) && (c.is_int() || c.is_bigint()) {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        let ic = self.get_int128(c).unwrap_or(0);
+                        self.globals[slot] = self.make_int128(iv - ic);
                     } else if v.is_float() || c.is_float() {
-                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
-                        let fc = if c.is_float() { c.as_float() } else { c.as_int() as f64 };
+                        let fv = if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else if v.is_bigint() { self.get_int128(v).unwrap_or(0) as f64 } else { 0.0 };
+                        let fc = if c.is_float() { c.as_float() } else if c.is_int() { c.as_int() as f64 } else if c.is_bigint() { self.get_int128(c).unwrap_or(0) as f64 } else { 0.0 };
                         self.globals[slot] = NanVal::float(fv - fc);
                     }
                 }
@@ -956,13 +1035,35 @@ impl AayuVM {
                     let val = self.stack[self.sp - 1];
                     self.sp -= 1;
                     let v = self.locals[self.base + slot];
-                    if v.is_int() && val.is_int() {
-                        let sum = v.as_int().checked_add(val.as_int()).ok_or_else(|| "Integer addition overflow".to_string())?;
-                        self.locals[self.base + slot] = checked_boxed_int(sum)?;
+                    if (v.is_int() || v.is_bigint()) && (val.is_int() || val.is_bigint()) {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        let ival = self.get_int128(val).unwrap_or(0);
+                        self.locals[self.base + slot] = self.make_int128(iv + ival);
                     } else if v.is_float() || val.is_float() {
-                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
-                        let fval = if val.is_float() { val.as_float() } else { val.as_int() as f64 };
+                        let fv = if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else if v.is_bigint() { self.get_int128(v).unwrap_or(0) as f64 } else { 0.0 };
+                        let fval = if val.is_float() { val.as_float() } else if val.is_int() { val.as_int() as f64 } else if val.is_bigint() { self.get_int128(val).unwrap_or(0) as f64 } else { 0.0 };
                         self.locals[self.base + slot] = NanVal::float(fv + fval);
+                    } else if v.is_array() && val.is_array() {
+                        let arr_a = match self.memory.get(v.as_array_idx()) {
+                            crate::memory::HeapObject::AArray(arr) => arr.clone(),
+                            _ => Vec::new(),
+                        };
+                        let arr_b = match self.memory.get(val.as_array_idx()) {
+                            crate::memory::HeapObject::AArray(arr) => arr.clone(),
+                            _ => Vec::new(),
+                        };
+                        let mut merged = arr_a;
+                        merged.extend(arr_b);
+                        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(merged));
+                        self.locals[self.base + slot] = NanVal::array(idx);
+                    } else if v.is_string() || val.is_string() {
+                        let sa = if v.is_string() { self.string_heap.get(v.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", v) };
+                        let sb = if val.is_string() { self.string_heap.get(val.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", val) };
+                        let mut res = sa;
+                        res.push_str(&sb);
+                        let idx = self.string_heap.len();
+                        self.string_heap.push(res);
+                        self.locals[self.base + slot] = NanVal::string(idx);
                     }
                 }
                 47 => { // AddToGlobal (1 byte slot)
@@ -971,13 +1072,35 @@ impl AayuVM {
                     let val = self.stack[self.sp - 1];
                     self.sp -= 1;
                     let v = self.globals[slot];
-                    if v.is_int() && val.is_int() {
-                        let sum = v.as_int().checked_add(val.as_int()).ok_or_else(|| "Integer addition overflow".to_string())?;
-                        self.globals[slot] = checked_boxed_int(sum)?;
+                    if (v.is_int() || v.is_bigint()) && (val.is_int() || val.is_bigint()) {
+                        let iv = self.get_int128(v).unwrap_or(0);
+                        let ival = self.get_int128(val).unwrap_or(0);
+                        self.globals[slot] = self.make_int128(iv + ival);
                     } else if v.is_float() || val.is_float() {
-                        let fv = if v.is_float() { v.as_float() } else { v.as_int() as f64 };
-                        let fval = if val.is_float() { val.as_float() } else { val.as_int() as f64 };
+                        let fv = if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else if v.is_bigint() { self.get_int128(v).unwrap_or(0) as f64 } else { 0.0 };
+                        let fval = if val.is_float() { val.as_float() } else if val.is_int() { val.as_int() as f64 } else if val.is_bigint() { self.get_int128(val).unwrap_or(0) as f64 } else { 0.0 };
                         self.globals[slot] = NanVal::float(fv + fval);
+                    } else if v.is_array() && val.is_array() {
+                        let arr_a = match self.memory.get(v.as_array_idx()) {
+                            crate::memory::HeapObject::AArray(arr) => arr.clone(),
+                            _ => Vec::new(),
+                        };
+                        let arr_b = match self.memory.get(val.as_array_idx()) {
+                            crate::memory::HeapObject::AArray(arr) => arr.clone(),
+                            _ => Vec::new(),
+                        };
+                        let mut merged = arr_a;
+                        merged.extend(arr_b);
+                        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(merged));
+                        self.globals[slot] = NanVal::array(idx);
+                    } else if v.is_string() || val.is_string() {
+                        let sa = if v.is_string() { self.string_heap.get(v.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", v) };
+                        let sb = if val.is_string() { self.string_heap.get(val.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", val) };
+                        let mut res = sa;
+                        res.push_str(&sb);
+                        let idx = self.string_heap.len();
+                        self.string_heap.push(res);
+                        self.globals[slot] = NanVal::string(idx);
                     }
                 }
                 56 => { // PushGlobalModConst (1 byte slot + 2 byte const_idx)
@@ -1046,17 +1169,33 @@ impl AayuVM {
                         self.sp += 1;
                     }
                 }
-                0x10 => { // ADD (Polymorphic: Int, Float, String, Array)
+                0x10 => { // ADD (Polymorphic: Int, BigInt, Float, String, Array)
                     let b = self.stack[self.sp - 1];
                     let a = self.stack[self.sp - 2];
                     self.sp -= 1;
                     if a.is_int() && b.is_int() {
-                        self.stack[self.sp - 1] = NanVal::int(a.as_int().wrapping_add(b.as_int()));
+                        let ia = a.as_int();
+                        let ib = b.as_int();
+                        if let Some(sum) = ia.checked_add(ib) {
+                            if (MIN_BOXED_INT..=MAX_BOXED_INT).contains(&sum) {
+                                self.stack[self.sp - 1] = NanVal::int(sum);
+                            } else {
+                                self.stack[self.sp - 1] = self.make_int128(sum as i128);
+                            }
+                        } else {
+                            self.stack[self.sp - 1] = self.make_int128((ia as i128) + (ib as i128));
+                        }
+                    } else if (a.is_int() || a.is_bigint()) && (b.is_int() || b.is_bigint()) {
+                        let ia = self.get_int128(a).unwrap_or(0);
+                        let ib = self.get_int128(b).unwrap_or(0);
+                        self.stack[self.sp - 1] = self.make_int128(ia + ib);
                     } else if a.is_string() || b.is_string() {
                         let sa = if a.is_string() {
                             self.string_heap.get(a.as_string_idx()).cloned().unwrap_or_default()
                         } else if a.is_int() {
                             format!("{}", a.as_int())
+                        } else if a.is_bigint() {
+                            format!("{}", self.get_int128(a).unwrap_or(0))
                         } else if a.is_float() {
                             format!("{}", a.as_float())
                         } else if a.is_bool() {
@@ -1068,6 +1207,8 @@ impl AayuVM {
                             self.string_heap.get(b.as_string_idx()).cloned().unwrap_or_default()
                         } else if b.is_int() {
                             format!("{}", b.as_int())
+                        } else if b.is_bigint() {
+                            format!("{}", self.get_int128(b).unwrap_or(0))
                         } else if b.is_float() {
                             format!("{}", b.as_float())
                         } else if b.is_bool() {
@@ -1094,12 +1235,13 @@ impl AayuVM {
                         let idx = self.memory.allocate(crate::memory::HeapObject::AArray(merged));
                         self.stack[self.sp - 1] = NanVal::array(idx);
                     } else if a.is_float() || b.is_float() {
-                        let fa = if a.is_float() { a.as_float() } else { a.as_int() as f64 };
-                        let fb = if b.is_float() { b.as_float() } else { b.as_int() as f64 };
+                        let fa = if a.is_float() { a.as_float() } else if a.is_int() { a.as_int() as f64 } else if a.is_bigint() { self.get_int128(a).unwrap_or(0) as f64 } else { 0.0 };
+                        let fb = if b.is_float() { b.as_float() } else if b.is_int() { b.as_int() as f64 } else if b.is_bigint() { self.get_int128(b).unwrap_or(0) as f64 } else { 0.0 };
                         self.stack[self.sp - 1] = NanVal::float(fa + fb);
                     } else {
-                        self.stack[self.sp - 1] = checked_boxed_int(a.as_int().checked_add(b.as_int())
-                            .ok_or_else(|| "Integer addition overflow".to_string())?)?;
+                        let ia = self.get_int128(a).unwrap_or(0);
+                        let ib = self.get_int128(b).unwrap_or(0);
+                        self.stack[self.sp - 1] = self.make_int128(ia + ib);
                     }
                     continue;
                 }
@@ -1175,6 +1317,12 @@ impl AayuVM {
                                     print!("{}", self.string_heap[a.as_string_idx()]);
                                 } else if a.is_tensor() && a.as_tensor_idx() < self.tensor_heap.len() {
                                     self.tensor_heap[a.as_tensor_idx()].print();
+                                } else if a.is_bigint() {
+                                    if let crate::memory::HeapObject::ABigInt(bi) = self.memory.get(a.as_bigint_idx()) {
+                                        print!("{}", bi);
+                                    } else {
+                                        print!("{}", a);
+                                    }
                                 } else {
                                     print!("{}", a);
                                 }
@@ -1232,7 +1380,7 @@ impl AayuVM {
                             self.sp += 1;
                         } else if func_name == "type" || func_name == "typeof" {
                             let a = if argc > 0 { self.stack[self.sp - 1] } else { NanVal::null() };
-                            let type_name = if a.is_int() {
+                            let type_name = if a.is_int() || a.is_bigint() {
                                 "Int"
                             } else if a.is_float() {
                                 "Float"
@@ -2059,10 +2207,11 @@ impl AayuVM {
                     self.stack[self.sp - 1] = NanVal::int(len as i64);
                 }
                 254 => {
-                    let b = self.stack[self.sp - 1].as_int();
-                    let a = self.stack[self.sp - 2].as_int();
-                    self.stack[self.sp - 2] = checked_boxed_int(a.checked_add(b)
-                        .ok_or_else(|| "Integer addition overflow".to_string())?)?;
+                    let b = self.stack[self.sp - 1];
+                    let a = self.stack[self.sp - 2];
+                    let ib = self.get_int128(b).unwrap_or(0);
+                    let ia = self.get_int128(a).unwrap_or(0);
+                    self.stack[self.sp - 2] = self.make_int128(ia + ib);
                     self.sp -= 1;
                 }
                 253 => { // old LT
@@ -2098,6 +2247,12 @@ impl AayuVM {
                     if val.is_string() && val.as_string_idx() < self.string_heap.len() {
                         let s = &self.string_heap[val.as_string_idx()];
                         println!("{}", s);
+                    } else if val.is_bigint() {
+                        if let crate::memory::HeapObject::ABigInt(bi) = self.memory.get(val.as_bigint_idx()) {
+                            println!("{}", bi);
+                        } else {
+                            println!("{}", val);
+                        }
                     } else if val.is_array() {
                         if let crate::memory::HeapObject::AArray(arr) = self.memory.get(val.as_array_idx()) {
                             print!("[");
@@ -2105,6 +2260,12 @@ impl AayuVM {
                                 if i > 0 { print!(", "); }
                                 if elem.is_string() && elem.as_string_idx() < self.string_heap.len() {
                                     print!("\"{}\"", self.string_heap[elem.as_string_idx()]);
+                                } else if elem.is_bigint() {
+                                    if let crate::memory::HeapObject::ABigInt(bi) = self.memory.get(elem.as_bigint_idx()) {
+                                        print!("{}", bi);
+                                    } else {
+                                        print!("{}", elem);
+                                    }
                                 } else {
                                     print!("{}", elem);
                                 }
@@ -2119,6 +2280,12 @@ impl AayuVM {
                                 print!("\"{}\": ", k);
                                 if v.is_string() && v.as_string_idx() < self.string_heap.len() {
                                     print!("\"{}\"", self.string_heap[v.as_string_idx()]);
+                                } else if v.is_bigint() {
+                                    if let crate::memory::HeapObject::ABigInt(bi) = self.memory.get(v.as_bigint_idx()) {
+                                        print!("{}", bi);
+                                    } else {
+                                        print!("{}", v);
+                                    }
                                 } else {
                                     print!("{}", v);
                                 }
@@ -2138,6 +2305,12 @@ impl AayuVM {
                     if val.is_string() {
                         let s = &self.string_heap[val.as_string_idx()];
                         println!("{}", s);
+                    } else if val.is_bigint() {
+                        if let crate::memory::HeapObject::ABigInt(bi) = self.memory.get(val.as_bigint_idx()) {
+                            println!("{}", bi);
+                        } else {
+                            println!("{}", val);
+                        }
                     } else {
                         println!("{}", val);
                     }
@@ -2247,14 +2420,29 @@ impl AayuVM {
                     let b = self.stack[self.sp - 1];
                     let a = self.stack[self.sp - 2];
                     if a.is_int() && b.is_int() {
-                        self.stack[self.sp - 2] = NanVal::int(a.as_int().wrapping_sub(b.as_int()));
+                        let ia = a.as_int();
+                        let ib = b.as_int();
+                        if let Some(diff) = ia.checked_sub(ib) {
+                            if (MIN_BOXED_INT..=MAX_BOXED_INT).contains(&diff) {
+                                self.stack[self.sp - 2] = NanVal::int(diff);
+                            } else {
+                                self.stack[self.sp - 2] = self.make_int128(diff as i128);
+                            }
+                        } else {
+                            self.stack[self.sp - 2] = self.make_int128((ia as i128) - (ib as i128));
+                        }
+                    } else if (a.is_int() || a.is_bigint()) && (b.is_int() || b.is_bigint()) {
+                        let ia = self.get_int128(a).unwrap_or(0);
+                        let ib = self.get_int128(b).unwrap_or(0);
+                        self.stack[self.sp - 2] = self.make_int128(ia - ib);
                     } else if a.is_float() || b.is_float() {
-                        let fa = if a.is_float() { a.as_float() } else { a.as_int() as f64 };
-                        let fb = if b.is_float() { b.as_float() } else { b.as_int() as f64 };
+                        let fa = if a.is_float() { a.as_float() } else if a.is_int() { a.as_int() as f64 } else if a.is_bigint() { self.get_int128(a).unwrap_or(0) as f64 } else { 0.0 };
+                        let fb = if b.is_float() { b.as_float() } else if b.is_int() { b.as_int() as f64 } else if b.is_bigint() { self.get_int128(b).unwrap_or(0) as f64 } else { 0.0 };
                         self.stack[self.sp - 2] = NanVal::float(fa - fb);
                     } else {
-                        self.stack[self.sp - 2] = checked_boxed_int(a.as_int().checked_sub(b.as_int())
-                            .ok_or_else(|| "Integer subtraction overflow".to_string())?)?;
+                        let ia = self.get_int128(a).unwrap_or(0);
+                        let ib = self.get_int128(b).unwrap_or(0);
+                        self.stack[self.sp - 2] = self.make_int128(ia - ib);
                     }
                     self.sp -= 1;
                 }
@@ -2262,44 +2450,65 @@ impl AayuVM {
                     let b = self.stack[self.sp - 1];
                     let a = self.stack[self.sp - 2];
                     if a.is_int() && b.is_int() {
-                        self.stack[self.sp - 2] = NanVal::int(a.as_int().wrapping_mul(b.as_int()));
+                        let ia = a.as_int();
+                        let ib = b.as_int();
+                        if let Some(prod) = ia.checked_mul(ib) {
+                            if (MIN_BOXED_INT..=MAX_BOXED_INT).contains(&prod) {
+                                self.stack[self.sp - 2] = NanVal::int(prod);
+                            } else {
+                                self.stack[self.sp - 2] = self.make_int128(prod as i128);
+                            }
+                        } else {
+                            self.stack[self.sp - 2] = self.make_int128((ia as i128) * (ib as i128));
+                        }
+                    } else if (a.is_int() || a.is_bigint()) && (b.is_int() || b.is_bigint()) {
+                        let ia = self.get_int128(a).unwrap_or(0);
+                        let ib = self.get_int128(b).unwrap_or(0);
+                        self.stack[self.sp - 2] = self.make_int128(ia * ib);
                     } else if a.is_float() || b.is_float() {
-                        let fa = if a.is_float() { a.as_float() } else { a.as_int() as f64 };
-                        let fb = if b.is_float() { b.as_float() } else { b.as_int() as f64 };
+                        let fa = if a.is_float() { a.as_float() } else if a.is_int() { a.as_int() as f64 } else if a.is_bigint() { self.get_int128(a).unwrap_or(0) as f64 } else { 0.0 };
+                        let fb = if b.is_float() { b.as_float() } else if b.is_int() { b.as_int() as f64 } else if b.is_bigint() { self.get_int128(b).unwrap_or(0) as f64 } else { 0.0 };
                         self.stack[self.sp - 2] = NanVal::float(fa * fb);
                     } else {
-                        self.stack[self.sp - 2] = checked_boxed_int(a.as_int().checked_mul(b.as_int())
-                            .ok_or_else(|| "Integer multiplication overflow".to_string())?)?;
+                        let ia = self.get_int128(a).unwrap_or(0);
+                        let ib = self.get_int128(b).unwrap_or(0);
+                        self.stack[self.sp - 2] = self.make_int128(ia * ib);
                     }
                     self.sp -= 1;
                 }
                 19 => { // DIV
                     let b = self.stack[self.sp - 1];
                     let a = self.stack[self.sp - 2];
-                    if a.is_float() || b.is_float() {
-                        let fa = if a.is_float() { a.as_float() } else { a.as_int() as f64 };
-                        let fb = if b.is_float() { b.as_float() } else { b.as_int() as f64 };
+                    if (a.is_int() || a.is_bigint()) && (b.is_int() || b.is_bigint()) {
+                        let ib = self.get_int128(b).unwrap_or(0);
+                        if ib == 0 {
+                            return Err("Integer division by zero".to_string());
+                        }
+                        let ia = self.get_int128(a).unwrap_or(0);
+                        self.stack[self.sp - 2] = self.make_int128(ia / ib);
+                    } else {
+                        let fa = if a.is_float() { a.as_float() } else if a.is_int() { a.as_int() as f64 } else if a.is_bigint() { self.get_int128(a).unwrap_or(0) as f64 } else { 0.0 };
+                        let fb = if b.is_float() { b.as_float() } else if b.is_int() { b.as_int() as f64 } else if b.is_bigint() { self.get_int128(b).unwrap_or(0) as f64 } else { 0.0 };
                         if fb == 0.0 {
                             return Err("Float division by zero".to_string());
                         }
                         self.stack[self.sp - 2] = NanVal::float(fa / fb);
-                    } else {
-                        let ib = b.as_int();
-                        if ib == 0 {
-                            return Err("Integer division by zero".to_string());
-                        }
-                        self.stack[self.sp - 2] = checked_boxed_int(a.as_int().checked_div(ib)
-                            .ok_or_else(|| "Integer division overflow".to_string())?)?;
                     }
                     self.sp -= 1;
                 }
                 20 => { // MOD
-                    let b = self.stack[self.sp - 1].as_int();
-                    let a = self.stack[self.sp - 2].as_int();
-                    if b == 0 {
-                        return Err("Modulo by zero".to_string());
+                    let b = self.stack[self.sp - 1];
+                    let a = self.stack[self.sp - 2];
+                    if (a.is_int() || a.is_bigint()) && (b.is_int() || b.is_bigint()) {
+                        let ib = self.get_int128(b).unwrap_or(0);
+                        if ib == 0 {
+                            return Err("Modulo by zero".to_string());
+                        }
+                        let ia = self.get_int128(a).unwrap_or(0);
+                        self.stack[self.sp - 2] = self.make_int128(ia % ib);
+                    } else {
+                        return Err("Modulo requires integer operands".to_string());
                     }
-                    self.stack[self.sp - 2] = NanVal::int(a.wrapping_rem(b));
                     self.sp -= 1;
                 }
                 38 => { // CmpEq

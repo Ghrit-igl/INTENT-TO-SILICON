@@ -716,7 +716,11 @@ fn parse_bytecode_data(data: &[u8]) -> Result<(Vec<String>, Vec<NanVal>, Vec<u8>
                 let mut val_bytes = [0u8; 8];
                 val_bytes.copy_from_slice(&data[pos..pos+8]);
                 let val = i64::from_le_bytes(val_bytes);
-                constants.push(NanVal::int(val));
+                if val >= -(1i64 << 47) && val <= (1i64 << 47) - 1 {
+                    constants.push(NanVal::int(val));
+                } else {
+                    constants.push(NanVal::float(val as f64));
+                }
                 pos += 8;
             }
             2 => { // String

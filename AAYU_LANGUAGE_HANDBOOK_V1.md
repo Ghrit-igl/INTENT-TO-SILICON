@@ -24,6 +24,23 @@ let is_fast = true         # Boolean
 let price = 99.99          # Float
 let cores = 8              # Int
 let missing = null         # Null (Handled safely)
+
+# Precision Arithmetic: 128-bit BigInt Auto-Promotion (Zero Wrapping)
+# Integers within [-140,737,488,355,328, 140,737,488,355,327] execute at register speed.
+# When a calculation exceeds 48 bits, AAYU dynamically promotes it to a 128-bit Heap BigInt.
+let large_int = 140737488355327
+let safe_overflow = large_int + 1   # Result: 140737488355328 (Never wraps negative!)
+let wei_amount = safe_overflow * 1000
+print(safe_overflow)                # Output: 140737488355328
+print(typeof(safe_overflow))        # Output: "Int"
+```
+
+### The NaN-Boxed Hybrid Scalar Engine:
+1. **Fast Inline Path:** 48-bit signed integer payload stored directly inside the unused bits of an IEEE-754 Quiet NaN. Zero heap allocation, zero pointer chasing, zero GC pressure.
+2. **Dynamic BigInt Promotion:** Arithmetic overflow (`+`, `-`, `*`, `/`, `%`) triggers automatic 128-bit `ABigInt(i128)` promotion in the VM memory arena, fully tracked by the Mark-and-Sweep garbage collector.
+3. **No Overflow Vulnerabilities:** Financial balances, blockchain Wei/Satoshi amounts, and microsecond UNIX timestamps never wrap or silently corrupt memory.
+
+```aayu
 ```
 
 ---

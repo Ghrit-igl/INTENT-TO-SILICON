@@ -1,4 +1,4 @@
-﻿use std::collections::HashMap;
+use std::collections::HashMap;
 use crate::vm::NanVal;
 
 /// Enum representing all dynamically allocated structures in AAYU.
@@ -10,6 +10,7 @@ pub enum HeapObject {
     AString(String),
     AArray(Vec<NanVal>),
     ADict(HashMap<String, NanVal>),
+    ABigInt(i128),
     // Future: AClass, AClosure, etc.
 }
 
@@ -74,8 +75,9 @@ impl MemoryManager {
         // 1. Scan the Stack for pointers to the Heap
         for val in stack {
             if val.is_string() { worklist.push(val.as_string_idx()); }
-            else if val.is_array() { worklist.push(val.as_array_idx()); } // Assuming these methods exist
+            else if val.is_array() { worklist.push(val.as_array_idx()); }
             else if val.is_dict() { worklist.push(val.as_dict_idx()); }
+            else if val.is_bigint() { worklist.push(val.as_bigint_idx()); }
         }
 
         // 2. Trace references inside Heap objects (DFS)
@@ -93,6 +95,7 @@ impl MemoryManager {
                                 if v.is_string() { children.push(v.as_string_idx()); }
                                 else if v.is_array() { children.push(v.as_array_idx()); }
                                 else if v.is_dict() { children.push(v.as_dict_idx()); }
+                                else if v.is_bigint() { children.push(v.as_bigint_idx()); }
                             }
                         },
                         HeapObject::ADict(dict) => {
@@ -100,6 +103,7 @@ impl MemoryManager {
                                 if v.is_string() { children.push(v.as_string_idx()); }
                                 else if v.is_array() { children.push(v.as_array_idx()); }
                                 else if v.is_dict() { children.push(v.as_dict_idx()); }
+                                else if v.is_bigint() { children.push(v.as_bigint_idx()); }
                             }
                         },
                         _ => {}

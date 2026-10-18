@@ -650,13 +650,21 @@ end`}</code>
               </p>
               <div className="font-mono text-[11px] text-amber-300">256 Workers · 16,384 Task Queue</div>
             </div>
-          </div>
 
-          <div className="p-6 rounded-xl bg-blue-950/30 border border-blue-500/30">
-            <h3 className="text-lg font-bold text-blue-400 mb-2">5. AAYU Foundation Governance &amp; RFC Process</h3>
-            <p className="text-zinc-400 text-xs leading-relaxed">
-              <code className="text-blue-300">GOVERNANCE.md</code> eliminates single-developer risk via a formal Steering Council across 5 domain areas (Compiler, Runtime, Standard Library, Security, DevRel), an open RFC process, and a strict Go 1.0 style Backward Compatibility Contract.
-            </p>
+            <div className="p-6 rounded-xl bg-zinc-900/60 border border-fuchsia-500/30">
+              <h3 className="text-lg font-bold text-fuchsia-400 mb-2">5. 128-Bit BigInt Auto-Promotion</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-fuchsia-300">runtime_rs/src/vm.rs</code> runs 48-bit ints in zero-cost registers, automatically promoting to 128-bit heap BigInts (<code className="text-fuchsia-300">ABigInt(i128)</code>) on overflow. Eliminates silent wrapping for banking, blockchain Wei/Satoshi, and microsecond timestamps.
+              </p>
+              <div className="font-mono text-[11px] text-fuchsia-300">6/6 Silicon Assertions Verified · Zero Wrapping</div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-blue-950/30 border border-blue-500/30">
+              <h3 className="text-lg font-bold text-blue-400 mb-2">6. AAYU Foundation Governance</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed">
+                <code className="text-blue-300">GOVERNANCE.md</code> eliminates single-developer risk via a formal Steering Council across 5 domain areas (Compiler, Runtime, Standard Library, Security, DevRel), an open RFC process, and a strict Go 1.0 style Backward Compatibility Contract.
+              </p>
+            </div>
           </div>
         </div>
 

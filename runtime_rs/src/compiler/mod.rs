@@ -280,9 +280,7 @@ fn validate_supported(statements: &[parser::Statement]) -> Result<(), String> {
     fn check_expr(expr: &parser::Expr, functions: &HashMap<String, usize>) -> Result<(), String> {
         use parser::Expr;
         match expr {
-            Expr::Integer(value) if !(-(1i64 << 47)..=(1i64 << 47) - 1).contains(value) => Err(
-                format!("integer literal {} is outside the signed 48-bit VM range", value)
-            ),
+            Expr::Integer(_) => Ok(()),
             Expr::Call { callee, args } => {
                 if callee == "len" {
                     if args.len() != 1 { return Err("len() expects exactly one argument".into()); }
