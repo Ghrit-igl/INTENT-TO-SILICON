@@ -38,10 +38,10 @@ impl Default for MemoryManager {
 impl MemoryManager {
     pub fn new() -> Self {
         Self {
-            heap: Vec::with_capacity(1024),
+            heap: Vec::with_capacity(4096),
             free_list: Vec::new(),
             total_allocated: 0,
-            gc_threshold: 256, // Low threshold for early GC testing
+            gc_threshold: 32768, // Optimal 32K object threshold (fits in CPU cache)
         }
     }
 
@@ -68,16 +68,23 @@ impl MemoryManager {
     }
 
     /// GARBAGE COLLECTOR: MARK PHASE
-    /// Traces all active memory starting from the VM Stack (Roots).
-    pub fn mark_roots(&mut self, stack: &[NanVal]) {
+    /// Traces all active memory starting from the VM Roots (Stack, Locals, Globals, Constants).
+    pub fn mark_roots(&mut self, roots: &[NanVal]) {
         let mut worklist: Vec<usize> = Vec::new();
 
-        // 1. Scan the Stack for pointers to the Heap
-        for val in stack {
-            if val.is_string() { worklist.push(val.as_string_idx()); }
-            else if val.is_array() { worklist.push(val.as_array_idx()); }
-            else if val.is_dict() { worklist.push(val.as_dict_idx()); }
-            else if val.is_bigint() { worklist.push(val.as_bigint_idx()); }
+        let heap_len = self.heap.len();
+        // 1. Scan roots for pointers to the Heap (Array, Dict, BigInt)
+        for val in roots {
+            if val.is_array() {
+                let idx = val.as_array_idx();
+                if idx < heap_len { worklist.push(idx); }
+            } else if val.is_dict() {
+                let idx = val.as_dict_idx();
+                if idx < heap_len { worklist.push(idx); }
+            } else if val.is_bigint() {
+                let idx = val.as_bigint_idx();
+                if idx < heap_len { worklist.push(idx); }
+            }
         }
 
         // 2. Trace references inside Heap objects (DFS)
@@ -86,24 +93,34 @@ impl MemoryManager {
                 if !node.marked {
                     node.marked = true; // Mark as alive
                     
-                    // If it's a container, add its children to the worklist
-                    // We use cloning of indices to avoid borrowing conflicts in Rust
                     let mut children = Vec::new();
                     match &node.data {
                         HeapObject::AArray(arr) => {
                             for v in arr {
-                                if v.is_string() { children.push(v.as_string_idx()); }
-                                else if v.is_array() { children.push(v.as_array_idx()); }
-                                else if v.is_dict() { children.push(v.as_dict_idx()); }
-                                else if v.is_bigint() { children.push(v.as_bigint_idx()); }
+                                if v.is_array() {
+                                    let c_idx = v.as_array_idx();
+                                    if c_idx < heap_len { children.push(c_idx); }
+                                } else if v.is_dict() {
+                                    let c_idx = v.as_dict_idx();
+                                    if c_idx < heap_len { children.push(c_idx); }
+                                } else if v.is_bigint() {
+                                    let c_idx = v.as_bigint_idx();
+                                    if c_idx < heap_len { children.push(c_idx); }
+                                }
                             }
                         },
                         HeapObject::ADict(dict) => {
                             for v in dict.values() {
-                                if v.is_string() { children.push(v.as_string_idx()); }
-                                else if v.is_array() { children.push(v.as_array_idx()); }
-                                else if v.is_dict() { children.push(v.as_dict_idx()); }
-                                else if v.is_bigint() { children.push(v.as_bigint_idx()); }
+                                if v.is_array() {
+                                    let c_idx = v.as_array_idx();
+                                    if c_idx < heap_len { children.push(c_idx); }
+                                } else if v.is_dict() {
+                                    let c_idx = v.as_dict_idx();
+                                    if c_idx < heap_len { children.push(c_idx); }
+                                } else if v.is_bigint() {
+                                    let c_idx = v.as_bigint_idx();
+                                    if c_idx < heap_len { children.push(c_idx); }
+                                }
                             }
                         },
                         _ => {}
@@ -117,22 +134,22 @@ impl MemoryManager {
     /// GARBAGE COLLECTOR: SWEEP PHASE
     /// Frees any memory that was not marked as alive.
     pub fn sweep(&mut self) -> usize {
-        let mut freed_bytes = 0;
+        let mut freed_objects = 0;
         for i in 0..self.heap.len() {
             if let Some(node) = &mut self.heap[i] {
                 if !node.marked {
                     // DEAD OBJECT - Free it!
                     self.heap[i] = None;
                     self.free_list.push(i);
-                    self.total_allocated -= 1;
-                    freed_bytes += 1;
+                    self.total_allocated = self.total_allocated.saturating_sub(1);
+                    freed_objects += 1;
                 } else {
                     // LIVE OBJECT - Unmark for the next GC cycle
                     node.marked = false;
                 }
             }
         }
-        freed_bytes
+        freed_objects
     }
 }
 

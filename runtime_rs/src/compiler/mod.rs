@@ -234,8 +234,26 @@ fn expand_file(
                 }
                 if let Some(f) = found {
                     resolved = f;
-                } else {
                     let mut global_dirs: Vec<PathBuf> = Vec::new();
+                    if let Ok(cwd) = std::env::current_dir() {
+                        global_dirs.push(cwd.clone());
+                        let mut p = cwd.as_path();
+                        while let Some(parent) = p.parent() {
+                            global_dirs.push(parent.to_path_buf());
+                            p = parent;
+                        }
+                    }
+                    if let Ok(exe) = std::env::current_exe() {
+                        if let Some(p) = exe.parent() {
+                            global_dirs.push(p.to_path_buf());
+                            if let Some(pp) = p.parent() {
+                                global_dirs.push(pp.to_path_buf());
+                                if let Some(ppp) = pp.parent() {
+                                    global_dirs.push(ppp.to_path_buf());
+                                }
+                            }
+                        }
+                    }
                     if let Ok(home) = std::env::var("AAYU_HOME") {
                         global_dirs.push(PathBuf::from(home));
                     }

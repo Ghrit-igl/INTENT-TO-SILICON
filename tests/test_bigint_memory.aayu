@@ -1,0 +1,22 @@
+import "std/test.aayu"
+
+test_begin_suite("BigInt GC & Memory Recycling Suite")
+
+# Start beyond 48-bit range so every iteration requires BigInt
+state s = 140737488355328
+state i = 0
+while i < 20000000
+    s = s + 1
+    i = i + 1
+end
+
+assert_eq(s, 140737488355328 + 20000000, "20M BigInt loop recycling")
+
+# Test Auto-Demotion from BigInt back to 48-bit int
+state big = 140737488355328
+state demoted = big - 1
+assert_eq(demoted, 140737488355327, "Auto-demotion to 48-bit int")
+state demoted_more = demoted - 1000
+assert_eq(demoted_more, 140737488354327, "Normal int arithmetic after demotion")
+
+test_end_suite()

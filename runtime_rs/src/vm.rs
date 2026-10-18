@@ -148,6 +148,7 @@ pub struct AayuVM {
     pub db_engine: DbEngine,
     pub btree_dbs: Vec<crate::btree::BTreeDb>,
     pub state: std::collections::HashMap<String, NanVal>,
+    pub sandbox: bool,
 }
 
 struct CallFrame {
@@ -177,9 +178,35 @@ impl AayuVM {
             db_engine: DbEngine::new("aayu_db.rsdb"),
             btree_dbs: Vec::new(),
             state: std::collections::HashMap::new(),
+            sandbox: false,
         }
     }
 
+    pub fn allocate_heap(&mut self, obj: crate::memory::HeapObject) -> usize {
+        if self.memory.free_list.is_empty() && self.memory.heap.len() >= self.memory.gc_threshold {
+            self.collect_garbage();
+        }
+        self.memory.allocate(obj)
+    }
+
+    pub fn collect_garbage(&mut self) {
+        if self.sp > 0 {
+            self.memory.mark_roots(&self.stack[0..self.sp]);
+        }
+        let max_local = (self.base + 256).min(self.locals.len());
+        self.memory.mark_roots(&self.locals[0..max_local]);
+        self.memory.mark_roots(&self.globals);
+        self.memory.mark_roots(&self.constants);
+        if !self.state.is_empty() {
+            let state_vals: Vec<NanVal> = self.state.values().copied().collect();
+            self.memory.mark_roots(&state_vals);
+        }
+
+        self.memory.sweep();
+
+        let live = self.memory.heap.len().saturating_sub(self.memory.free_list.len());
+        self.memory.gc_threshold = (live * 2).max(32768);
+    }
 
     #[inline(always)]
     pub fn get_int128(&self, val: NanVal) -> Option<i128> {
@@ -201,7 +228,7 @@ impl AayuVM {
         if val >= MIN_BOXED_INT as i128 && val <= MAX_BOXED_INT as i128 {
             NanVal::int(val as i64)
         } else {
-            let idx = self.memory.allocate(crate::memory::HeapObject::ABigInt(val));
+            let idx = self.allocate_heap(crate::memory::HeapObject::ABigInt(val));
             NanVal::bigint(idx)
         }
     }
@@ -327,13 +354,13 @@ impl AayuVM {
     pub fn tensor_to_nanval_array(&mut self, t: &Tensor) -> NanVal {
         let vec = t.to_vec();
         let nanvals: Vec<NanVal> = vec.into_iter().map(NanVal::float).collect();
-        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(nanvals));
+        let idx = self.allocate_heap(crate::memory::HeapObject::AArray(nanvals));
         NanVal::array(idx)
     }
 
     pub fn shape_to_nanval_array(&mut self, shape: &[usize]) -> NanVal {
         let nanvals: Vec<NanVal> = shape.iter().map(|&s| NanVal::int(s as i64)).collect();
-        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(nanvals));
+        let idx = self.allocate_heap(crate::memory::HeapObject::AArray(nanvals));
         NanVal::array(idx)
     }
 
@@ -1054,7 +1081,7 @@ impl AayuVM {
                         };
                         let mut merged = arr_a;
                         merged.extend(arr_b);
-                        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(merged));
+                        let idx = self.allocate_heap(crate::memory::HeapObject::AArray(merged));
                         self.locals[self.base + slot] = NanVal::array(idx);
                     } else if v.is_string() || val.is_string() {
                         let sa = if v.is_string() { self.string_heap.get(v.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", v) };
@@ -1091,7 +1118,7 @@ impl AayuVM {
                         };
                         let mut merged = arr_a;
                         merged.extend(arr_b);
-                        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(merged));
+                        let idx = self.allocate_heap(crate::memory::HeapObject::AArray(merged));
                         self.globals[slot] = NanVal::array(idx);
                     } else if v.is_string() || val.is_string() {
                         let sa = if v.is_string() { self.string_heap.get(v.as_string_idx()).cloned().unwrap_or_default() } else { format!("{}", v) };
@@ -1232,7 +1259,7 @@ impl AayuVM {
                         };
                         let mut merged = arr_a;
                         merged.extend(arr_b);
-                        let idx = self.memory.allocate(crate::memory::HeapObject::AArray(merged));
+                        let idx = self.allocate_heap(crate::memory::HeapObject::AArray(merged));
                         self.stack[self.sp - 1] = NanVal::array(idx);
                     } else if a.is_float() || b.is_float() {
                         let fa = if a.is_float() { a.as_float() } else if a.is_int() { a.as_int() as f64 } else if a.is_bigint() { self.get_int128(a).unwrap_or(0) as f64 } else { 0.0 };
@@ -1359,7 +1386,7 @@ impl AayuVM {
                                 }
                             }
                             self.sp -= argc + 1;
-                            let arr_idx = self.memory.allocate(crate::memory::HeapObject::AArray(key_vec));
+                            let arr_idx = self.allocate_heap(crate::memory::HeapObject::AArray(key_vec));
                             self.stack[self.sp] = NanVal::array(arr_idx);
                             self.sp += 1;
                         } else if func_name == "str_contains" {
@@ -1449,6 +1476,9 @@ impl AayuVM {
                             }
                             self.sp += 1;
                         } else if func_name == "write_file" {
+                            if self.sandbox {
+                                return Err("[AAYU Sandbox Security Violation]: 'write_file' is prohibited in sandboxed execution mode.".into());
+                            }
                             let content = if argc > 1 {
                                 let c = self.stack[self.sp - 1];
                                 if c.is_string() && c.as_string_idx() < self.string_heap.len() {
@@ -1519,6 +1549,9 @@ impl AayuVM {
                             self.stack[self.sp] = NanVal::null();
                             self.sp += 1;
                         } else if func_name == "os_exec" || func_name == "sys_command" {
+                            if self.sandbox {
+                                return Err("[AAYU Sandbox Security Violation]: Command execution via 'os_exec' is prohibited in sandboxed execution mode.".into());
+                            }
                             let cmd = if argc > 0 {
                                 let c = self.stack[self.sp - 1];
                                 if c.is_string() && c.as_string_idx() < self.string_heap.len() {
@@ -2166,7 +2199,7 @@ impl AayuVM {
                             dict.insert(key_str, val);
                         }
                     }
-                    let idx = self.memory.allocate(crate::memory::HeapObject::ADict(dict));
+                    let idx = self.allocate_heap(crate::memory::HeapObject::ADict(dict));
                     self.stack[self.sp] = NanVal::dict(idx);
                     self.sp += 1;
                 }
@@ -2612,7 +2645,7 @@ impl AayuVM {
                     }
                     arr.reverse();
                     
-                    let idx = self.memory.allocate(crate::memory::HeapObject::AArray(arr));
+                    let idx = self.allocate_heap(crate::memory::HeapObject::AArray(arr));
                     self.stack[self.sp] = NanVal::array(idx);
                     self.sp += 1;
                 }

@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .DS_Store
 output/
+.aayu_tmp/
 
 # Security: keep secrets out of version control
 .env

@@ -18,7 +18,7 @@ fn print_help() {
     println!("\nUsage: aayu [command] [options] <file>\n");
     println!("Commands:");
     println!("  repl                       Launch interactive microsecond REPL shell");
-    println!("  run <file.aayu> [--jit]    Compile and execute AAYU source code");
+    println!("  run <file.aayu> [--jit] [--sandbox] Compile and execute AAYU source code");
     println!("  run <file.ayc> [--jit]     Execute precompiled bytecode directly");
     println!("  test [file.aayu]           Run native unit tests and assertion suites");
     println!("  lint <file.aayu>           Run pure static linter and dead-code detector");
@@ -677,6 +677,9 @@ fn execute_bytecode(filename: &str, use_jit: bool) {
     };
 
     let mut vm = AayuVM::new(bytecode.clone(), constants.clone(), strings.clone());
+    if std::env::var("AAYU_SANDBOX").is_ok() {
+        vm.sandbox = true;
+    }
     if let Err(e) = vm.validate() {
         eprintln!("[AAYU Security Error] Bytecode Verification Failed: {}", e);
         std::process::exit(1);
@@ -737,6 +740,9 @@ fn main() {
 
     let cmd = &args[1];
     let use_jit = args.contains(&"--jit".to_string());
+    if args.contains(&"--sandbox".to_string()) {
+        std::env::set_var("AAYU_SANDBOX", "1");
+    }
 
     if cmd == "-v" || cmd == "--version" || cmd == "version" {
         print_banner();

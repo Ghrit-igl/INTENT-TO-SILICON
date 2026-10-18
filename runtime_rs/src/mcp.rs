@@ -39,6 +39,67 @@ fn json_escape(s: &str) -> String {
     out
 }
 
+fn get_temp_file_path(prefix: &str) -> PathBuf {
+    let seq = TEMP_SEQ.fetch_add(1, Ordering::SeqCst);
+    let filename = format!("{}_{}_{}.aayu", prefix, std::process::id(), seq);
+    if let Ok(cwd) = std::env::current_dir() {
+        let tmp_dir = cwd.join(".aayu_tmp");
+        if fs::create_dir_all(&tmp_dir).is_ok() {
+            return tmp_dir.join(filename);
+        }
+    }
+    std::env::temp_dir().join(filename)
+}
+
+fn run_command_with_timeout(
+    mut cmd: Command,
+    timeout_ms: u64,
+) -> Result<std::process::Output, String> {
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn child process: {}", e))?;
+    let start = Instant::now();
+    let poll_interval = std::time::Duration::from_millis(20);
+    let timeout = std::time::Duration::from_millis(timeout_ms);
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let mut stdout = Vec::new();
+                let mut stderr = Vec::new();
+                if let Some(mut out) = child.stdout.take() {
+                    let _ = std::io::Read::read_to_end(&mut out, &mut stdout);
+                }
+                if let Some(mut err) = child.stderr.take() {
+                    let _ = std::io::Read::read_to_end(&mut err, &mut stderr);
+                }
+                return Ok(std::process::Output {
+                    status,
+                    stdout,
+                    stderr,
+                });
+            }
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(format!(
+                        "[AAYU MCP Timeout]: Execution exceeded {:.1}s limit (Process killed).",
+                        timeout_ms as f64 / 1000.0
+                    ));
+                }
+                std::thread::sleep(poll_interval);
+            }
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("Error monitoring process: {}", e));
+            }
+        }
+    }
+}
+
 pub struct McpServer {
     exe_path: PathBuf,
 }
@@ -158,6 +219,14 @@ impl McpServer {
                             "use_jit": {
                                 "type": "boolean",
                                 "description": "Enable dynamic C-level JIT acceleration for hot loops"
+                            },
+                            "timeout_ms": {
+                                "type": "integer",
+                                "description": "Execution timeout limit in milliseconds (default: 10000ms)"
+                            },
+                            "sandbox": {
+                                "type": "boolean",
+                                "description": "Run in secure sandboxed mode prohibiting os_exec and disk writes (default: true)"
                             }
                         }
                     }
@@ -192,6 +261,10 @@ impl McpServer {
                             "code": {
                                 "type": "string",
                                 "description": "Optional inline test suite code with assertions"
+                            },
+                            "timeout_ms": {
+                                "type": "integer",
+                                "description": "Test suite timeout limit in milliseconds (default: 15000ms)"
                             }
                         }
                     }
@@ -286,13 +359,22 @@ impl McpServer {
             _ => None,
         }).unwrap_or(false);
 
+        let timeout_ms = args.get("timeout_ms").and_then(|v| match v {
+            JsonValue::Number(n) => Some(*n as u64),
+            _ => None,
+        }).unwrap_or(10_000);
+
+        let sandbox = args.get("sandbox").and_then(|v| match v {
+            JsonValue::Bool(b) => Some(*b),
+            _ => None,
+        }).unwrap_or(true);
+
         if code.is_none() && file.is_none() {
             return self.format_tool_content(id, "Error: 'code' or 'file' argument must be provided to aayu_run", true);
         }
 
         let (target_path, is_temp) = if let Some(c) = code {
-            let seq = TEMP_SEQ.fetch_add(1, Ordering::SeqCst);
-            let tmp_path = std::env::temp_dir().join(format!("aayu_mcp_run_{}_{}.aayu", std::process::id(), seq));
+            let tmp_path = get_temp_file_path("aayu_mcp_run");
             if let Err(e) = fs::write(&tmp_path, c) {
                 return self.format_tool_content(id, &format!("Failed to write temporary execution file: {}", e), true);
             }
@@ -306,9 +388,12 @@ impl McpServer {
         if use_jit {
             cmd.arg("--jit");
         }
+        if sandbox {
+            cmd.arg("--sandbox");
+        }
 
         let t0 = Instant::now();
-        let out_res = cmd.output();
+        let out_res = run_command_with_timeout(cmd, timeout_ms);
         let elapsed_us = t0.elapsed().as_micros();
 
         if is_temp {
@@ -331,7 +416,7 @@ impl McpServer {
                     text.push_str(&stderr);
                 }
                 if is_ok {
-                    text.push_str(&format!("\n[Silicon Execution Latency: {} µs | Status: SUCCESS]", elapsed_us));
+                    text.push_str(&format!("\n[Silicon Execution Latency: {} µs | Sandbox: {} | Status: SUCCESS]", elapsed_us, sandbox));
                 } else {
                     text.push_str(&format!("\n[Silicon Process Exited with Code: {:?} | Latency: {} µs]", out.status.code(), elapsed_us));
                 }
@@ -394,6 +479,11 @@ impl McpServer {
             _ => None,
         });
 
+        let timeout_ms = args.get("timeout_ms").and_then(|v| match v {
+            JsonValue::Number(n) => Some(*n as u64),
+            _ => None,
+        }).unwrap_or(15_000);
+
         if file.is_none() && code.is_none() {
             return self.format_tool_content(id, "Error: 'file' or 'code' must be provided to aayu_test", true);
         }
@@ -401,8 +491,7 @@ impl McpServer {
         let (target_path, is_temp) = if let Some(f) = file {
             (PathBuf::from(f), false)
         } else {
-            let seq = TEMP_SEQ.fetch_add(1, Ordering::SeqCst);
-            let tmp_path = std::env::temp_dir().join(format!("aayu_mcp_test_{}_{}.aayu", std::process::id(), seq));
+            let tmp_path = get_temp_file_path("aayu_mcp_test");
             if let Err(e) = fs::write(&tmp_path, code.unwrap()) {
                 return self.format_tool_content(id, &format!("Failed to write test file: {}", e), true);
             }
@@ -413,7 +502,7 @@ impl McpServer {
         cmd.arg("test").arg(&target_path);
 
         let t0 = Instant::now();
-        let out_res = cmd.output();
+        let out_res = run_command_with_timeout(cmd, timeout_ms);
         let elapsed_ms = t0.elapsed().as_millis();
 
         if is_temp {
@@ -1041,9 +1130,33 @@ pub fn run_self_verification() -> bool {
         eprintln!("  ✗ Test 9 FAILED: {}", test_res);
     }
 
+    // 10. Test aayu_run timeout guard (Infinite loop terminated cleanly)
+    let timeout_req = r#"{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"aayu_run","arguments":{"code":"while true\nend","timeout_ms":600}}}"#;
+    let timeout_res = server.handle_raw_json(timeout_req).unwrap();
+    if timeout_res.contains("AAYU MCP Timeout") && timeout_res.contains(r#""isError":true"#) {
+        println!("  ✓ Test 10: aayu_run process timeout kill guard passed");
+        passed += 1;
+    } else {
+        eprintln!("  ✗ Test 10 FAILED: {}", timeout_res);
+    }
+
+    // 11. Test aayu_run sandbox security guard (blocks os_exec in sandboxed mode)
+    let sandbox_req = r#"{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"aayu_run","arguments":{"code":"os_exec(\"whoami\")","sandbox":true}}}"#;
+    let sandbox_res = server.handle_raw_json(sandbox_req).unwrap();
+    if sandbox_res.contains("Sandbox Security Violation") && sandbox_res.contains(r#""isError":true"#) {
+        println!("  ✓ Test 11: aayu_run sandbox security violation guard passed");
+        passed += 1;
+    } else {
+        eprintln!("  ✗ Test 11 FAILED: {}", sandbox_res);
+    }
+
     println!("----------------------------------------------------------------------");
-    println!("  MCP Verification Result: {}/{} tests passed 100% operational", passed, 9);
+    if passed == 11 {
+        println!("  MCP Verification Result: 11/11 tests passed (100% operational)");
+    } else {
+        println!("  MCP Verification Result: {}/11 tests passed (FAILURE)", passed);
+    }
     println!("======================================================================");
 
-    passed == 9
+    passed == 11
 }
