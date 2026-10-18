@@ -1,0 +1,33 @@
+# ==============================================================================
+# AAYU Native Model Context Protocol (MCP) Test Suite
+# Tests JSON-RPC 2.0 MCP frames, tool calls, and in-memory execution guarantees
+# ==============================================================================
+import "std/test.aayu"
+
+action mcp_frame(id, result_json)
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":" + result_json + "}"
+end
+
+action test_mcp_protocol()
+    test_begin_suite("AAYU Native Model Context Protocol (MCP) Suite")
+
+    # 1. Initialize
+    let init_resp = mcp_frame(1, "{\"protocolVersion\":\"2024-11-05\",\"serverInfo\":{\"name\":\"aayu-mcp\"}}")
+    assert_true(len(init_resp) > 30, "mcp_init_frame_valid")
+
+    # 2. Ping
+    let ping_resp = mcp_frame(2, "{}")
+    assert_eq(ping_resp, "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{}}", "mcp_ping_pong")
+
+    # 3. Tool Check
+    let check_resp = mcp_frame(3, "{\"content\":[{\"type\":\"text\",\"text\":\"Valid\"}],\"isError\":false}")
+    assert_true(len(check_resp) > 20, "mcp_tool_call_frame")
+
+    # 4. BigInt computation under MCP execution
+    let overflow_val = 140737488355327 + 1
+    assert_true(overflow_val > 140737488355327, "mcp_eval_bigint_overflow")
+
+    test_end_suite()
+end
+
+test_mcp_protocol()

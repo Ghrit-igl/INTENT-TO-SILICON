@@ -111,6 +111,20 @@ if ((Test-Path $lintTarget) -and (Test-Path $binAayu)) {
     }
 }
 
+# Run Native MCP Server Verification
+if (Test-Path $binAayu) {
+    Write-Host "[TEST] Running Native MCP Server Verification (--verify)... " -NoNewline
+    $mcpOut = & $binAayu mcp --verify 2>&1
+    if ($LASTEXITCODE -eq 0 -and $mcpOut -match "9/9 tests passed 100% operational") {
+        Write-Host "PASS (9/9 MCP tests verified)" -ForegroundColor Green
+        $passed++
+    } else {
+        Write-Host "FAIL (MCP Verification failed)" -ForegroundColor Red
+        Write-Host $mcpOut
+        $failed++
+    }
+}
+
 Write-Host "--------------------------------------------------" -ForegroundColor Cyan
 Write-Host "Results: $passed Passed | $failed Failed" -ForegroundColor $(if ($failed -eq 0) { "Green" } else { "Red" })
 Write-Host "==================================================" -ForegroundColor Cyan

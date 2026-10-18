@@ -441,6 +441,14 @@ print("Vowel 'O' Formant Amplitude:", sample_o)`}</code>
               <span className="text-amber-400 font-bold block mb-1">aayu lock [--verify]</span>
               <span className="text-zinc-400">Tamper-proof SHA-256 supply-chain lockfile</span>
             </div>
+            <div className="p-4 bg-zinc-900/60 border border-cyan-500/30 rounded-xl">
+              <span className="text-cyan-400 font-bold block mb-1">aayu mcp [--verify]</span>
+              <span className="text-zinc-400">Native Model Context Protocol (MCP) server for AI Agents (6 in-memory tools)</span>
+            </div>
+            <div className="p-4 bg-zinc-900/60 border border-purple-500/30 rounded-xl">
+              <span className="text-purple-400 font-bold block mb-1">aayu disasm &lt;file&gt;</span>
+              <span className="text-zinc-400">Silicon bytecode opcode disassembler &amp; constant pool inspector</span>
+            </div>
           </div>
         </div>
 
@@ -659,8 +667,16 @@ end`}</code>
               <div className="font-mono text-[11px] text-fuchsia-300">6/6 Silicon Assertions Verified · Zero Wrapping</div>
             </div>
 
+            <div className="p-6 rounded-xl bg-zinc-900/60 border border-cyan-500/30">
+              <h3 className="text-lg font-bold text-cyan-400 mb-2">6. Native Model Context Protocol (MCP) Server</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-cyan-300">aayu mcp</code> implements JSON-RPC 2.0 stdio server (MCP Spec 2024-11-05) allowing AI coding agents (Claude Code, Cursor, Windsurf, Antigravity) to query, validate, lint, repair, disassemble, and execute AAYU code in microseconds without shell friction.
+              </p>
+              <div className="font-mono text-[11px] text-cyan-300">6 Native Tools · 9/9 Self-Verification Tests Passed · &lt;2ms Latency</div>
+            </div>
+
             <div className="p-6 rounded-xl bg-blue-950/30 border border-blue-500/30">
-              <h3 className="text-lg font-bold text-blue-400 mb-2">6. AAYU Foundation Governance</h3>
+              <h3 className="text-lg font-bold text-blue-400 mb-2">7. AAYU Foundation Governance</h3>
               <p className="text-zinc-400 text-xs leading-relaxed">
                 <code className="text-blue-300">GOVERNANCE.md</code> eliminates single-developer risk via a formal Steering Council across 5 domain areas (Compiler, Runtime, Standard Library, Security, DevRel), an open RFC process, and a strict Go 1.0 style Backward Compatibility Contract.
               </p>

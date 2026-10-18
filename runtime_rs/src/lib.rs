@@ -9,3 +9,4 @@ pub mod jit;
 pub mod compiler;
 pub mod crypto;
 pub mod btree;
+pub mod mcp;

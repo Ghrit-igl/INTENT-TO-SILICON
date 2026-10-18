@@ -199,6 +199,34 @@ print("OS:", os_platform())`}
           </div>
         </section>
 
+        {/* SECTION 6: NATIVE AI AGENT TOOLING & MCP */}
+        <section className="mb-16">
+          <h2 className="text-2xl font-bold mb-4 border-b border-white/10 pb-3 flex items-center gap-2">
+            <span className="text-cyan-400 font-mono">06.</span> Native AI Agent Protocol (MCP) &amp; Healer
+          </h2>
+          <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
+            AAYU includes an embedded <strong className="text-white">Model Context Protocol (MCP)</strong> server conforming to the 2024-11-05 spec. AI coding agents (Claude Code, Cursor, Windsurf, Antigravity) connect directly via stdio JSON-RPC without shell friction.
+          </p>
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-xl overflow-hidden mb-4">
+            <div className="bg-[#111] px-4 py-2 border-b border-white/5 text-xs text-zinc-500 font-mono">Terminal &amp; JSON-RPC 2.0</div>
+            <pre className="p-5 font-mono text-xs md:text-sm text-zinc-300 leading-relaxed overflow-x-auto">
+{`# 1. Start native MCP stdio server for AI agents
+aayu mcp
+
+# 2. Run instant 9/9 verification test suite
+aayu mcp --verify
+
+# 3. Available In-Memory Silicon Tools:
+# • aayu_run            - Direct in-memory execution with microsecond latency metrics
+# • aayu_check          - Sub-millisecond syntax & import validation without execution
+# • aayu_test           - Native test suite runner (std/test assertions)
+# • aayu_disasm         - Silicon bytecode disassembler and opcode inspection
+# • aayu_token_density  - AI agent prompt context budgeting & BPE token density
+# • aayu_repair         - Autonomous code healer (auto-fixes Python/JS syntax leaks)`}
+            </pre>
+          </div>
+        </section>
+
         {/* Handbook Download Banner */}
         <div className="p-8 rounded-2xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-black border border-purple-500/40 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>

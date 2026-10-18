@@ -354,12 +354,14 @@ All standard library modules are written in **100% pure self-hosted AAYU** with 
 ### AAYU Command Line Interface (`aayu`):
 * `aayu run <file.aayu>`: Execute source on native Silicon VM.
 * `aayu run <file.aayu> --web --port 8080`: Boot non-blocking ASGI web server.
+* `aayu mcp [--verify]`: Start native Model Context Protocol (MCP) JSON-RPC stdio server for AI agents.
 * `aayu test [file.aayu]`: Run native assertion test suites.
 * `aayu token <file.aayu>`: Analyze BPE token count, density, and context savings.
 * `aayu lint <file.aayu>`: Static AST linter and dead-code detector.
 * `aayu fmt <file.aayu>`: Canonical 4-space code auto-formatter.
 * `aayu repair <file.aayu>`: Autonomous code healer (repairs accidental Python/JS leaks).
 * `aayu profile <file.aayu>`: Microsecond execution and memory profiler.
+* `aayu disasm <file.aayu>`: Silicon bytecode disassembler and opcode inspection.
 * `aayu graph <file.aayu>`: Export dependency tree as an interactive Mermaid diagram.
 
 ### IDE Extensions & Mobile Studio:
