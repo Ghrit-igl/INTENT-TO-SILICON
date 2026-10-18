@@ -315,6 +315,7 @@ fn validate_supported(statements: &[parser::Statement]) -> Result<(), String> {
                     "tensor_norm" | "tensor_argmax" | "cosine_similarity" |
                     "math_exp" | "math_ln" | "math_sqrt" | "math_pow" | "math_sin" |
                     "math_cos" | "math_tan" | "math_tanh" |
+                    "math_floor" | "math_ceil" | "math_round" | "math_abs" |
                     "crypto_sha256" | "crypto_sha512" | "crypto_hmac_sha256" | "crypto_timing_safe_eq" | "crypto_secure_compare" |
                     "crypto_random_hex" | "crypto_aes_gcm_encrypt" | "crypto_aes_gcm_decrypt" |
                     "db_btree_open" | "db_btree_set" | "db_btree_get" | "db_btree_count" | "db_btree_flush"

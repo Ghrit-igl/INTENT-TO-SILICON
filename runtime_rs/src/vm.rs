@@ -309,6 +309,8 @@ impl AayuVM {
                     out.push(item.as_int() as f64);
                 } else if item.is_float() {
                     out.push(item.as_float());
+                } else if item.is_bigint() {
+                    out.push(self.get_int128(*item).unwrap_or(0) as f64);
                 } else if item.is_array() {
                     let sub_vec = self.extract_f64_vec(*item)?;
                     out.extend(sub_vec);
@@ -319,6 +321,19 @@ impl AayuVM {
             Ok(out)
         } else {
             Err("Invalid array reference".to_string())
+        }
+    }
+
+    #[inline(always)]
+    pub fn extract_f64_arg(&self, val: NanVal) -> f64 {
+        if val.is_float() {
+            val.as_float()
+        } else if val.is_int() {
+            val.as_int() as f64
+        } else if val.is_bigint() {
+            self.get_int128(val).unwrap_or(0) as f64
+        } else {
+            0.0
         }
     }
 
@@ -1875,45 +1890,65 @@ impl AayuVM {
                             self.stack[self.sp] = NanVal::float(sim);
                             self.sp += 1;
                         } else if func_name == "math_exp" {
-                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::float(x.exp());
                             self.sp += 1;
                         } else if func_name == "math_ln" {
-                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 1.0 } } else { 1.0 };
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 1.0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::float(if x > 0.0 { x.ln() } else { 0.0 });
                             self.sp += 1;
                         } else if func_name == "math_sqrt" {
-                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::float(if x >= 0.0 { x.sqrt() } else { 0.0 });
                             self.sp += 1;
                         } else if func_name == "math_pow" {
-                            let e = if argc > 1 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 1.0 } } else { 1.0 };
-                            let b = if argc > 0 { let v = self.stack[self.sp - argc]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            let e = if argc > 1 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 1.0 };
+                            let b = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - argc]) } else { 0.0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::float(b.powf(e));
                             self.sp += 1;
                         } else if func_name == "math_sin" {
-                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::float(x.sin());
                             self.sp += 1;
                         } else if func_name == "math_cos" {
-                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::float(x.cos());
                             self.sp += 1;
                         } else if func_name == "math_tan" {
-                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::float(x.tan());
                             self.sp += 1;
                         } else if func_name == "math_tanh" {
-                            let x = if argc > 0 { let v = self.stack[self.sp - 1]; if v.is_float() { v.as_float() } else if v.is_int() { v.as_int() as f64 } else { 0.0 } } else { 0.0 };
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::float(x.tanh());
+                            self.sp += 1;
+                        } else if func_name == "math_floor" {
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.floor());
+                            self.sp += 1;
+                        } else if func_name == "math_ceil" {
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.ceil());
+                            self.sp += 1;
+                        } else if func_name == "math_round" {
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.round());
+                            self.sp += 1;
+                        } else if func_name == "math_abs" {
+                            let x = if argc > 0 { self.extract_f64_arg(self.stack[self.sp - 1]) } else { 0.0 };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::float(x.abs());
                             self.sp += 1;
                         } else if func_name == "crypto_sha256" {
                             let data = if argc > 0 {

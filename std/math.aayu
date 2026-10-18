@@ -36,11 +36,15 @@ action clamp(val, low, high)
 end
 
 action pow(base, exp)
+    return math_pow(base, exp)
+end
+
+action pow_pure(base, exp)
     if exp == 0
         return 1.0
     end
     if exp < 0
-        return 1.0 / pow(base, 0 - exp)
+        return 1.0 / pow_pure(base, 0 - exp)
     end
     let res = 1.0
     let count = 0
@@ -51,15 +55,27 @@ action pow(base, exp)
     return res
 end
 
-# High-precision Newton-Raphson square root
+# Hardware-Accelerated IEEE-754 Square Root
 action sqrt(x)
+    if x <= 0.0
+        return 0.0
+    end
+    return math_sqrt(x)
+end
+
+# Pure-AAYU High-precision Newton-Raphson square root (with dynamic convergence)
+action sqrt_pure(x)
     if x <= 0.0
         return 0.0
     end
     let guess = x / 2.0
     let iter = 0
-    while iter < 12
-        guess = (guess + (x / guess)) / 2.0
+    while iter < 32
+        let next_guess = (guess + (x / guess)) / 2.0
+        if abs(next_guess - guess) < 0.000000000001
+            return next_guess
+        end
+        guess = next_guess
         iter = iter + 1
     end
     return guess
@@ -78,9 +94,13 @@ action math_ln2()
     return 0.693147180559945
 end
 
-# High-precision Exponential e^x via Scaling and Squaring with 8th-order Taylor series
-# Error < 1e-12 across real domain [-30, 30]
+# Hardware-Accelerated IEEE-754 Exponential e^x
 action exp(x)
+    return math_exp(x)
+end
+
+# Pure-AAYU High-precision Exponential e^x via Scaling and Squaring with 8th-order Taylor series
+action exp_pure(x)
     if x < -40.0
         return 0.0
     end
@@ -108,9 +128,16 @@ action exp(x)
     return s4
 end
 
-# High-precision Natural Logarithm ln(x) via Range Reduction & Inverse Hyperbolic Tangent Series
-# Error < 1e-12 for any x > 0
+# Hardware-Accelerated IEEE-754 Natural Logarithm ln(x)
 action ln(x)
+    if x <= 0.0
+        return -999999.0
+    end
+    return math_ln(x)
+end
+
+# Pure-AAYU Natural Logarithm ln(x) via Range Reduction & Inverse Hyperbolic Tangent Series
+action ln_pure(x)
     if x <= 0.0
         return -999999.0
     end
@@ -142,7 +169,10 @@ action ln(x)
 end
 
 action log10(x)
-    let ln_val = ln(x)
+    if x <= 0.0
+        return -999999.0
+    end
+    let ln_val = math_ln(x)
     let ln_10 = 2.302585092994046
     return ln_val / ln_10
 end
@@ -174,15 +204,20 @@ action sigmoid(x)
     return 1.0 / (1.0 + ex)
 end
 
-# Hyperbolic Tangent: tanh(x) = (e^2x - 1) / (e^2x + 1)
+# Hardware-Accelerated Hyperbolic Tangent: tanh(x)
 action tanh(x)
+    return math_tanh(x)
+end
+
+# Pure-AAYU Hyperbolic Tangent: tanh(x) = (e^2x - 1) / (e^2x + 1)
+action tanh_pure(x)
     if x > 20.0
         return 1.0
     end
     if x < -20.0
         return -1.0
     end
-    let e2x = exp(2.0 * x)
+    let e2x = exp_pure(2.0 * x)
     return (e2x - 1.0) / (e2x + 1.0)
 end
 
@@ -240,8 +275,36 @@ action cosine_similarity_pure(v1, v2)
     return dot / denom
 end
 
-# High-precision sine using Taylor series with range reduction to [-pi/2, pi/2]
+# Hardware-Accelerated IEEE-754 Sine
 action sin(x)
+    return math_sin(x)
+end
+
+# Hardware-Accelerated IEEE-754 Cosine
+action cos(x)
+    return math_cos(x)
+end
+
+# Hardware-Accelerated IEEE-754 Tangent
+action tan(x)
+    return math_tan(x)
+end
+
+# Hardware-Accelerated Floor, Ceil, Round
+action floor(x)
+    return math_floor(x)
+end
+
+action ceil(x)
+    return math_ceil(x)
+end
+
+action round(x)
+    return math_round(x)
+end
+
+# Pure-AAYU High-precision sine using Taylor series with range reduction to [-pi/2, pi/2]
+action sin_pure(x)
     if x == 0.0
         return 0.0
     end
@@ -274,12 +337,12 @@ action sin(x)
     return clamp(res, -1.0, 1.0)
 end
 
-action cos(x)
+action cos_pure(x)
     if x == 0.0
         return 1.0
     end
     let half_pi = 1.5707963267948966
-    return sin(half_pi - x)
+    return sin_pure(half_pi - x)
 end
 
 # Softmax for 1D probability distribution with numerical stabilization (subtract-max)

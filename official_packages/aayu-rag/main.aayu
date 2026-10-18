@@ -1,7 +1,77 @@
+# ==============================================================================
+# AAYU Official Package: aayu-rag
+# High-Performance In-Memory Vector RAG & Semantic Document Retrieval
+# 100% Pure AAYU, Zero External Dependencies, Hardware-Accelerated Vector Similarity
+# ==============================================================================
+
 app AayuRag
 
+import "std/math.aayu"
+
+# Document collection state
+state rag_docs = []
+state rag_embeddings = []
+
+action add_document(id, text, embedding)
+    rag_docs = rag_docs + [{"id": id, "text": text}]
+    rag_embeddings = rag_embeddings + [embedding]
+    return true
+end
+
+action document_count()
+    return len(rag_docs)
+end
+
+action query_similar(query_embedding, top_k)
+    let n = len(rag_docs)
+    if n == 0
+        return []
+    end
+
+    let scored = []
+    let i = 0
+    while i < n
+        let doc = rag_docs[i]
+        let emb = rag_embeddings[i]
+        let sim = cosine_similarity(query_embedding, emb)
+        scored = scored + [{"id": doc["id"], "text": doc["text"], "score": sim}]
+        i = i + 1
+    end
+
+    # Sort scored documents descending by similarity score
+    let count = len(scored)
+    let p = 0
+    while p < count
+        let q = p + 1
+        while q < count
+            if scored[q]["score"] > scored[p]["score"]
+                let tmp = scored[p]
+                scored[p] = scored[q]
+                scored[q] = tmp
+            end
+            q = q + 1
+        end
+        p = p + 1
+    end
+
+    # Return top_k results
+    let res = []
+    let limit = min(top_k, count)
+    let k = 0
+    while k < limit
+        res = res + [scored[k]]
+        k = k + 1
+    end
+    return res
+end
+
+# Backward-compatible document query stub
 action queryDocument(query)
     print("RAG query: ")
     print(query)
-    return "Result"
+    let n = len(rag_docs)
+    if n > 0
+        return rag_docs[0]["text"]
+    end
+    return "Result for: " + query
 end
