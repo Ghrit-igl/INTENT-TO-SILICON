@@ -7,5 +7,5 @@ echo ================================================================
 echo Starting AAYU Silicon VM Server on port 8080...
 echo Opening Dashboard at http://localhost:8080
 start http://localhost:8080
-"D:\INTENT-TO-SILICON\aayu.exe" run "D:\INTENT-TO-SILICON\examples\aayu_ai_agent.aayu" --web --port 8080
+"%~dp0bin\aayu.exe" run "%~dp0examples\aayu_ai_agent.aayu" --web --port 8080
 pause
