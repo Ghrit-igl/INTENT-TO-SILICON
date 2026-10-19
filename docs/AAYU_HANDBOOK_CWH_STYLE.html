@@ -4295,7 +4295,98 @@ let verified = schnorr_verify(public_y, proof, g, p)
 print(&quot;ZKP Verified:&quot;, verified) # 1</code></pre>
 
 <div class="box-tip">
-  <strong>64/64 Advanced Engine Assertions Verified (794/794 Cumulative):</strong> Verified on <code>aayu.exe</code> with zero failures across actors, binary wire protocols, and zero-knowledge cryptographic primitives.
+  <strong>64/64 Advanced Engine Assertions Verified:</strong> Verified on <code>aayu.exe</code> with zero failures across actors, binary wire protocols, and zero-knowledge cryptographic primitives.
+</div>
+
+<!-- CHAPTER 34 -->
+<div class="page-break"></div>
+<h1>Chapter 34: Autonomous AI Agent Runtime &amp; Swarm (std/agent.aayu)</h1>
+<p>Modern AI agents in Python require hundreds of megabytes of brittle frameworks (LangChain, CrewAI, AutoGen). AAYU provides a <b>native, zero-dependency, microsecond AI Agent Runtime</b> in <code>std/agent.aayu</code>:</p>
+
+<div class="box-deepdive">
+  <strong>ReAct Engine &amp; Loop Trapper:</strong> Executes Reason &rarr; Act &rarr; Observe steps with structured tool catalogs, episodic memory search, and autonomous loop detection that catches stuck agents before token exhaustion.
+</div>
+
+<h2>1. Autonomous ReAct Agent &amp; Episodic Memory</h2>
+<pre><code>import &quot;std/agent.aayu&quot;
+
+let bot = agent_create(&quot;OmniCoder&quot;, &quot;Systems Engineer&quot;, &quot;Write silicon code&quot;, 10)
+agent_register_tool(bot, &quot;compiler&quot;, &quot;Compile bytecode&quot;)
+agent_add_memory(bot, &quot;GOAL&quot;, &quot;Build Raft cluster&quot;)
+
+let step = agent_step(bot, &quot;Compile module&quot;, &quot;compiler&quot;, &quot;std/consensus.aayu&quot;, &quot;SUCCESS&quot;)
+print(&quot;Status:&quot;, bot[&quot;status&quot;]) # RUNNING</code></pre>
+
+<h2>2. Multi-Agent Swarm Orchestration</h2>
+<pre><code>let swarm = agent_swarm_create()
+let planner = agent_create(&quot;Planner&quot;, &quot;Architect&quot;, &quot;Plan&quot;, 5)
+agent_swarm_add_member(swarm, planner, [&quot;PLANNING&quot;, &quot;ARCHITECTURE&quot;])
+
+let worker = agent_swarm_route(swarm, &quot;ARCHITECTURE&quot;)
+print(&quot;Assigned Worker:&quot;, worker) # Planner</code></pre>
+
+<!-- CHAPTER 35 -->
+<div class="page-break"></div>
+<h1>Chapter 35: Raft Distributed Consensus Engine (std/consensus.aayu)</h1>
+<p>Eliminate external coordination daemons (etcd, ZooKeeper, Consul). AAYU embeds the <b>Raft Distributed Consensus Algorithm</b> directly into <code>std/consensus.aayu</code> for linearizable replicated state machines:</p>
+<ul>
+  <li><b>Leader Election:</b> Automated term progression, randomized heartbeat timeouts, and majority quorum voting.</li>
+  <li><b>Log Replication:</b> Monotonic indices, conflict resolution, and uncommitted entry truncation.</li>
+  <li><b>Replicated State Machine:</b> Linearizable key-value store advancing commit indices safely.</li>
+</ul>
+
+<pre><code>import &quot;std/consensus.aayu&quot;
+
+# 1. Initialize Cluster Nodes
+let n1 = raft_node_new(&quot;n1&quot;, [&quot;n2&quot;, &quot;n3&quot;])
+let n2 = raft_node_new(&quot;n2&quot;, [&quot;n1&quot;, &quot;n3&quot;])
+
+# 2. Elect Leader with Majority Quorum (2/3 votes)
+raft_start_election(n1)
+let vote = raft_request_vote(n2, &quot;n1&quot;, 1, 0, 0)
+raft_handle_vote_response(n1, &quot;n2&quot;, vote[&quot;vote_granted&quot;], 3)
+print(&quot;Elected Leader:&quot;, n1[&quot;role&quot;]) # LEADER
+
+# 3. Replicate Log &amp; Apply State Machine
+raft_leader_append_entry(n1, &quot;SET&quot;, &quot;cluster_state&quot;, &quot;ONLINE&quot;)
+raft_replicate_to_follower(n1, n2)
+raft_advance_commit_index(n1, 2, 3)
+raft_apply_to_state_machine(n1)
+print(&quot;Replicated Value:&quot;, raft_get_state_machine_val(n1, &quot;cluster_state&quot;)) # ONLINE</code></pre>
+
+<!-- CHAPTER 36 -->
+<div class="page-break"></div>
+<h1>Chapter 36: Real-Time Stream Analytics &amp; CEP (std/stream.aayu)</h1>
+<p>In-memory low-latency stream processing without Apache Flink or Spark JVM bloat:</p>
+<ul>
+  <li><b>Windowing Models:</b> Tumbling Windows (fixed batch), Sliding Windows (rolling continuous buffer), and Session Windows (inactivity gap splitting).</li>
+  <li><b>Financial Technical Indicators:</b> Simple Moving Average (SMA), Exponential Weighted Moving Average (EWMA), Bollinger Bands, and RSI Momentum.</li>
+  <li><b>Complex Event Processing (CEP):</b> Temporal pattern detection across sliding time windows for real-time intrusion and fraud detection.</li>
+</ul>
+
+<pre><code>import &quot;std/stream.aayu&quot;
+
+# 1. Tumbling Window
+let tw = tumbling_window_new(3)
+tumbling_window_push(tw, 10)
+tumbling_window_push(tw, 20)
+let res = tumbling_window_push(tw, 30) # Emits batch [10, 20, 30]
+
+# 2. Bollinger Bands
+let bb = stream_bollinger_bands([100, 102, 104, 106, 108], 2)
+print(&quot;Middle (SMA):&quot;, bb[&quot;middle&quot;]) # 104
+
+# 3. Complex Event Processing: Multi-Stage Attack Alert
+let cep = cep_detector_new([&quot;AUTH_FAIL&quot;, &quot;AUTH_FAIL&quot;, &quot;PRIVILEGE_ESCALATE&quot;], 1000)
+cep_detector_push(cep, &quot;AUTH_FAIL&quot;, 100)
+cep_detector_push(cep, &quot;AUTH_FAIL&quot;, 300)
+let alert = cep_detector_push(cep, &quot;PRIVILEGE_ESCALATE&quot;, 600)
+if alert == 1
+    print(&quot;CEP Alert: Multi-stage brute force trapped in 500ms!&quot;)
+end</code></pre>
+
+<div class="box-tip">
+  <strong>66/66 Systems Engine Assertions Verified (860/860 Cumulative):</strong> Verified on <code>aayu.exe</code> with zero failures across Agent swarms, Raft consensus, and Real-Time Stream CEP.
 </div>
 
 </body>

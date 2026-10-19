@@ -13,7 +13,7 @@
   <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases"><img src="https://img.shields.io/badge/version-v1.5.0-purple?style=for-the-badge" alt="Version"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Open%20Standard-blue?style=for-the-badge" alt="License"/></a>
   <a href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"><img src="https://img.shields.io/badge/live%20portal-active-emerald?style=for-the-badge" alt="Live Portal"/></a>
-  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-794%20%2F%20794%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
+  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-860%20%2F%20860%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
 
   <a href="https://aayulang.com"><img src="https://img.shields.io/badge/website-aayulang.com-0284c7?style=for-the-badge" alt="Website"/></a>
 </p>
@@ -263,8 +263,8 @@ print("Bob Balance:   " + ledger["balances"]["0xBob"])   # 40000 ASC
 
 ## 📊 Production Benchmarks & Empirical Proofs
 
-### The 27 Native Silicon Test Suites (794/794 Pass)
-AAYU's reliability is proven by **794 passing assertions across 27 distinct test suites** executed directly on native `aayu.exe`:
+### The 28 Native Silicon Test Suites (860/860 Pass)
+AAYU's reliability is proven by **860 passing assertions across 28 distinct test suites** executed directly on native `aayu.exe`:
 
 | # | Test Suite File | Test Objective | Result | Assertions |
 |---|---|---|---|---|
@@ -295,7 +295,8 @@ AAYU's reliability is proven by **794 passing assertions across 27 distinct test
 | 25 | `tests/test_cyber_toolkit.aayu` | **Exploit Engineering, De Bruijn Cyclic Offsets, CIDR, Packet Forging, Silicon Cracker** | ✅ PASS | **36 / 36** |
 | 26 | `tests/test_quantum.aayu` | **Quantum State Vectors, Unitary Gates (H, X, Y, Z, S, T, CNOT, CZ, Toffoli), Bell, Grover, BB84** | ✅ PASS | **59 / 59** |
 | 27 | `tests/test_advanced_engine_suite.aayu` | **Actors & Mailboxes, Go-Style Channels & Select, LEB128 Varint Wire Protocol, Shamir & Schnorr ZKP** | ✅ PASS | **64 / 64** |
-| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **794 / 794** |
+| 28 | `tests/test_agent_consensus_stream.aayu` | **Autonomous AI Agent Swarms, Raft Distributed Consensus & Real-Time Stream CEP Analytics** | ✅ PASS | **66 / 66** |
+| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **860 / 860** |
 
 
 ### ⚡ Ground-Truth Execution Speed & Benchmark Reality
@@ -328,6 +329,9 @@ All standard library modules are written in **100% pure self-hosted AAYU** with 
 
 | Module | Description | Key Functions |
 |---|---|---|
+| `std/agent.aayu` | Autonomous AI Agent Runtime & Swarm | `agent_create`, `agent_register_tool`, `agent_add_memory`, `agent_search_memory`, `agent_step`, `agent_detect_loop`, `agent_decompose_goal`, `agent_swarm_create`, `agent_swarm_route` |
+| `std/consensus.aayu` | Raft Distributed Consensus Engine | `raft_node_new`, `raft_start_election`, `raft_request_vote`, `raft_handle_vote_response`, `raft_leader_append_entry`, `raft_replicate_to_follower`, `raft_advance_commit_index`, `raft_apply_to_state_machine` |
+| `std/stream.aayu` | Real-Time Stream & CEP Analytics | `tumbling_window_new`, `tumbling_window_push`, `sliding_window_stream_new`, `session_window_new`, `stream_sma`, `stream_ewma`, `stream_bollinger_bands`, `stream_rsi`, `cep_detector_new` |
 | `std/actor.aayu` | Fault-Tolerant Actor Concurrency & CSP Channels | `channel_new`, `channel_send`, `channel_recv`, `channel_select`, `actor_system_new`, `actor_spawn`, `actor_send`, `supervisor_new`, `supervisor_restart_worker` |
 | `std/binary.aayu` | Silicon Binary Codec & LEB128 Wire Protocol | `varint_encode_u32`, `varint_decode_u32`, `zigzag_encode`, `zigzag_decode`, `packet_frame`, `packet_verify`, `binary_pack_ints`, `binary_unpack_ints` |
 | `std/zkp.aayu` | Zero-Knowledge Proofs & Threshold Cryptography | `ff_add`, `ff_mul`, `ff_pow`, `ff_inv`, `shamir_split_secret`, `shamir_reconstruct_secret`, `schnorr_prove`, `schnorr_verify` |

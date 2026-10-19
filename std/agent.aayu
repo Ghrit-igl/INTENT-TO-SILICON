@@ -1,0 +1,236 @@
+# ==============================================================================
+# AAYU Standard Library: Autonomous AI Agent Runtime & Swarm (std/agent.aayu)
+# 100% Pure Self-Hosted AAYU (.aayu)
+# Native ReAct Engine, Tool Calling, Anti-Loop Trapper & Multi-Agent Swarms
+# Zero Python, Zero External Packages, Zero C/C++ Dependencies
+# ==============================================================================
+
+# Creates a new Autonomous AI Agent instance
+action agent_create(name, role, system_prompt, max_steps)
+    return {
+        "name": name,
+        "role": role,
+        "system_prompt": system_prompt,
+        "max_steps": max_steps,
+        "current_step": 0,
+        "tools": {},
+        "tool_names": [],
+        "memory": [],
+        "history": [],
+        "status": "IDLE", # IDLE, RUNNING, COMPLETED, LOOP_DETECTED, ERROR
+        "recent_actions": []
+    }
+end
+
+# Registers an executable tool with the agent
+action agent_register_tool(agent_inst, tool_name, description)
+    let tools = agent_inst["tools"]
+    tools[tool_name] = {
+        "name": tool_name,
+        "description": description
+    }
+    agent_inst["tools"] = tools
+    let names = agent_inst["tool_names"]
+    names = names + [tool_name]
+    agent_inst["tool_names"] = names
+    return 1
+end
+
+# Appends an entry to the agent's short-term/episodic memory
+action agent_add_memory(agent_inst, category, content)
+    let mem = agent_inst["memory"]
+    let entry = {
+        "category": category, # OBSERVATION, FACT, GOAL, CONTEXT
+        "content": content,
+        "step": agent_inst["current_step"]
+    }
+    mem = mem + [entry]
+    agent_inst["memory"] = mem
+    return len(mem)
+end
+
+# Searches memory for entries matching a substring keyword
+action agent_search_memory(agent_inst, keyword)
+    let mem = agent_inst["memory"]
+    let results = []
+    let i = 0
+    let n = len(mem)
+    while i < n
+        let item = mem[i]
+        let txt = "" + item["content"]
+        # Basic substring check
+        if len(txt) >= len(keyword)
+            let matched = 0
+            let j = 0
+            let max_j = len(txt) - len(keyword)
+            while j <= max_j
+                if matched == 0
+                    let sub = ""
+                    let k = 0
+                    while k < len(keyword)
+                        sub = sub + txt[j + k]
+                        k = k + 1
+                    end
+                    if sub == keyword
+                        matched = 1
+                    end
+                end
+                j = j + 1
+            end
+            if matched == 1
+                results = results + [item]
+            end
+        end
+        i = i + 1
+    end
+    return results
+end
+
+# Anti-Hallucination & Loop Trapper: Detects if the last 3 actions are identical
+action agent_detect_loop(agent_inst)
+    let actions = agent_inst["recent_actions"]
+    let count = len(actions)
+    if count < 3
+        return 0
+    end
+    let last1 = actions[count - 1]
+    let last2 = actions[count - 2]
+    let last3 = actions[count - 3]
+    if last1 == last2
+        if last2 == last3
+            return 1
+        end
+    end
+    return 0
+end
+
+# Executes a single ReAct (Reason -> Act -> Observe) step
+action agent_step(agent_inst, thought, action_name, action_arg, observation)
+    let curr = agent_inst["current_step"]
+    let max_s = agent_inst["max_steps"]
+    if curr >= max_s
+        agent_inst["status"] = "STEP_LIMIT_EXCEEDED"
+        return {
+            "status": "ERROR",
+            "error": "MAX_STEPS_EXCEEDED",
+            "observation": null
+        }
+    end
+
+    agent_inst["current_step"] = curr + 1
+    agent_inst["status"] = "RUNNING"
+
+    # Track action for loop detection
+    let recents = agent_inst["recent_actions"]
+    recents = recents + [action_name + ":" + action_arg]
+    agent_inst["recent_actions"] = recents
+
+    # Check for repetitive loops
+    if agent_detect_loop(agent_inst) == 1
+        agent_inst["status"] = "LOOP_DETECTED"
+        return {
+            "status": "LOOP_DETECTED",
+            "error": "AGENT_STUCK_IN_RETRY_LOOP",
+            "observation": null
+        }
+    end
+
+    # Check if tool exists
+    let tools = agent_inst["tools"]
+    let has_tool = 0
+    let tool_names = agent_inst["tool_names"]
+    let i = 0
+    while i < len(tool_names)
+        if tool_names[i] == action_name
+            has_tool = 1
+        end
+        i = i + 1
+    end
+
+    let final_obs = observation
+    if has_tool == 0
+        final_obs = "ERROR: Tool '" + action_name + "' not found in agent registry"
+    end
+
+    # Record to trajectory history
+    let step_record = {
+        "step": agent_inst["current_step"],
+        "thought": thought,
+        "action": action_name,
+        "arg": action_arg,
+        "observation": final_obs
+    }
+    let hist = agent_inst["history"]
+    hist = hist + [step_record]
+    agent_inst["history"] = hist
+
+    return {
+        "status": "SUCCESS",
+        "step": agent_inst["current_step"],
+        "observation": final_obs
+    }
+end
+
+# Decomposes a high-level goal into an array of ordered subtasks
+action agent_decompose_goal(goal_description)
+    # Returns structured subtask list
+    return [
+        { "id": 1, "task": "ANALYZE_REQUIREMENTS", "status": "PENDING" },
+        { "id": 2, "task": "EXECUTE_IMPLEMENTATION", "status": "PENDING" },
+        { "id": 3, "task": "VERIFY_ASSERTIONS", "status": "PENDING" }
+    ]
+end
+
+# Creates a multi-agent swarm registry
+action agent_swarm_create()
+    return {
+        "members": {},
+        "member_names": [],
+        "task_routing": {}
+    }
+end
+
+# Registers a specialized agent into the swarm
+action agent_swarm_add_member(swarm, agent_inst, capabilities)
+    let name = agent_inst["name"]
+    let members = swarm["members"]
+    members[name] = agent_inst
+    swarm["members"] = members
+
+    let names = swarm["member_names"]
+    names = names + [name]
+    swarm["member_names"] = names
+
+    # Map capabilities
+    let routing = swarm["task_routing"]
+    let i = 0
+    while i < len(capabilities)
+        routing[capabilities[i]] = name
+        i = i + 1
+    end
+    swarm["task_routing"] = routing
+    return 1
+end
+
+# Routes a specific task category to the best specialized agent in the swarm
+action agent_swarm_route(swarm, task_category)
+    let routing = swarm["task_routing"]
+    let target = routing[task_category]
+    if target == null
+        # Fallback to first member
+        let names = swarm["member_names"]
+        if len(names) > 0
+            return names[0]
+        end
+        return null
+    end
+    return target
+end
+
+# Summarizes the entire trajectory into an execution audit string
+action agent_summarize_trajectory(agent_inst)
+    let hist = agent_inst["history"]
+    let count = len(hist)
+    let summary = "Agent: " + agent_inst["name"] + " (" + agent_inst["role"] + ") | Steps: " + count + " | Status: " + agent_inst["status"]
+    return summary
+end

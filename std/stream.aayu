@@ -1,0 +1,267 @@
+# ==============================================================================
+# AAYU Standard Library: Real-Time Stream & CEP Analytics (std/stream.aayu)
+# 100% Pure Self-Hosted AAYU (.aayu)
+# Windowing (Tumbling/Sliding/Session), Financial Technical Indicators & Complex Event Processing
+# Zero Python, Zero External Packages, Zero C/C++ Dependencies
+# ==============================================================================
+
+# Creates a fixed-size Tumbling Window
+action tumbling_window_new(window_size)
+    return {
+        "size": window_size,
+        "buffer": [],
+        "total_emitted": 0
+    }
+end
+
+# Pushes item into Tumbling Window; emits full batch and resets when size reached
+action tumbling_window_push(win, item)
+    let buf = win["buffer"]
+    buf = buf + [item]
+    if len(buf) >= win["size"]
+        win["buffer"] = []
+        win["total_emitted"] = win["total_emitted"] + 1
+        return {
+            "emitted": 1,
+            "batch": buf,
+            "total_emitted": win["total_emitted"]
+        }
+    end
+    win["buffer"] = buf
+    return {
+        "emitted": 0,
+        "batch": [],
+        "total_emitted": win["total_emitted"]
+    }
+end
+
+# Creates a continuous Sliding Window stream of fixed capacity
+action sliding_window_stream_new(capacity)
+    return {
+        "capacity": capacity,
+        "buffer": []
+    }
+end
+
+# Pushes an item into the Sliding Window, dropping oldest item if over capacity
+action sliding_window_stream_push(win, item)
+    let buf = win["buffer"]
+    buf = buf + [item]
+    let cap = win["capacity"]
+    if len(buf) > cap
+        # Slice from index 1 to end
+        let new_buf = []
+        let i = 1
+        while i < len(buf)
+            new_buf = new_buf + [buf[i]]
+            i = i + 1
+        end
+        buf = new_buf
+    end
+    win["buffer"] = buf
+    return len(buf)
+end
+
+# Returns current items in the sliding window
+action sliding_window_stream_values(win)
+    return win["buffer"]
+end
+
+# Creates a Session Window that splits on inactivity gap
+action session_window_new(gap_ms)
+    return {
+        "gap_ms": gap_ms,
+        "last_timestamp": -1,
+        "current_session": []
+    }
+end
+
+# Pushes an event into session window; emits session if inactivity gap exceeded
+action session_window_push(win, event_data, timestamp_ms)
+    let last_ts = win["last_timestamp"]
+    let session = win["current_session"]
+    let gap = win["gap_ms"]
+
+    let emitted = 0
+    let finished_session = []
+
+    if last_ts != -1
+        let diff = timestamp_ms - last_ts
+        if diff > gap
+            emitted = 1
+            finished_session = session
+            session = []
+        end
+    end
+
+    session = session + [event_data]
+    win["last_timestamp"] = timestamp_ms
+    win["current_session"] = session
+
+    if emitted == 1
+        return {
+            "session_emitted": 1,
+            "session": finished_session
+        }
+    end
+    return {
+        "session_emitted": 0,
+        "session": []
+    }
+end
+
+# Simple Moving Average (SMA) of integer/float values
+action stream_sma(values)
+    let count = len(values)
+    if count == 0
+        return 0
+    end
+    let total = 0
+    let i = 0
+    while i < count
+        total = total + values[i]
+        i = i + 1
+    end
+    return total / count
+end
+
+# Exponential Weighted Moving Average (EWMA) with alpha scaled by 1000
+# EWMA = (alpha * new + (1000 - alpha) * prev) / 1000
+action stream_ewma(prev_ewma, new_val, alpha_scaled_1000)
+    let part_new = alpha_scaled_1000 * new_val
+    let part_prev = (1000 - alpha_scaled_1000) * prev_ewma
+    return (part_new + part_prev) / 1000
+end
+
+# Integer square root for standard deviation calculation
+action stream_int_sqrt(n)
+    if n <= 0
+        return 0
+    end
+    if n == 1
+        return 1
+    end
+    let x = n / 2
+    let i = 0
+    while i < 20
+        if x == 0
+            return 1
+        end
+        let next_x = (x + (n / x)) / 2
+        if next_x >= x
+            return x
+        end
+        x = next_x
+        i = i + 1
+    end
+    return x
+end
+
+# Standard Deviation of stream values
+action stream_stddev(values, mean_val)
+    let count = len(values)
+    if count <= 1
+        return 0
+    end
+    let sum_sq_diff = 0
+    let i = 0
+    while i < count
+        let diff = values[i] - mean_val
+        sum_sq_diff = sum_sq_diff + (diff * diff)
+        i = i + 1
+    end
+    let variance = sum_sq_diff / count
+    return stream_int_sqrt(variance)
+end
+
+# Bollinger Bands: Middle (SMA), Upper (SMA + k*stddev), Lower (SMA - k*stddev)
+action stream_bollinger_bands(values, k_factor)
+    let sma = stream_sma(values)
+    let sd = stream_stddev(values, sma)
+    let offset = k_factor * sd
+    return {
+        "middle": sma,
+        "upper": sma + offset,
+        "lower": sma - offset,
+        "stddev": sd
+    }
+end
+
+# Relative Strength Index (RSI, 0-100)
+action stream_rsi(gains, losses)
+    let count_g = len(gains)
+    let count_l = len(losses)
+    if count_g == 0
+        return 50 # neutral
+    end
+    let sum_g = 0
+    let i = 0
+    while i < count_g
+        sum_g = sum_g + gains[i]
+        i = i + 1
+    end
+    let avg_gain = sum_g / count_g
+
+    let sum_l = 0
+    let j = 0
+    while j < count_l
+        sum_l = sum_l + losses[j]
+        j = j + 1
+    end
+    let avg_loss = 0
+    if count_l > 0
+        avg_loss = sum_l / count_l
+    end
+
+    if avg_loss == 0
+        return 100 # Maximum bullish momentum
+    end
+
+    let rs = (avg_gain * 100) / avg_loss
+    # RSI = 100 - (10000 / (100 + rs))
+    let rsi = 100 - (10000 / (100 + rs))
+    return rsi
+end
+
+# Complex Event Processing (CEP): Pattern sequence detector
+action cep_detector_new(pattern_events, max_window_ms)
+    return {
+        "pattern": pattern_events,
+        "max_window_ms": max_window_ms,
+        "match_progress": 0,
+        "first_match_ts": 0
+    }
+end
+
+# Pushes an event into the CEP detector; returns 1 when full temporal pattern is fulfilled
+action cep_detector_push(detector, event_type, timestamp_ms)
+    let pat = detector["pattern"]
+    let prog = detector["match_progress"]
+    let expected = pat[prog]
+
+    # Check if window expired
+    if prog > 0
+        let elapsed = timestamp_ms - detector["first_match_ts"]
+        if elapsed > detector["max_window_ms"]
+            # Expired: reset to 0
+            detector["match_progress"] = 0
+            prog = 0
+            expected = pat[0]
+        end
+    end
+
+    if event_type == expected
+        if prog == 0
+            detector["first_match_ts"] = timestamp_ms
+        end
+        detector["match_progress"] = prog + 1
+
+        # Check if full pattern matched
+        if detector["match_progress"] == len(pat)
+            detector["match_progress"] = 0 # reset for next occurrence
+            return 1 # ALERT!
+        end
+    end
+
+    return 0
+end

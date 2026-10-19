@@ -1,0 +1,249 @@
+# ==============================================================================
+# AAYU Standard Library: Raft Distributed Consensus Engine (std/consensus.aayu)
+# 100% Pure Self-Hosted AAYU (.aayu)
+# Replicated State Machine, Leader Election, Quorum Voting & Conflict Resolution
+# Zero Python, Zero External Packages, Zero C/C++ Dependencies
+# ==============================================================================
+
+# Creates a new Raft distributed consensus node
+action raft_node_new(node_id, peers)
+    return {
+        "id": node_id,
+        "peers": peers,
+        "role": "FOLLOWER", # FOLLOWER, CANDIDATE, LEADER
+        "current_term": 0,
+        "voted_for": null,
+        "votes_received": 0,
+        "log": [], # array of entries: { "term": t, "index": i, "op": op, "key": k, "val": v }
+        "commit_index": 0,
+        "last_applied": 0,
+        "state_machine": {}, # replicated key-value state
+        "next_index": {},
+        "match_index": {}
+    }
+end
+
+# Initiates a leader election on heartbeat timeout
+action raft_start_election(node)
+    node["role"] = "CANDIDATE"
+    node["current_term"] = node["current_term"] + 1
+    node["voted_for"] = node["id"]
+    node["votes_received"] = 1 # votes for self
+    return {
+        "term": node["current_term"],
+        "candidate_id": node["id"],
+        "last_log_index": len(node["log"]),
+        "last_log_term": raft_get_last_log_term(node)
+    }
+end
+
+# Returns the term of the last entry in the node's log
+action raft_get_last_log_term(node)
+    let logs = node["log"]
+    let count = len(logs)
+    if count == 0
+        return 0
+    end
+    let last = logs[count - 1]
+    return last["term"]
+end
+
+# Processes an incoming RequestVote RPC from a candidate
+action raft_request_vote(node, candidate_id, term, last_log_index, last_log_term)
+    # If candidate's term is older, reject immediately
+    if term < node["current_term"]
+        return {
+            "term": node["current_term"],
+            "vote_granted": 0,
+            "reason": "STALE_TERM"
+        }
+    end
+
+    # If candidate's term is newer, step down to FOLLOWER
+    if term > node["current_term"]
+        node["current_term"] = term
+        node["role"] = "FOLLOWER"
+        node["voted_for"] = null
+    end
+
+    # Check if we can vote for candidate
+    let can_vote = 0
+    if node["voted_for"] == null
+        can_vote = 1
+    end
+    if node["voted_for"] == candidate_id
+        can_vote = 1
+    end
+
+    # Check log completeness (Candidate's log must be at least as up-to-date)
+    let our_last_index = len(node["log"])
+    let our_last_term = raft_get_last_log_term(node)
+
+    let log_ok = 0
+    if last_log_term > our_last_term
+        log_ok = 1
+    else
+        if last_log_term == our_last_term
+            if last_log_index >= our_last_index
+                log_ok = 1
+            end
+        end
+    end
+
+    if can_vote == 1
+        if log_ok == 1
+            node["voted_for"] = candidate_id
+            return {
+                "term": node["current_term"],
+                "vote_granted": 1,
+                "reason": "VOTE_GRANTED"
+            }
+        end
+    end
+
+    return {
+        "term": node["current_term"],
+        "vote_granted": 0,
+        "reason": "LOG_INCOMPLETE_OR_ALREADY_VOTED"
+    }
+end
+
+# Processes a received vote and checks for majority quorum
+action raft_handle_vote_response(node, voter_id, vote_granted, total_cluster_nodes)
+    if node["role"] != "CANDIDATE"
+        return 0
+    end
+
+    if vote_granted == 1
+        node["votes_received"] = node["votes_received"] + 1
+        # Majority quorum check: votes > N / 2
+        let majority = (total_cluster_nodes / 2) + 1
+        if node["votes_received"] >= majority
+            node["role"] = "LEADER"
+            # Initialize leader state
+            let peers = node["peers"]
+            let next_idx = {}
+            let match_idx = {}
+            let last_idx = len(node["log"]) + 1
+            let i = 0
+            while i < len(peers)
+                let p = peers[i]
+                next_idx[p] = last_idx
+                match_idx[p] = 0
+                i = i + 1
+            end
+            node["next_index"] = next_idx
+            node["match_index"] = match_idx
+            return 1 # Won election!
+        end
+    end
+    return 0
+end
+
+# Leader proposes a new command to append to the distributed log
+action raft_leader_append_entry(leader, op, key, val)
+    if leader["role"] != "LEADER"
+        return { "success": 0, "error": "NOT_LEADER" }
+    end
+
+    let current_log = leader["log"]
+    let new_idx = len(current_log) + 1
+    let entry = {
+        "term": leader["current_term"],
+        "index": new_idx,
+        "op": op, # SET, DELETE
+        "key": key,
+        "val": val
+    }
+    current_log = current_log + [entry]
+    leader["log"] = current_log
+
+    return {
+        "success": 1,
+        "index": new_idx,
+        "term": leader["current_term"]
+    }
+end
+
+# Replicates uncommitted log entries from leader to a follower node
+action raft_replicate_to_follower(leader, follower)
+    if leader["role"] != "LEADER"
+        return 0
+    end
+
+    let leader_log = leader["log"]
+    let follower_log = follower["log"]
+
+    # In single-node synchronous simulation, follower adopts matching entries
+    # Truncate follower log to match consistency
+    let i = 0
+    let new_follower_log = []
+    while i < len(leader_log)
+        new_follower_log = new_follower_log + [leader_log[i]]
+        i = i + 1
+    end
+    follower["log"] = new_follower_log
+    follower["current_term"] = leader["current_term"]
+
+    # Update follower commit index
+    if leader["commit_index"] > follower["commit_index"]
+        if leader["commit_index"] < len(new_follower_log)
+            follower["commit_index"] = leader["commit_index"]
+        else
+            follower["commit_index"] = len(new_follower_log)
+        end
+    end
+
+    return 1
+end
+
+# Advances leader commit index when entry is replicated on majority of nodes
+action raft_advance_commit_index(leader, quorum_count, total_cluster_nodes)
+    if leader["role"] != "LEADER"
+        return 0
+    end
+
+    let majority = (total_cluster_nodes / 2) + 1
+    if quorum_count >= majority
+        let log_len = len(leader["log"])
+        if log_len > leader["commit_index"]
+            leader["commit_index"] = log_len
+            return 1
+        end
+    end
+    return 0
+end
+
+# Applies committed log entries to the local replicated state machine
+action raft_apply_to_state_machine(node)
+    let applied = node["last_applied"]
+    let committed = node["commit_index"]
+    let logs = node["log"]
+    let sm = node["state_machine"]
+
+    let count_applied = 0
+    while applied < committed
+        let entry = logs[applied]
+        let op = entry["op"]
+        let k = entry["key"]
+        let v = entry["val"]
+        if op == "SET"
+            sm[k] = v
+        end
+        if op == "DELETE"
+            sm[k] = null
+        end
+        applied = applied + 1
+        count_applied = count_applied + 1
+    end
+
+    node["last_applied"] = applied
+    node["state_machine"] = sm
+    return count_applied
+end
+
+# Reads a value from the replicated state machine
+action raft_get_state_machine_val(node, key)
+    let sm = node["state_machine"]
+    return sm[key]
+end

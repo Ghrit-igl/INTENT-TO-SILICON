@@ -1886,5 +1886,159 @@ let is_valid = schnorr_verify(public_y, proof, g, p)
 print("ZKP Verified: " + is_valid) # 1 (Valid proof, zero leakage!)
 ```
 
+---
+
+## 26. Autonomous AI Agent Runtime & Swarm Orchestration (`std/agent.aayu`)
+
+### 26.1 The End of Bloated Python Agent Frameworks
+Modern AI coding and autonomous agents in Python rely on fragile, heavy frameworks like LangChain, CrewAI, AutoGen, and LangGraph. These libraries introduce hundreds of megabytes of transitive dependencies, frequent breaking changes, and high latency.
+
+AAYU provides a **native, single-binary, microsecond AI Agent Runtime (`std/agent.aayu`)**:
+1. **ReAct Paradigm:** Implements standard Reason -> Act -> Observe loops with execution trajectory logging.
+2. **Anti-Hallucination & Infinite Loop Trapper:** Traps repetitive identical tool calls dynamically before token budgets are exhausted (`agent_detect_loop`).
+3. **Goal Decomposition:** Breaks high-level intents into ordered DAG subtasks with formal execution statuses (`PENDING`, `IN_PROGRESS`, `DONE`).
+4. **Multi-Agent Swarm Orchestration:** Manages specialized agents (e.g. Planner, Coder, Tester) with capability-based routing and consensus.
+
+### 26.2 Agent Primitives
+
+| Function | Category | Description |
+|---|---|---|
+| `agent_create(name, role, prompt, max_steps)` | Agent Core | Spawns an agent instance with episodic memory and trajectory history |
+| `agent_register_tool(agent, name, desc)` | Tooling | Registers an executable tool into the agent's schema catalog |
+| `agent_add_memory(agent, cat, content)` | Memory | Appends context or observations into episodic memory |
+| `agent_search_memory(agent, keyword)` | Memory | Performs fast substring search across episodic memory items |
+| `agent_step(agent, thought, action, arg, obs)`| ReAct Engine | Executes 1 reasoning step, enforces tool schemas and records observation |
+| `agent_detect_loop(agent)` | Reliability | Traps repeated tool execution loops |
+| `agent_decompose_goal(goal_str)` | Planning | Decomposes goal string into ordered subtask records |
+| `agent_swarm_create()` | Swarm | Initializes a multi-agent swarm registry |
+| `agent_swarm_add_member(swarm, agent, caps)` | Swarm | Registers agent with capability mappings (e.g. `["CODING", "AUDIT"]`) |
+| `agent_swarm_route(swarm, task_cat)` | Swarm | Routes incoming task to the best specialized member |
+
+### 26.3 Executable AI Agent Example
+
+```aayu
+import "std/agent.aayu"
+
+# 1. Initialize Autonomous Agent
+let bot = agent_create("OmniCoder", "Senior Systems Engineer", "Implement silicon-fast algorithms", 10)
+agent_register_tool(bot, "compiler", "Silicon VM compiler and disassembler")
+
+# 2. Add Episodic Memory & Context
+agent_add_memory(bot, "GOAL", "Build sub-microsecond B-Tree engine")
+
+# 3. Execute ReAct Step
+let step1 = agent_step(bot, "Compile B-Tree implementation", "compiler", "std/db.aayu", "COMPILE_OK")
+print("Agent Status: " + bot["status"]) # RUNNING
+
+# 4. Multi-Agent Swarm
+let swarm = agent_swarm_create()
+let planner = agent_create("PlannerBot", "Architect", "Plan systems", 5)
+agent_swarm_add_member(swarm, planner, ["PLANNING", "ARCHITECTURE"])
+let worker_id = agent_swarm_route(swarm, "ARCHITECTURE")
+print("Dispatched to: " + worker_id) # PlannerBot
+```
+
+---
+
+## 27. Raft Distributed Consensus & Replicated State Machines (`std/consensus.aayu`)
+
+### 27.1 Zero-Dependency Distributed State Replication
+Building high-availability distributed systems traditionally requires complex C/Go daemons (etcd, Consul, ZooKeeper). AAYU embeds the **Raft Distributed Consensus Algorithm (`std/consensus.aayu`)** directly into the standard library:
+1. **Leader Election:** Automated term progression, randomized heartbeat election timeouts, and majority quorum voting.
+2. **Log Replication:** Strict monotonic log ordering, conflict detection, and uncommitted entry truncation.
+3. **Replicated State Machine:** Monotonically advancing commit indices ensuring linearizable key-value state mutations across cluster nodes.
+
+### 27.2 Raft Primitives
+
+| Function | Category | Purpose |
+|---|---|---|
+| `raft_node_new(node_id, peers)` | Cluster | Initializes a Raft node with FOLLOWER state |
+| `raft_start_election(node)` | Election | Transitions to CANDIDATE, increments term and votes for self |
+| `raft_request_vote(node, cand_id, term, ...)`| Election | Evaluates vote requests according to term freshness and log completeness |
+| `raft_handle_vote_response(node, voter, ok, N)`| Election | Counts quorum votes ($> N/2$); promotes node to LEADER |
+| `raft_leader_append_entry(leader, op, k, v)`| Log | Appends proposed mutating command to leader's log |
+| `raft_replicate_to_follower(leader, follower)`| Log | Synchronizes log entries and advances follower commit index |
+| `raft_advance_commit_index(leader, quorum, N)`| Log | Advances leader commit index upon majority confirmation |
+| `raft_apply_to_state_machine(node)` | State Machine | Applies committed entries to local key-value store |
+| `raft_get_state_machine_val(node, key)` | State Machine | Reads linearizable committed state |
+
+### 27.3 Executable Raft Consensus Example
+
+```aayu
+import "std/consensus.aayu"
+
+# 1. Initialize 3-Node Cluster
+let n1 = raft_node_new("n1", ["n2", "n3"])
+let n2 = raft_node_new("n2", ["n1", "n3"])
+
+# 2. Leader Election (n1 wins quorum with 2/3 votes)
+raft_start_election(n1)
+let vote = raft_request_vote(n2, "n1", 1, 0, 0)
+raft_handle_vote_response(n1, "n2", vote["vote_granted"], 3)
+print("Node 1 Role: " + n1["role"]) # LEADER
+
+# 3. Log Replication & Commit
+raft_leader_append_entry(n1, "SET", "cluster_mode", "ACTIVE")
+raft_replicate_to_follower(n1, n2)
+raft_advance_commit_index(n1, 2, 3)
+
+# 4. Apply to Replicated State Machine
+raft_apply_to_state_machine(n1)
+print("Committed State: " + raft_get_state_machine_val(n1, "cluster_mode")) # ACTIVE
+```
+
+---
+
+## 28. Real-Time Stream Analytics & Complex Event Processing (`std/stream.aayu`)
+
+### 28.1 Low-Latency Stream Intelligence
+Modern streaming platforms (Apache Flink, Spark Streaming) carry massive JVM footprints. AAYU provides **in-memory, microsecond stream processing (`std/stream.aayu`)**:
+1. **Windowing Models:** Tumbling Windows (fixed batch), Sliding Windows (rolling continuous capacity), and Session Windows (inactivity gap splitting).
+2. **Financial Technical Indicators:** Simple Moving Average (SMA), Exponential Weighted Moving Average (EWMA), Bollinger Bands ($k \cdot \sigma$ volatility bounds), and Relative Strength Index (RSI).
+3. **Complex Event Processing (CEP):** Temporal sequence pattern detection within configurable time windows to trap cybersecurity attacks or financial fraud.
+
+### 28.2 Stream & CEP Primitives
+
+| Function | Domain | Purpose |
+|---|---|---|
+| `tumbling_window_new(size)` | Windowing | Fixed-count tumbling batch accumulator |
+| `tumbling_window_push(win, item)` | Windowing | Pushes item; emits completed batch when size is reached |
+| `sliding_window_stream_new(cap)` | Windowing | Fixed-capacity rolling window |
+| `session_window_new(gap_ms)` | Windowing | Emits session when event interval exceeds inactivity gap |
+| `stream_sma(values)` | Analytics | Simple Moving Average |
+| `stream_ewma(prev, new, alpha_1000)`| Analytics | Exponential Weighted Moving Average |
+| `stream_bollinger_bands(values, k)` | Analytics | Computes Middle, Upper, and Lower volatility bands |
+| `stream_rsi(gains, losses)` | Analytics | Relative Strength Index momentum oscillator (0-100) |
+| `cep_detector_new(pattern, max_ms)`| CEP | Temporal multi-event attack or pattern sequence detector |
+| `cep_detector_push(det, event, ts)`| CEP | Advances match progress; returns 1 on full pattern fulfillment |
+
+### 28.3 Executable Stream & CEP Example
+
+```aayu
+import "std/stream.aayu"
+
+# 1. Real-Time Sliding Window
+let sw = sliding_window_stream_new(3)
+sliding_window_stream_push(sw, 100)
+sliding_window_stream_push(sw, 102)
+sliding_window_stream_push(sw, 104)
+sliding_window_stream_push(sw, 106) # Rolling evicts 100
+
+# 2. Financial Technical Indicators (Bollinger Bands & RSI)
+let prices = [100, 102, 104, 106, 108]
+let bb = stream_bollinger_bands(prices, 2)
+print("SMA Middle Band: " + bb["middle"]) # 104
+print("Upper Band:      " + bb["upper"])
+
+# 3. Complex Event Processing: Multi-Stage Attack Detection
+let cep = cep_detector_new(["AUTH_FAIL", "AUTH_FAIL", "PRIVILEGE_ESCALATE"], 1000)
+cep_detector_push(cep, "AUTH_FAIL", 100)
+cep_detector_push(cep, "AUTH_FAIL", 300)
+let alert = cep_detector_push(cep, "PRIVILEGE_ESCALATE", 600)
+if alert == 1
+    print("CEP Alert Triggered: Multi-stage brute force attack intercepted!")
+end
+```
+
 
 

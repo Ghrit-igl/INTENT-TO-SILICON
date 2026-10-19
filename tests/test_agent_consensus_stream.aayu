@@ -1,0 +1,240 @@
+# ==============================================================================
+# AAYU Native Silicon Test Suite: Agent Swarm, Raft Consensus & Stream CEP
+# Target: tests/test_agent_consensus_stream.aayu
+# Architecture: 100% Pure Self-Hosted AAYU (.aayu)
+# ==============================================================================
+
+import "std/test.aayu"
+import "std/agent.aayu"
+import "std/consensus.aayu"
+import "std/stream.aayu"
+
+test_begin_suite("AAYU Advanced Systems Suite: AI Agent Swarm, Raft Consensus & Stream CEP")
+
+    # --------------------------------------------------------------------------
+    # Phase 1: AI Agent Initialization, Memory & Keyword Search
+    # --------------------------------------------------------------------------
+    print("\n[Phase 1] Testing AI Agent Creation & Episodic Memory Recall...")
+    let agent1 = agent_create("OmniBot", "Senior Architect", "Design silicon-ready apps", 10)
+    assert_eq(agent1["name"], "OmniBot", "Agent name initialized")
+    assert_eq(agent1["role"], "Senior Architect", "Agent role initialized")
+    assert_eq(agent1["status"], "IDLE", "Agent initial status is IDLE")
+    assert_eq(agent1["current_step"], 0, "Agent initial step is 0")
+
+    agent_add_memory(agent1, "FACT", "User requires sub-millisecond database queries")
+    agent_add_memory(agent1, "CONTEXT", "Target platform is Windows 11 and Linux x64")
+    agent_add_memory(agent1, "GOAL", "Build single-file full-stack portal")
+
+    let search_res = agent_search_memory(agent1, "sub-millisecond")
+    assert_eq(len(search_res), 1, "Memory search found 1 match for 'sub-millisecond'")
+    assert_eq(search_res[0]["category"], "FACT", "Memory category matches FACT")
+
+    let search_res2 = agent_search_memory(agent1, "Windows")
+    assert_eq(len(search_res2), 1, "Memory search found 1 match for 'Windows'")
+
+    # --------------------------------------------------------------------------
+    # Phase 2: Agent Tool Calling & ReAct Execution
+    # --------------------------------------------------------------------------
+    print("\n[Phase 2] Testing ReAct Step Execution & Tool Dispatching...")
+    agent_register_tool(agent1, "calculator", "Performs mathematical calculation")
+    agent_register_tool(agent1, "db_saver", "Saves payload to database")
+
+    assert_eq(len(agent1["tool_names"]), 2, "Registered 2 tools")
+
+    let step1 = agent_step(agent1, "Need to calculate resource allocation", "calculator", "100_CORES", "CALCULATED:100_CORES")
+    assert_eq(step1["status"], "SUCCESS", "Step 1 executed successfully")
+    assert_eq(step1["observation"], "CALCULATED:100_CORES", "Calculator tool returned expected observation")
+    assert_eq(agent1["current_step"], 1, "Agent step incremented to 1")
+
+    let step2 = agent_step(agent1, "Save allocation plan", "db_saver", "PLAN_ALPHA", "SAVED_TO_DB:PLAN_ALPHA")
+    assert_eq(step2["observation"], "SAVED_TO_DB:PLAN_ALPHA", "DB saver tool returned observation")
+
+    # --------------------------------------------------------------------------
+    # Phase 3: Anti-Hallucination & Infinite Loop Trapper
+    # --------------------------------------------------------------------------
+    print("\n[Phase 3] Testing AI Agent Loop Trapper & Self-Correction...")
+    # Repeat the same action 3 times to simulate a stuck LLM agent
+    let rep1 = agent_step(agent1, "Retrying query", "calculator", "STUCK", "ERROR")
+    let rep2 = agent_step(agent1, "Retrying query", "calculator", "STUCK", "ERROR")
+    let rep3 = agent_step(agent1, "Retrying query", "calculator", "STUCK", "ERROR")
+
+    assert_eq(rep3["status"], "LOOP_DETECTED", "Infinite retry loop trapped on 3rd identical attempt")
+    assert_eq(agent1["status"], "LOOP_DETECTED", "Agent marked with LOOP_DETECTED status")
+
+    # --------------------------------------------------------------------------
+    # Phase 4: Goal Decomposition & Multi-Agent Swarm Routing
+    # --------------------------------------------------------------------------
+    print("\n[Phase 4] Testing Goal Decomposition & Multi-Agent Swarm...")
+    let subtasks = agent_decompose_goal("Build distributed cluster")
+    assert_eq(len(subtasks), 3, "Goal decomposed into 3 subtasks")
+    assert_eq(subtasks[0]["task"], "ANALYZE_REQUIREMENTS", "Subtask 1 is requirements analysis")
+    assert_eq(subtasks[1]["task"], "EXECUTE_IMPLEMENTATION", "Subtask 2 is implementation")
+    assert_eq(subtasks[2]["task"], "VERIFY_ASSERTIONS", "Subtask 3 is verification")
+
+    let swarm = agent_swarm_create()
+    let planner = agent_create("PlannerAgent", "Planner", "Create execution graph", 5)
+    let coder = agent_create("CoderAgent", "Coder", "Write AAYU code", 10)
+    let tester = agent_create("TesterAgent", "Tester", "Run assertion tests", 5)
+
+    agent_swarm_add_member(swarm, planner, ["PLANNING", "ARCHITECTURE"])
+    agent_swarm_add_member(swarm, coder, ["CODING", "REFACTORING"])
+    agent_swarm_add_member(swarm, tester, ["TESTING", "BENCHMARKING"])
+
+    assert_eq(len(swarm["member_names"]), 3, "Swarm has 3 specialized agents")
+    assert_eq(agent_swarm_route(swarm, "ARCHITECTURE"), "PlannerAgent", "ARCHITECTURE routed to PlannerAgent")
+    assert_eq(agent_swarm_route(swarm, "CODING"), "CoderAgent", "CODING routed to CoderAgent")
+    assert_eq(agent_swarm_route(swarm, "TESTING"), "TesterAgent", "TESTING routed to TesterAgent")
+
+    # --------------------------------------------------------------------------
+    # Phase 5: Raft Node State & Leader Election with Quorum Voting
+    # --------------------------------------------------------------------------
+    print("\n[Phase 5] Testing Raft Distributed Consensus Leader Election...")
+    let node1 = raft_node_new("node_1", ["node_2", "node_3"])
+    let node2 = raft_node_new("node_2", ["node_1", "node_3"])
+    let node3 = raft_node_new("node_3", ["node_1", "node_2"])
+
+    assert_eq(node1["role"], "FOLLOWER", "Node 1 starts as FOLLOWER")
+    assert_eq(node1["current_term"], 0, "Node 1 initial term is 0")
+
+    # Node 1 times out and starts election
+    let election_req = raft_start_election(node1)
+    assert_eq(node1["role"], "CANDIDATE", "Node 1 transitioned to CANDIDATE")
+    assert_eq(node1["current_term"], 1, "Node 1 incremented term to 1")
+    assert_eq(node1["votes_received"], 1, "Node 1 voted for itself (1 vote)")
+
+    # Request votes from Node 2 and Node 3
+    let vote2 = raft_request_vote(node2, "node_1", 1, 0, 0)
+    assert_eq(vote2["vote_granted"], 1, "Node 2 granted vote to Node 1")
+    assert_eq(node2["voted_for"], "node_1", "Node 2 voted_for recorded as node_1")
+
+    # Handle vote response on Node 1 (Cluster size = 3, majority is 2)
+    let election_won = raft_handle_vote_response(node1, "node_2", vote2["vote_granted"], 3)
+    assert_eq(election_won, 1, "Quorum achieved (2/3 votes) - Node 1 elected LEADER!")
+    assert_eq(node1["role"], "LEADER", "Node 1 role is now LEADER")
+
+    # --------------------------------------------------------------------------
+    # Phase 6: Raft Log Replication & Commit Index Advancement
+    # --------------------------------------------------------------------------
+    print("\n[Phase 6] Testing Raft Log Replication & Majority Commit...")
+    let append_res = raft_leader_append_entry(node1, "SET", "user_count", 5000)
+    assert_eq(append_res["success"], 1, "Leader appended SET entry to local log")
+    assert_eq(append_res["index"], 1, "Entry log index is 1")
+
+    let append_res2 = raft_leader_append_entry(node1, "SET", "cluster_health", "OPTIMAL")
+    assert_eq(append_res2["index"], 2, "Entry log index is 2")
+
+    # Replicate to Node 2 and Node 3
+    let rep_ok1 = raft_replicate_to_follower(node1, node2)
+    let rep_ok2 = raft_replicate_to_follower(node1, node3)
+    assert_eq(rep_ok1, 1, "Log replicated to follower node 2")
+    assert_eq(rep_ok2, 1, "Log replicated to follower node 3")
+    assert_eq(len(node2["log"]), 2, "Follower node 2 received 2 entries")
+
+    # Advance commit index on majority confirmation (3/3 nodes replicated)
+    let commit_adv = raft_advance_commit_index(node1, 3, 3)
+    assert_eq(commit_adv, 1, "Leader advanced commit index to 2")
+    assert_eq(node1["commit_index"], 2, "Leader commit_index is 2")
+
+    # --------------------------------------------------------------------------
+    # Phase 7: Raft State Machine Application
+    # --------------------------------------------------------------------------
+    print("\n[Phase 7] Testing Replicated State Machine Application...")
+    let applied_count = raft_apply_to_state_machine(node1)
+    assert_eq(applied_count, 2, "Applied 2 committed entries to state machine")
+    assert_eq(raft_get_state_machine_val(node1, "user_count"), 5000, "user_count in state machine is 5000")
+    assert_eq(raft_get_state_machine_val(node1, "cluster_health"), "OPTIMAL", "cluster_health in state machine is OPTIMAL")
+
+    # --------------------------------------------------------------------------
+    # Phase 8: Stream Windowing (Tumbling, Sliding & Session)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 8] Testing Stream Windowing (Tumbling, Sliding, Session)...")
+    let tw = tumbling_window_new(3)
+    let tw_r1 = tumbling_window_push(tw, 10)
+    assert_eq(tw_r1["emitted"], 0, "Tumbling window not full after 1 item")
+
+    let tw_r2 = tumbling_window_push(tw, 20)
+    assert_eq(tw_r2["emitted"], 0, "Tumbling window not full after 2 items")
+
+    let tw_r3 = tumbling_window_push(tw, 30)
+    assert_eq(tw_r3["emitted"], 1, "Tumbling window emitted batch on 3rd item")
+    assert_eq(len(tw_r3["batch"]), 3, "Batch contains exactly 3 items")
+    assert_eq(tw_r3["batch"][0], 10, "First item is 10")
+    assert_eq(tw_r3["batch"][2], 30, "Third item is 30")
+
+    # Sliding Window
+    let sw = sliding_window_stream_new(4)
+    sliding_window_stream_push(sw, 1)
+    sliding_window_stream_push(sw, 2)
+    sliding_window_stream_push(sw, 3)
+    sliding_window_stream_push(sw, 4)
+    sliding_window_stream_push(sw, 5) # Evicts 1
+
+    let sw_vals = sliding_window_stream_values(sw)
+    assert_eq(len(sw_vals), 4, "Sliding window length clamped at capacity 4")
+    assert_eq(sw_vals[0], 2, "Oldest element 1 dropped, first element is now 2")
+    assert_eq(sw_vals[3], 5, "Newest element is 5")
+
+    # Session Window (Gap = 500ms)
+    let ses = session_window_new(500)
+    let s_ev1 = session_window_push(ses, "CLICK_HOME", 1000)
+    assert_eq(s_ev1["session_emitted"], 0, "Event 1 starts active session")
+
+    let s_ev2 = session_window_push(ses, "VIEW_PROFILE", 1200) # within 200ms
+    assert_eq(s_ev2["session_emitted"], 0, "Event 2 within gap continues session")
+
+    let s_ev3 = session_window_push(ses, "CHECKOUT", 2000) # 800ms gap > 500ms
+    assert_eq(s_ev3["session_emitted"], 1, "Event 3 gap exceeded: emitted previous session")
+    assert_eq(len(s_ev3["session"]), 2, "Emitted session contained 2 events")
+
+    # --------------------------------------------------------------------------
+    # Phase 9: Financial Stream Analytics (SMA, EWMA, Bollinger, RSI)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 9] Testing Financial Technical Indicators (SMA, EWMA, Bollinger, RSI)...")
+    let prices = [100, 102, 104, 106, 108]
+    let sma_val = stream_sma(prices)
+    assert_eq(sma_val, 104, "SMA of [100, 102, 104, 106, 108] is 104")
+
+    # EWMA with alpha = 0.2 (200 / 1000)
+    # EWMA = (200 * 110 + 800 * 100) / 1000 = (22000 + 80000) / 1000 = 102
+    let ewma_val = stream_ewma(100, 110, 200)
+    assert_eq(ewma_val, 102, "EWMA correctly weighted new price to 102")
+
+    # Bollinger Bands with k = 2
+    let bb = stream_bollinger_bands([10, 12, 14, 16, 18], 2)
+    assert_eq(bb["middle"], 14, "Bollinger middle band matches SMA 14")
+    assert_true(bb["upper"] >= 14, "Upper band is above middle")
+    assert_true(bb["lower"] <= 14, "Lower band is below middle")
+
+    # RSI (Relative Strength Index)
+    let rsi_bull = stream_rsi([10, 15, 20], [0, 0, 0])
+    assert_eq(rsi_bull, 100, "All gains yields maximum RSI 100")
+
+    let rsi_mixed = stream_rsi([10, 10], [10, 10]) # equal gains and losses
+    assert_eq(rsi_mixed, 50, "Equal gains and losses yields neutral RSI 50")
+
+    # --------------------------------------------------------------------------
+    # Phase 10: Complex Event Processing (Temporal Pattern Sequence Matching)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 10] Testing Complex Event Processing (CEP Sequence Matching)...")
+    let cep = cep_detector_new(["AUTH_FAIL", "AUTH_FAIL", "PRIVILEGE_ESCALATE"], 1000)
+
+    let cep1 = cep_detector_push(cep, "AUTH_FAIL", 100)
+    assert_eq(cep1, 0, "First AUTH_FAIL matched, pattern incomplete")
+
+    let cep2 = cep_detector_push(cep, "AUTH_FAIL", 300)
+    assert_eq(cep2, 0, "Second AUTH_FAIL matched, pattern incomplete")
+
+    let cep3 = cep_detector_push(cep, "PRIVILEGE_ESCALATE", 600)
+    assert_eq(cep3, 1, "Full attack sequence matched within 500ms - CEP ALERT TRIGGERED!")
+
+    # Verify expiration reset
+    let cep_exp1 = cep_detector_push(cep, "AUTH_FAIL", 1000)
+    let cep_exp2 = cep_detector_push(cep, "AUTH_FAIL", 1200)
+    let cep_exp3 = cep_detector_push(cep, "PRIVILEGE_ESCALATE", 3000) # 2000ms > 1000ms max window
+    assert_eq(cep_exp3, 0, "Expired pattern window rejected alert")
+
+    test_end_suite()
+
+print("\n==================================================================")
+print("   ALL AGENT SWARM, RAFT CONSENSUS & STREAM CEP TESTS PASSED!     ")
+print("==================================================================")

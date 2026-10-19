@@ -749,8 +749,44 @@ end`}</code>
               </p>
               <div className="flex flex-wrap gap-4 font-mono text-[11px]">
                 <span className="text-violet-300 font-bold">64/64 Advanced Engine Assertions PASS</span>
-                <span className="text-emerald-300 font-bold">794/794 Total Silicon Test Suite PASS</span>
+                <span className="text-emerald-300 font-bold">Zero-Leakage Shamir Secret Sharing</span>
                 <span className="text-amber-300 font-bold">Fiat-Shamir Non-Interactive ZKP</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-teal-950/30 via-zinc-900/60 to-black border border-teal-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-teal-400 mb-2">14. Autonomous AI Agent Runtime &amp; Swarm (std/agent.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-teal-300">std/agent.aayu</code> replaces bloated, fragile Python frameworks (LangChain, CrewAI, AutoGen) with a single-file, zero-dependency, microsecond AI Agent Runtime: ReAct Reason &rarr; Act &rarr; Observe loop with execution trajectories, anti-hallucination loop trappers (<code className="text-teal-300">agent_detect_loop</code>) to prevent infinite token waste, structured tool catalogs (<code className="text-teal-300">agent_register_tool</code>), episodic memory search, and Multi-Agent Swarm orchestration with capability-based routing.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-teal-300 font-bold">Zero-Dependency ReAct Runtime</span>
+                <span className="text-emerald-300 font-bold">Anti-Hallucination Loop Trapper</span>
+                <span className="text-cyan-300 font-bold">Multi-Agent Swarm Orchestration</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-orange-950/30 via-zinc-900/60 to-black border border-orange-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-orange-400 mb-2">15. Raft Distributed Consensus Engine (std/consensus.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-orange-300">std/consensus.aayu</code> embeds the full Raft Distributed Consensus Algorithm natively into AAYU, eliminating external daemons (etcd, Consul, ZooKeeper): automated term epochs, randomized heartbeat timeouts, majority quorum voting, strict monotonic log replication with conflict resolution, and linearizable replicated key-value state machines.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-orange-300 font-bold">Native Raft State Machine</span>
+                <span className="text-emerald-300 font-bold">Majority Quorum Leader Election</span>
+                <span className="text-cyan-300 font-bold">Conflict-Free Log Replication</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-rose-950/30 via-zinc-900/60 to-black border border-rose-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-rose-400 mb-2">16. Real-Time Stream Analytics &amp; CEP (std/stream.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-rose-300">std/stream.aayu</code> delivers in-memory, low-latency stream processing without JVM overhead (Apache Flink, Spark Streaming): Tumbling, Sliding, and Session windows, real-time financial technical indicators (Simple Moving Average, Exponential Weighted Moving Average, Bollinger Bands, Relative Strength Index), and Complex Event Processing (CEP) temporal pattern matching across sliding windows for instant cyberattack and fraud interception.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-rose-300 font-bold">66/66 Systems Engine Assertions PASS</span>
+                <span className="text-emerald-300 font-bold">860/860 Total Silicon Test Suite PASS</span>
+                <span className="text-cyan-300 font-bold">Tumbling, Sliding &amp; Session Windows</span>
               </div>
             </div>
           </div>
@@ -759,9 +795,9 @@ end`}</code>
         {/* Download Master Handbook Banner */}
         <div className="p-8 rounded-2xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-black border border-purple-500/40 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
-            <h3 className="text-xl font-bold text-white mb-2">The Ultimate AAYU Master Handbook (33 Chapters)</h3>
+            <h3 className="text-xl font-bold text-white mb-2">The Ultimate AAYU Master Handbook (36 Chapters)</h3>
             <p className="text-zinc-400 text-sm max-w-xl">
-              Complete engineering manual by Ayush Ghrit Kaushik. Includes all 33 chapters, memory architecture, 20 master interview problems, algorithmic patterns, smart contracts, creative DSP, Quantum simulation, Actor concurrency, Binary wire codec, and Zero-Knowledge proofs.
+              Complete engineering manual by Ayush Ghrit Kaushik. Includes all 36 chapters, memory architecture, 20 master interview problems, algorithmic patterns, smart contracts, creative DSP, Quantum simulation, Actor concurrency, Binary wire codec, Zero-Knowledge proofs, AI Agent swarms, Raft consensus, and Real-Time Stream CEP.
             </p>
           </div>
           <a
