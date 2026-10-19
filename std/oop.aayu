@@ -1,0 +1,68 @@
+# ==============================================================================
+# AAYU Standard Library: Object-Oriented Programming (std/oop.aayu)
+# First-Class Class / Model Patterns, Polymorphic Extension, Encapsulation
+# 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
+# ==============================================================================
+import "std/collections.aayu"
+
+# ------------------------------------------------------------------------------
+# 1. OOP INSTANTIATION & EXTENSION (Prototypal & Composition Inheritance)
+# ------------------------------------------------------------------------------
+
+# Extends a base class / object instance with child properties and overrides
+action oop_extend(base_obj, child_extensions)
+    let res = {}
+    # Copy all base fields
+    let base_keys = dict_keys(base_obj)
+    let bi = 0
+    let b_count = len(base_keys)
+    while bi < b_count
+        let k = base_keys[bi]
+        res[k] = base_obj[k]
+        bi = bi + 1
+    end
+
+    # Apply child overrides and new fields
+    let child_keys = dict_keys(child_extensions)
+    let ci = 0
+    let c_count = len(child_keys)
+    while ci < c_count
+        let ck = child_keys[ci]
+        res[ck] = child_extensions[ck]
+        ci = ci + 1
+    end
+
+    return res
+end
+
+# Checks whether an object contains a specific field or method
+action oop_has_property(obj, prop_name)
+    if obj == null
+        return 0
+    end
+    if obj[prop_name] != null
+        return 1
+    end
+    return 0
+end
+
+# Shallow-clones an object instance
+action oop_clone(obj)
+    let cloned = {}
+    let keys = dict_keys(obj)
+    let i = 0
+    let n = len(keys)
+    while i < n
+        let k = keys[i]
+        cloned[k] = obj[k]
+        i = i + 1
+    end
+    return cloned
+end
+
+# Standard Object Factory Blueprint
+action oop_create_class(class_name, default_props)
+    let instance = oop_clone(default_props)
+    instance["__class__"] = class_name
+    return instance
+end

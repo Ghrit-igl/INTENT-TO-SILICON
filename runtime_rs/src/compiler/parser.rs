@@ -357,11 +357,14 @@ impl Parser {
                 return Some(Statement::Continue);
             }
             Token::Identifier(name) => {
-                let mut var_name = name.clone();
+                let root_name = name.clone();
+                let mut var_name = root_name.clone();
                 self.pos += 1;
+                let mut dot_parts = Vec::new();
                 while self.current() == &Token::Dot {
                     self.pos += 1;
                     if let Token::Identifier(part) = self.current() {
+                        dot_parts.push(part.clone());
                         var_name.push('.');
                         var_name.push_str(part);
                         self.pos += 1;
@@ -373,6 +376,17 @@ impl Parser {
                 if self.current() == &Token::Equal {
                     self.pos += 1;
                     let expr = self.parse_expression();
+                    if !dot_parts.is_empty() {
+                        let mut object = Expr::Variable(root_name);
+                        for i in 0..dot_parts.len() - 1 {
+                            object = Expr::Index {
+                                object: Box::new(object),
+                                key: Box::new(Expr::StringLiteral(dot_parts[i].clone())),
+                            };
+                        }
+                        let key = Expr::StringLiteral(dot_parts.last().unwrap().clone());
+                        return Some(Statement::SubscriptAssignment { object, key, value: expr });
+                    }
                     return Some(Statement::Assignment { name: var_name, value: expr });
                 } else if self.current() == &Token::LeftBracket {
                     self.pos += 1;
@@ -679,11 +693,14 @@ impl Parser {
             Token::Null => { self.pos += 1; Expr::Null }
             Token::StringLiteral(s) => { let val = s.clone(); self.pos += 1; Expr::StringLiteral(val) }
             Token::Identifier(name) => {
-                let mut id = name.clone();
+                let root_name = name.clone();
+                let mut id = root_name.clone();
                 self.pos += 1;
+                let mut dot_parts = Vec::new();
                 while self.current() == &Token::Dot {
                     self.pos += 1;
                     if let Token::Identifier(part) = self.current() {
+                        dot_parts.push(part.clone());
                         id.push('.');
                         id.push_str(part);
                         self.pos += 1;
@@ -713,6 +730,15 @@ impl Parser {
                         self.errors.push(format!("unterminated call to '{}'", id));
                     }
                     Expr::Call { callee: id, args }
+                } else if !dot_parts.is_empty() {
+                    let mut object = Expr::Variable(root_name);
+                    for part in dot_parts {
+                        object = Expr::Index {
+                            object: Box::new(object),
+                            key: Box::new(Expr::StringLiteral(part)),
+                        };
+                    }
+                    object
                 } else {
                     Expr::Variable(id)
                 }
@@ -779,12 +805,24 @@ impl Parser {
                 Expr::Integer(0)
             }
         };
-        while self.current() == &Token::LeftBracket {
-            self.pos += 1;
-            let key = self.parse_expression();
-            if self.current() == &Token::RightBracket { self.pos += 1; }
-            else { self.errors.push("expected ']' after index expression".into()); }
-            expr = Expr::Index { object: Box::new(expr), key: Box::new(key) };
+        while self.current() == &Token::LeftBracket || self.current() == &Token::Dot {
+            if self.current() == &Token::LeftBracket {
+                self.pos += 1;
+                let key = self.parse_expression();
+                if self.current() == &Token::RightBracket { self.pos += 1; }
+                else { self.errors.push("expected ']' after index expression".into()); }
+                expr = Expr::Index { object: Box::new(expr), key: Box::new(key) };
+            } else if self.current() == &Token::Dot {
+                self.pos += 1;
+                if let Token::Identifier(part) = self.current() {
+                    let field_name = part.clone();
+                    self.pos += 1;
+                    expr = Expr::Index { object: Box::new(expr), key: Box::new(Expr::StringLiteral(field_name)) };
+                } else {
+                    self.errors.push("expected identifier after '.'".into());
+                    break;
+                }
+            }
         }
         expr
     }

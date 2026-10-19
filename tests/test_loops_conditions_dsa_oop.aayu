@@ -1,0 +1,296 @@
+# ==============================================================================
+# AAYU Master Test Suite: Loops, Conditions, OOP & DSA
+# 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
+# ==============================================================================
+import "std/test.aayu"
+import "std/dsa.aayu"
+import "std/oop.aayu"
+
+action evaluate_score(score)
+    if score >= 90
+        return "GRADE_A"
+    elif score >= 75
+        return "GRADE_B"
+    elif score >= 50
+        return "GRADE_C"
+    else
+        return "GRADE_F"
+    end
+end
+
+action main()
+    test_begin_suite("AAYU Loops, Conditions, OOP & DSA Master Suite")
+
+    # --------------------------------------------------------------------------
+    # 1. LOOPS & FLOW CONTROL (while, break, continue, nested loops)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 1] Testing Loops & Flow Control...")
+
+    # Basic While Loop
+    state sum_val = 0
+    state i = 1
+    while i <= 10
+        sum_val = sum_val + i
+        i = i + 1
+    end
+    assert_eq(sum_val, 55, "While loop 1..10 sums to 55")
+
+    # While loop with break
+    state count = 0
+    state j = 0
+    while j < 100
+        if j == 7
+            break
+        end
+        count = count + 1
+        j = j + 1
+    end
+    assert_eq(count, 7, "Loop terminated early by break at 7")
+
+    # While loop with continue (Sum only odd numbers up to 10)
+    state odd_sum = 0
+    state k = 0
+    while k < 10
+        k = k + 1
+        if (k % 2) == 0
+            continue
+        end
+        odd_sum = odd_sum + k
+    end
+    # Odds: 1 + 3 + 5 + 7 + 9 = 25
+    assert_eq(odd_sum, 25, "Loop with continue sums only odd numbers (25)")
+
+    # Nested Loops (3x3 Multiplication Table Matrix)
+    state matrix_sum = 0
+    state row = 1
+    while row <= 3
+        state col = 1
+        while col <= 3
+            matrix_sum = matrix_sum + (row * col)
+            col = col + 1
+        end
+        row = row + 1
+    end
+    # (1+2+3) + (2+4+6) + (3+6+9) = 6 + 12 + 18 = 36
+    assert_eq(matrix_sum, 36, "Nested 3x3 loop produces correct product sum (36)")
+
+    # --------------------------------------------------------------------------
+    # 2. CONDITIONS (if, elif, else, boolean logic)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 2] Testing Conditions & Branching Logic...")
+
+    assert_eq(evaluate_score(95), "GRADE_A", "Score 95 gets GRADE_A")
+    assert_eq(evaluate_score(80), "GRADE_B", "Score 80 gets GRADE_B")
+    assert_eq(evaluate_score(60), "GRADE_C", "Score 60 gets GRADE_C")
+    assert_eq(evaluate_score(40), "GRADE_F", "Score 40 gets GRADE_F")
+
+    # Compound Boolean Logic
+    state is_admin = 1
+    state is_verified = 1
+    state is_banned = 0
+
+    state can_access = 0
+    if is_admin == 1
+        if is_verified == 1
+            if is_banned == 0
+                can_access = 1
+            end
+        end
+    end
+    assert_eq(can_access, 1, "Compound security permissions validated cleanly")
+
+    # --------------------------------------------------------------------------
+    # 3. OBJECT-ORIENTED PROGRAMMING (Dot Notation, Encapsulation, Extension)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 3] Testing OOP & Dot-Notation Property Access...")
+
+    # First-class dot notation read and write
+    let account = { "id": 501, "owner": "Ayush", "balance": 10000, "status": "ACTIVE" }
+    assert_eq(account.id, 501, "account.id accessed via dot notation")
+    assert_eq(account.owner, "Ayush", "account.owner accessed via dot notation")
+    assert_eq(account.balance, 10000, "account.balance accessed via dot notation")
+
+    # Property Mutation via dot notation
+    account.balance = account.balance + 5000
+    assert_eq(account.balance, 15000, "account.balance mutated to 15000 via dot notation")
+
+    account.status = "VERIFIED_PLATINUM"
+    assert_eq(account.status, "VERIFIED_PLATINUM", "account.status updated via dot notation")
+
+    # Nested Object Dot Notation
+    let user = {
+        "name": "Dev",
+        "profile": {
+            "city": "Bengaluru",
+            "tier": "ELITE"
+        }
+    }
+    assert_eq(user.profile.city, "Bengaluru", "Nested user.profile.city accessed via dot notation")
+    user.profile.city = "Mumbai"
+    assert_eq(user.profile.city, "Mumbai", "Nested user.profile.city updated via dot notation")
+
+    # Prototypal / Compositional Inheritance using oop_extend
+    let base_vehicle = { "wheels": 4, "speed": 0, "type": "VEHICLE" }
+    let sports_car = oop_extend(base_vehicle, { "turbo": 1, "model": "AayuGT", "speed": 220 })
+    assert_eq(sports_car.wheels, 4, "Inherited wheels from base vehicle")
+    assert_eq(sports_car.turbo, 1, "Specialized turbo property present")
+    assert_eq(sports_car.speed, 220, "Overridden speed property present")
+    assert_true(oop_has_property(sports_car, "turbo"), "oop_has_property detects field")
+
+    # --------------------------------------------------------------------------
+    # 4. DATA STRUCTURES: STACK (LIFO)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 4] Testing DSA: Stack (LIFO)...")
+    let st = stack_new()
+    assert_eq(stack_is_empty(st), 1, "New stack is empty")
+
+    stack_push(st, 10)
+    stack_push(st, 20)
+    stack_push(st, 30)
+    assert_eq(stack_size(st), 3, "Stack size is 3 after 3 pushes")
+    assert_eq(stack_peek(st), 30, "Stack peek returns top element 30")
+
+    assert_eq(stack_pop(st), 30, "First pop returns 30 (LIFO)")
+    assert_eq(stack_pop(st), 20, "Second pop returns 20")
+    assert_eq(stack_pop(st), 10, "Third pop returns 10")
+    assert_eq(stack_is_empty(st), 1, "Stack is empty after popping all elements")
+
+    # --------------------------------------------------------------------------
+    # 5. DATA STRUCTURES: QUEUE (FIFO) & DEQUE
+    # --------------------------------------------------------------------------
+    print("\n[Phase 5] Testing DSA: Queue (FIFO) & Deque...")
+    let q = queue_new()
+    assert_eq(queue_is_empty(q), 1, "New queue is empty")
+
+    queue_enqueue(q, "first")
+    queue_enqueue(q, "second")
+    queue_enqueue(q, "third")
+    assert_eq(queue_size(q), 3, "Queue size is 3")
+    assert_eq(queue_peek(q), "first", "Queue peek returns front element 'first'")
+
+    assert_eq(queue_dequeue(q), "first", "First dequeue returns 'first' (FIFO)")
+    assert_eq(queue_dequeue(q), "second", "Second dequeue returns 'second'")
+    assert_eq(queue_dequeue(q), "third", "Third dequeue returns 'third'")
+    assert_eq(queue_is_empty(q), 1, "Queue is empty after dequeuing all")
+
+    # Deque (Double-Ended Queue)
+    let dq = deque_new()
+    deque_push_back(dq, 2)
+    deque_push_front(dq, 1)
+    deque_push_back(dq, 3)
+    # Order: [1, 2, 3]
+    assert_eq(deque_peek_front(dq), 1, "Deque peek front is 1")
+    assert_eq(deque_peek_back(dq), 3, "Deque peek back is 3")
+    assert_eq(deque_pop_front(dq), 1, "Deque pop front is 1")
+    assert_eq(deque_pop_back(dq), 3, "Deque pop back is 3")
+    assert_eq(deque_pop_front(dq), 2, "Deque pop front is remaining 2")
+    assert_eq(deque_is_empty(dq), 1, "Deque is now empty")
+
+    # --------------------------------------------------------------------------
+    # 6. DATA STRUCTURES: PRIORITY QUEUE / MIN-HEAP
+    # --------------------------------------------------------------------------
+    print("\n[Phase 6] Testing DSA: Priority Queue / Min-Heap...")
+    let heap = minheap_new()
+    minheap_push(heap, 45)
+    minheap_push(heap, 12)
+    minheap_push(heap, 89)
+    minheap_push(heap, 7)
+    minheap_push(heap, 33)
+
+    assert_eq(minheap_size(heap), 5, "Min-heap size is 5")
+    assert_eq(minheap_peek(heap), 7, "Min-heap peek returns minimum element 7")
+
+    # Popping elements must yield strictly ascending order
+    assert_eq(minheap_pop(heap), 7, "Heap pop 1 is 7")
+    assert_eq(minheap_pop(heap), 12, "Heap pop 2 is 12")
+    assert_eq(minheap_pop(heap), 33, "Heap pop 3 is 33")
+    assert_eq(minheap_pop(heap), 45, "Heap pop 4 is 45")
+    assert_eq(minheap_pop(heap), 89, "Heap pop 5 is 89")
+    assert_eq(minheap_size(heap), 0, "Heap is empty after popping all elements")
+
+    # --------------------------------------------------------------------------
+    # 7. DATA STRUCTURES: BINARY SEARCH TREE (BST)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 7] Testing DSA: Binary Search Tree (BST)...")
+    let bst = bst_new()
+    bst_insert(bst, 50)
+    bst_insert(bst, 30)
+    bst_insert(bst, 70)
+    bst_insert(bst, 20)
+    bst_insert(bst, 40)
+    bst_insert(bst, 60)
+    bst_insert(bst, 80)
+
+    assert_eq(bst.count, 7, "BST contains 7 nodes")
+    assert_true(bst_contains(bst, 40), "BST contains 40")
+    assert_true(bst_contains(bst, 70), "BST contains 70")
+    assert_eq(bst_contains(bst, 99), 0, "BST does not contain 99")
+
+    assert_eq(bst_min(bst), 20, "BST minimum element is 20")
+    assert_eq(bst_max(bst), 80, "BST maximum element is 80")
+
+    # Inorder traversal produces strictly sorted array: [20, 30, 40, 50, 60, 70, 80]
+    let sorted_bst = bst_inorder(bst)
+    assert_eq(len(sorted_bst), 7, "Inorder traversal length is 7")
+    assert_eq(sorted_bst[0], 20, "Inorder item 0 is 20")
+    assert_eq(sorted_bst[3], 50, "Inorder item 3 is 50")
+    assert_eq(sorted_bst[6], 80, "Inorder item 6 is 80")
+
+    # --------------------------------------------------------------------------
+    # 8. DATA STRUCTURES: GRAPH (BFS & Path Search)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 8] Testing DSA: Graph (Adjacency List & BFS Traversal)...")
+    let g = graph_new()
+    g = graph_add_edge(g, "A", "B")
+    g = graph_add_edge(g, "A", "C")
+    g = graph_add_edge(g, "B", "D")
+    g = graph_add_edge(g, "C", "E")
+    g = graph_add_edge(g, "E", "F")
+
+    # Path Reachability
+    assert_true(graph_has_path(g, "A", "F"), "Path exists from A to F")
+    assert_true(graph_has_path(g, "A", "D"), "Path exists from A to D")
+    assert_eq(graph_has_path(g, "D", "F"), 0, "No path exists from D to F")
+
+    # BFS Traversal from A
+    let bfs_order = graph_bfs(g, "A")
+    assert_eq(bfs_order[0], "A", "BFS starts at A")
+    assert_true(len(bfs_order) >= 5, "BFS visited all connected components")
+
+    # --------------------------------------------------------------------------
+    # 9. CLASSIC ALGORITHMS: Binary Search, Kadane, Two Sum, Parentheses
+    # --------------------------------------------------------------------------
+    print("\n[Phase 9] Testing Classic DSA Algorithms...")
+
+    # Binary Search
+    let sorted_arr = [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]
+    assert_eq(binary_search(sorted_arr, 23), 5, "Binary search found 23 at index 5")
+    assert_eq(binary_search(sorted_arr, 2), 0, "Binary search found 2 at index 0")
+    assert_eq(binary_search(sorted_arr, 91), 9, "Binary search found 91 at index 9")
+    assert_eq(binary_search(sorted_arr, 50), -1, "Binary search returns -1 for missing element")
+
+    # Kadane's Algorithm: Max Subarray Sum
+    # Array: [-2, 1, -3, 4, -1, 2, 1, -5, 4] -> Subarray [4, -1, 2, 1] sum = 6
+    let kadane_arr = [-2, 1, -3, 4, -1, 2, 1, -5, 4]
+    assert_eq(kadane_max_subarray(kadane_arr), 6, "Kadane max subarray sum is 6")
+
+    # Two Sum
+    let numbers = [2, 7, 11, 15]
+    let target_pair = two_sum(numbers, 9)
+    assert_eq(len(target_pair), 2, "Two sum found a pair")
+    assert_eq(target_pair[0], 0, "First index is 0 (val 2)")
+    assert_eq(target_pair[1], 1, "Second index is 1 (val 7)")
+
+    # Valid Parentheses using Stack
+    assert_eq(is_valid_parentheses("()[]{}"), 1, "Balanced '()[]{}' is valid")
+    assert_eq(is_valid_parentheses("({[]})"), 1, "Nested '({[]})' is valid")
+    assert_eq(is_valid_parentheses("(]"), 0, "Mismatched '(]' is invalid")
+    assert_eq(is_valid_parentheses("([)]"), 0, "Crossed '([)]' is invalid")
+
+    test_end_suite()
+    print("\n==================================================================")
+    print("   ALL LOOPS, CONDITIONS, OOP & DSA TESTS PASSED CLEANLY!         ")
+    print("==================================================================")
+end
+
+main()

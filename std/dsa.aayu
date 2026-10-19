@@ -1,0 +1,546 @@
+# ==============================================================================
+# AAYU Standard Library: Data Structures & Algorithms (std/dsa.aayu)
+# Production-Grade Stack, Queue, Deque, Min-Heap, BST, Graph & Classic Algorithms
+# 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
+# ==============================================================================
+import "std/collections.aayu"
+
+# ------------------------------------------------------------------------------
+# 1. STACK (LIFO - Last In, First Out)
+# ------------------------------------------------------------------------------
+action stack_new()
+    return { "items": [], "size": 0 }
+end
+
+action stack_push(s, val)
+    let items = s.items
+    items = items + [val]
+    s.items = items
+    s.size = len(items)
+    return s
+end
+
+action stack_pop(s)
+    let n = s.size
+    if n == 0
+        return null
+    end
+    let last_val = s.items[n - 1]
+    s.items = slice(s.items, 0, n - 1)
+    s.size = n - 1
+    return last_val
+end
+
+action stack_peek(s)
+    let n = s.size
+    if n == 0
+        return null
+    end
+    return s.items[n - 1]
+end
+
+action stack_is_empty(s)
+    if s.size == 0
+        return 1
+    end
+    return 0
+end
+
+action stack_size(s)
+    return s.size
+end
+
+# ------------------------------------------------------------------------------
+# 2. QUEUE (FIFO - First In, First Out)
+# ------------------------------------------------------------------------------
+action queue_new()
+    return { "items": [], "head": 0, "size": 0 }
+end
+
+action queue_enqueue(q, val)
+    let items = q.items
+    items = items + [val]
+    q.items = items
+    q.size = len(items) - q.head
+    return q
+end
+
+action queue_dequeue(q)
+    let items = q.items
+    let total = len(items)
+    if q.head >= total
+        return null
+    end
+    let front = items[q.head]
+    q.head = q.head + 1
+    q.size = total - q.head
+    # Periodic compaction to reclaim memory
+    if q.head > 100
+        q.items = slice(items, q.head, total)
+        q.head = 0
+        q.size = len(q.items)
+    end
+    return front
+end
+
+action queue_peek(q)
+    let total = len(q.items)
+    if q.head >= total
+        return null
+    end
+    return q.items[q.head]
+end
+
+action queue_is_empty(q)
+    if q.size <= 0
+        return 1
+    end
+    return 0
+end
+
+action queue_size(q)
+    return q.size
+end
+
+# ------------------------------------------------------------------------------
+# 3. DEQUE (Double-Ended Queue)
+# ------------------------------------------------------------------------------
+action deque_new()
+    return { "items": [], "size": 0 }
+end
+
+action deque_push_back(d, val)
+    let items = d.items + [val]
+    d.items = items
+    d.size = len(items)
+    return d
+end
+
+action deque_push_front(d, val)
+    let items = [val] + d.items
+    d.items = items
+    d.size = len(items)
+    return d
+end
+
+action deque_pop_front(d)
+    let n = d.size
+    if n == 0
+        return null
+    end
+    let front = d.items[0]
+    d.items = slice(d.items, 1, n)
+    d.size = n - 1
+    return front
+end
+
+action deque_pop_back(d)
+    let n = d.size
+    if n == 0
+        return null
+    end
+    let back = d.items[n - 1]
+    d.items = slice(d.items, 0, n - 1)
+    d.size = n - 1
+    return back
+end
+
+action deque_peek_front(d)
+    if d.size == 0
+        return null
+    end
+    return d.items[0]
+end
+
+action deque_peek_back(d)
+    let n = d.size
+    if n == 0
+        return null
+    end
+    return d.items[n - 1]
+end
+
+action deque_is_empty(d)
+    if d.size == 0
+        return 1
+    end
+    return 0
+end
+
+action deque_size(d)
+    return d.size
+end
+
+# ------------------------------------------------------------------------------
+# 4. PRIORITY QUEUE / MIN-HEAP (Binary Array Heap)
+# ------------------------------------------------------------------------------
+action minheap_new()
+    return { "data": [], "size": 0 }
+end
+
+action minheap_push(h, val)
+    let data = h.data + [val]
+    let idx = len(data) - 1
+    # Bubble up
+    while idx > 0
+        let parent = (idx - 1) / 2
+        if data[idx] < data[parent]
+            let temp = data[parent]
+            data[parent] = data[idx]
+            data[idx] = temp
+            idx = parent
+        else
+            idx = 0
+        end
+    end
+    h.data = data
+    h.size = len(data)
+    return h
+end
+
+action minheap_pop(h)
+    let n = h.size
+    if n == 0
+        return null
+    end
+    let min_val = h.data[0]
+    if n == 1
+        h.data = []
+        h.size = 0
+        return min_val
+    end
+
+    let data = h.data
+    data[0] = data[n - 1]
+    data = slice(data, 0, n - 1)
+    let total = len(data)
+
+    # Sift down
+    let idx = 0
+    let sifting = 1
+    while sifting == 1
+        let left = (2 * idx) + 1
+        let right = (2 * idx) + 2
+        let smallest = idx
+
+        if left < total
+            if data[left] < data[smallest]
+                smallest = left
+            end
+        end
+
+        if right < total
+            if data[right] < data[smallest]
+                smallest = right
+            end
+        end
+
+        if smallest != idx
+            let temp = data[idx]
+            data[idx] = data[smallest]
+            data[smallest] = temp
+            idx = smallest
+        else
+            sifting = 0
+        end
+    end
+
+    h.data = data
+    h.size = total
+    return min_val
+end
+
+action minheap_peek(h)
+    if h.size == 0
+        return null
+    end
+    return h.data[0]
+end
+
+action minheap_size(h)
+    return h.size
+end
+
+# ------------------------------------------------------------------------------
+# 5. BINARY SEARCH TREE (BST)
+# ------------------------------------------------------------------------------
+action bst_new()
+    return { "root": null, "count": 0 }
+end
+
+action bst_create_node(val)
+    return { "val": val, "left": null, "right": null }
+end
+
+action bst_insert_node(node, val)
+    if node == null
+        return bst_create_node(val)
+    end
+    if val < node.val
+        node.left = bst_insert_node(node.left, val)
+    elif val > node.val
+        node.right = bst_insert_node(node.right, val)
+    end
+    return node
+end
+
+action bst_insert(tree, val)
+    tree.root = bst_insert_node(tree.root, val)
+    tree.count = tree.count + 1
+    return tree
+end
+
+action bst_contains_node(node, target)
+    if node == null
+        return 0
+    end
+    if node.val == target
+        return 1
+    elif target < node.val
+        return bst_contains_node(node.left, target)
+    else
+        return bst_contains_node(node.right, target)
+    end
+end
+
+action bst_contains(tree, target)
+    return bst_contains_node(tree.root, target)
+end
+
+action bst_inorder_collect(node, acc)
+    if node == null
+        return acc
+    end
+    acc = bst_inorder_collect(node.left, acc)
+    acc = acc + [node.val]
+    acc = bst_inorder_collect(node.right, acc)
+    return acc
+end
+
+action bst_inorder(tree)
+    return bst_inorder_collect(tree.root, [])
+end
+
+action bst_min(tree)
+    let curr = tree.root
+    if curr == null
+        return null
+    end
+    while curr.left != null
+        curr = curr.left
+    end
+    return curr.val
+end
+
+action bst_max(tree)
+    let curr = tree.root
+    if curr == null
+        return null
+    end
+    while curr.right != null
+        curr = curr.right
+    end
+    return curr.val
+end
+
+# ------------------------------------------------------------------------------
+# 6. GRAPH (Adjacency List with BFS & DFS Traversal)
+# ------------------------------------------------------------------------------
+action graph_new()
+    return { "adj": {}, "nodes": [] }
+end
+
+action graph_add_node(g, u)
+    let key = "" + u
+    let adj = g.adj
+    if adj[key] == null
+        adj[key] = []
+        g.adj = adj
+        g.nodes = g.nodes + [u]
+    end
+    return g
+end
+
+action graph_add_edge(g, u, v)
+    g = graph_add_node(g, u)
+    g = graph_add_node(g, v)
+    let key_u = "" + u
+    let adj = g.adj
+    let neighbors = adj[key_u]
+    if contains(neighbors, v) == 0
+        adj[key_u] = neighbors + [v]
+        g.adj = adj
+    end
+    return g
+end
+
+action graph_neighbors(g, u)
+    let key = "" + u
+    let n = g.adj[key]
+    if n == null
+        return []
+    end
+    return n
+end
+
+action graph_bfs(g, start)
+    let visited = {}
+    let order = []
+    let q = queue_new()
+
+    queue_enqueue(q, start)
+    visited["" + start] = 1
+
+    while queue_is_empty(q) == 0
+        let curr = queue_dequeue(q)
+        order = order + [curr]
+
+        let neighbors = graph_neighbors(g, curr)
+        let i = 0
+        let total_n = len(neighbors)
+        while i < total_n
+            let nxt = neighbors[i]
+            let nxt_k = "" + nxt
+            if visited[nxt_k] != 1
+                visited[nxt_k] = 1
+                queue_enqueue(q, nxt)
+            end
+            i = i + 1
+        end
+    end
+    return order
+end
+
+action graph_has_path(g, start, target)
+    if start == target
+        return 1
+    end
+    let visited = {}
+    let q = queue_new()
+    queue_enqueue(q, start)
+    visited["" + start] = 1
+
+    while queue_is_empty(q) == 0
+        let curr = queue_dequeue(q)
+        if curr == target
+            return 1
+        end
+        let neighbors = graph_neighbors(g, curr)
+        let i = 0
+        let total_n = len(neighbors)
+        while i < total_n
+            let nxt = neighbors[i]
+            let nxt_k = "" + nxt
+            if visited[nxt_k] != 1
+                visited[nxt_k] = 1
+                queue_enqueue(q, nxt)
+            end
+            i = i + 1
+        end
+    end
+    return 0
+end
+
+# ------------------------------------------------------------------------------
+# 7. ESSENTIAL ALGORITHMS
+# ------------------------------------------------------------------------------
+
+# Binary Search in O(log N) on sorted array
+action binary_search(sorted_arr, target)
+    let low = 0
+    let high = len(sorted_arr) - 1
+    while low <= high
+        let mid = (low + high) / 2
+        let val = sorted_arr[mid]
+        if val == target
+            return mid
+        elif val < target
+            low = mid + 1
+        else
+            high = mid - 1
+        end
+    end
+    return -1
+end
+
+# Kadane's Algorithm: Maximum Subarray Sum in O(N)
+action kadane_max_subarray(arr)
+    let n = len(arr)
+    if n == 0
+        return 0
+    end
+    let max_so_far = arr[0]
+    let curr_max = arr[0]
+    let i = 1
+    while i < n
+        let v = arr[i]
+        if (curr_max + v) > v
+            curr_max = curr_max + v
+        else
+            curr_max = v
+        end
+        if curr_max > max_so_far
+            max_so_far = curr_max
+        end
+        i = i + 1
+    end
+    return max_so_far
+end
+
+# Two Sum in O(N) using Hash Map
+action two_sum(arr, target)
+    let map = {}
+    let i = 0
+    let n = len(arr)
+    while i < n
+        let v = arr[i]
+        let complement = target - v
+        let comp_key = "" + complement
+        if map[comp_key] != null
+            return [map[comp_key], i]
+        end
+        map["" + v] = i
+        i = i + 1
+    end
+    return []
+end
+
+# Valid Parentheses using Stack
+action is_valid_parentheses(s)
+    let st = stack_new()
+    let i = 0
+    let n = len(s)
+    while i < n
+        let ch = s[i]
+        if ch == "("
+            stack_push(st, ")")
+        elif ch == "{"
+            stack_push(st, "}")
+        elif ch == "["
+            stack_push(st, "]")
+        elif ch == ")"
+            if stack_is_empty(st) == 1
+                return 0
+            end
+            if stack_pop(st) != ")"
+                return 0
+            end
+        elif ch == "}"
+            if stack_is_empty(st) == 1
+                return 0
+            end
+            if stack_pop(st) != "}"
+                return 0
+            end
+        elif ch == "]"
+            if stack_is_empty(st) == 1
+                return 0
+            end
+            if stack_pop(st) != "]"
+                return 0
+            end
+        end
+        i = i + 1
+    end
+    return stack_is_empty(st)
+end
