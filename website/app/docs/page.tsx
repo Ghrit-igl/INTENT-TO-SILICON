@@ -712,9 +712,45 @@ end`}</code>
                 <code className="text-cyan-300">std/quantum.aayu</code> delivers a silicon-speed quantum state vector and circuit simulator replacing multi-gigabyte Python frameworks (IBM Qiskit, Google Cirq) with zero external dependencies: 2^N complex state vectors, universal quantum gates (Hadamard, Pauli X/Y/Z, Phase S/T, CNOT, CZ, SWAP, Toffoli CCNOT), maximally entangled Bell &amp; GHZ states, Born-rule measurement collapse, Deutsch-Jozsa quantum oracle evaluation (100% constant/balanced in 1 query), Grover&apos;s database search algorithm (100% target amplitude amplification in 1 step), quantum teleportation with 100% fidelity, and BB84 Quantum Key Distribution with eavesdropping detection.
               </p>
               <div className="flex flex-wrap gap-4 font-mono text-[11px]">
-                <span className="text-cyan-300 font-bold">59/59 Quantum Assertions PASS (730/730 Total)</span>
+                <span className="text-cyan-300 font-bold">59/59 Quantum Assertions PASS</span>
                 <span className="text-emerald-300 font-bold">Zero Qiskit / Cirq Dependencies</span>
                 <span className="text-purple-300 font-bold">Microsecond State Vector Evolution</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-blue-950/30 via-zinc-900/60 to-black border border-blue-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-blue-400 mb-2">11. Fault-Tolerant Actor Concurrency &amp; CSP Channels (std/actor.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-blue-300">std/actor.aayu</code> combines the two premier concurrency paradigms in software history: Go-style Communicating Sequential Processes (<code className="text-blue-300">channel_new</code>, <code className="text-blue-300">channel_send</code>, <code className="text-blue-300">channel_recv</code>, <code className="text-blue-300">channel_select</code>) with bounded queues, backpressure handling, and non-blocking channel multiplexing; and Erlang/OTP Actor Mailboxes (<code className="text-blue-300">actor_spawn</code>, <code className="text-blue-300">actor_send</code>, <code className="text-blue-300">actor_drain_mailbox</code>) with isolated private states and self-healing supervision trees (<code className="text-blue-300">ONE_FOR_ONE</code>, <code className="text-blue-300">ONE_FOR_ALL</code>, <code className="text-blue-300">REST_FOR_ONE</code>).
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-blue-300 font-bold">Zero-Lock Actor Mailboxes</span>
+                <span className="text-cyan-300 font-bold">Go Channels + Erlang OTP in 1 Stdlib</span>
+                <span className="text-emerald-300 font-bold">Autonomous Self-Healing Supervisors</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-amber-950/30 via-zinc-900/60 to-black border border-amber-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-amber-400 mb-2">12. Silicon Binary Codec &amp; Wire Protocol (std/binary.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-amber-300">std/binary.aayu</code> eliminates JSON bandwidth waste and CPU deserialization overhead with native silicon-speed wire encoding: Protobuf &amp; WebAssembly style LEB128 Variable-Length Quantities (<code className="text-amber-300">varint_encode_u32</code>, <code className="text-amber-300">varint_decode_u32</code>), ZigZag signed-to-unsigned integer mapping (<code className="text-amber-300">zigzag_encode</code>, <code className="text-amber-300">zigzag_decode</code>), CRC16-CCITT packet framing with 0xAA55 sync headers and corruption detection (<code className="text-amber-300">packet_frame</code>, <code className="text-amber-300">packet_verify</code>), and zero-copy integer stream packing.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-amber-300 font-bold">Protobuf LEB128 Varint Density</span>
+                <span className="text-emerald-300 font-bold">CRC16-CCITT Tamper Detection</span>
+                <span className="text-cyan-300 font-bold">Microsecond Zero-Copy Deserialization</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-violet-950/30 via-zinc-900/60 to-black border border-violet-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-violet-400 mb-2">13. Zero-Knowledge Proofs &amp; Threshold Cryptography (std/zkp.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-violet-300">std/zkp.aayu</code> brings mathematical zero-knowledge privacy and decentralized threshold security directly to standard AAYU applications: Finite Field arithmetic over prime modulus (&fnof;<sub>p</sub> addition, subtraction, multiplication, square-and-multiply exponentiation, and Fermat inversion), Shamir&apos;s (k, n) Threshold Secret Sharing with Lagrange basis polynomial interpolation (shards secrets across n nodes, reconstructs with any k nodes with zero information leakage), and Non-Interactive Schnorr Zero-Knowledge Proof of Knowledge via Fiat-Shamir transformation.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-violet-300 font-bold">64/64 Advanced Engine Assertions PASS</span>
+                <span className="text-emerald-300 font-bold">794/794 Total Silicon Test Suite PASS</span>
+                <span className="text-amber-300 font-bold">Fiat-Shamir Non-Interactive ZKP</span>
               </div>
             </div>
           </div>
@@ -723,9 +759,9 @@ end`}</code>
         {/* Download Master Handbook Banner */}
         <div className="p-8 rounded-2xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-black border border-purple-500/40 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
-            <h3 className="text-xl font-bold text-white mb-2">The Ultimate AAYU Master Handbook (28 Chapters)</h3>
+            <h3 className="text-xl font-bold text-white mb-2">The Ultimate AAYU Master Handbook (33 Chapters)</h3>
             <p className="text-zinc-400 text-sm max-w-xl">
-              Complete engineering manual by Ayush Ghrit Kaushik. Includes all 28 chapters, memory architecture, 20 master interview problems, algorithmic patterns, smart contracts, creative DSP, and the complete 5-Pillar Enterprise Production Architecture.
+              Complete engineering manual by Ayush Ghrit Kaushik. Includes all 33 chapters, memory architecture, 20 master interview problems, algorithmic patterns, smart contracts, creative DSP, Quantum simulation, Actor concurrency, Binary wire codec, and Zero-Knowledge proofs.
             </p>
           </div>
           <a

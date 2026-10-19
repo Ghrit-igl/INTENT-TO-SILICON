@@ -1,0 +1,257 @@
+# ==============================================================================
+# AAYU Standard Library: Zero-Knowledge Proofs & Threshold Cryptography (std/zkp.aayu)
+# 100% Pure Self-Hosted AAYU - Silicon-Speed Applied Cryptographic Proofs
+# Zero Python, Zero External Dependencies
+#
+# Core Capabilities:
+#   1. Finite Field F_p Arithmetic:
+#      - ff_add(a, b, p), ff_sub(a, b, p), ff_mul(a, b, p)
+#      - ff_pow(base, exp, p) (Binary square-and-multiply)
+#      - ff_inv(a, p) (Modular inverse via Fermat's Little Theorem)
+#   2. Polynomial Evaluation & Lagrange Interpolation:
+#      - poly_eval(coeffs, x, p)
+#      - lagrange_interpolate_zero(shares_arr, p) (Calculates P(0) from k points)
+#   3. Shamir's (k, n) Threshold Secret Sharing:
+#      - shamir_split(secret, k_threshold, n_shares, prime_p, seed)
+#      - shamir_reconstruct(shares_subset, prime_p)
+#   4. Schnorr Zero-Knowledge Proof of Knowledge (Fiat-Shamir Heuristic):
+#      - schnorr_prove(secret_x, base_g, prime_p, ephemeral_seed)
+#      - schnorr_verify(public_y, proof_dict, base_g, prime_p)
+# ==============================================================================
+import "std/crypto.aayu"
+
+# Standard prime for cryptographic verification (2147483647 = 2^31 - 1, 8th Mersenne prime)
+action zkp_default_prime()
+    return 2147483647
+end
+
+# ------------------------------------------------------------------------------
+# 1. FINITE FIELD F_p ARITHMETIC PRIMITIVES
+# ------------------------------------------------------------------------------
+
+# Field addition (a + b) mod p
+action ff_add(a, b, p)
+    let res = (a + b) % p
+    if res < 0
+        res = res + p
+    end
+    return res
+end
+
+# Field subtraction (a - b) mod p
+action ff_sub(a, b, p)
+    let res = (a - b) % p
+    if res < 0
+        res = res + p
+    end
+    return res
+end
+
+# Field multiplication (a * b) mod p
+action ff_mul(a, b, p)
+    let res = (a * b) % p
+    if res < 0
+        res = res + p
+    end
+    return res
+end
+
+# Modular exponentiation (base^exp mod p) via binary square-and-multiply
+action ff_pow(base, exp, p)
+    if exp == 0
+        return 1
+    end
+    let res = 1
+    let b = base % p
+    let e = exp
+
+    while e > 0
+        if e % 2 == 1
+            res = (res * b) % p
+        end
+        b = (b * b) % p
+        e = e / 2
+    end
+    return res
+end
+
+# Modular inverse via Fermat's Little Theorem: a^(p-2) mod p
+action ff_inv(a, p)
+    if a % p == 0
+        return 0
+    end
+    return ff_pow(a, p - 2, p)
+end
+
+# Field division: (a * b^-1) mod p
+action ff_div(a, b, p)
+    let inv_b = ff_inv(b, p)
+    return ff_mul(a, inv_b, p)
+end
+
+# ------------------------------------------------------------------------------
+# 2. POLYNOMIAL EVALUATION & LAGRANGE BASIS INTERPOLATION
+# ------------------------------------------------------------------------------
+
+# Evaluates polynomial P(x) = c0 + c1*x + c2*x^2 + ... mod p (Horner's Rule)
+action poly_eval(coeffs, x, p)
+    let n = len(coeffs)
+    if n == 0
+        return 0
+    end
+
+    let res = 0
+    let i = n - 1
+    while i >= 0
+        res = ff_add(ff_mul(res, x, p), coeffs[i], p)
+        i = i - 1
+    end
+    return res
+end
+
+# Reconstructs P(0) using Lagrange basis polynomials from k points [x_i, y_i]
+# P(0) = sum_{j=0}^{k-1} y_j * l_j(0) mod p
+# where l_j(0) = prod_{m != j} (0 - x_m) / (x_j - x_m) mod p
+action lagrange_interpolate_zero(shares_arr, p)
+    let k = len(shares_arr)
+    let secret = 0
+
+    let j = 0
+    while j < k
+        let xj = shares_arr[j][0]
+        let yj = shares_arr[j][1]
+
+        # Compute basis polynomial l_j(0)
+        let num = 1
+        let den = 1
+        let m = 0
+        while m < k
+            if m != j
+                let xm = shares_arr[m][0]
+                # num = num * (-xm)
+                num = ff_mul(num, ff_sub(0, xm, p), p)
+                # den = den * (xj - xm)
+                den = ff_mul(den, ff_sub(xj, xm, p), p)
+            end
+            m = m + 1
+        end
+
+        let basis_j = ff_div(num, den, p)
+        let term = ff_mul(yj, basis_j, p)
+        secret = ff_add(secret, term, p)
+        j = j + 1
+    end
+    return secret
+end
+
+# ------------------------------------------------------------------------------
+# 3. SHAMIR'S (K, N) THRESHOLD SECRET SHARING
+# ------------------------------------------------------------------------------
+
+# PRNG helper for random polynomial coefficients
+action _zkp_prng(seed)
+    let next_seed = (seed * 1103515245 + 12345) % 2147483648
+    if next_seed < 0
+        next_seed = 0 - next_seed
+    end
+    return next_seed
+end
+
+# Splits a secret integer into N shares with threshold K over field F_p
+# Returns array of shares: [[1, y1], [2, y2], ... [N, yN]]
+action shamir_split(secret, k_threshold, n_shares, prime_p, seed)
+    let p = prime_p
+    # P(0) = secret
+    let coeffs = [secret % p]
+    let s = seed
+
+    # Generate (K - 1) random coefficients
+    let i = 1
+    while i < k_threshold
+        s = _zkp_prng(s)
+        let r_coeff = (s % (p - 1)) + 1
+        coeffs = coeffs + [r_coeff]
+        i = i + 1
+    end
+
+    # Generate N points: x = 1, 2, ... N
+    let shares = []
+    let x = 1
+    while x <= n_shares
+        let y = poly_eval(coeffs, x, p)
+        shares = shares + [[x, y]]
+        x = x + 1
+    end
+
+    return shares
+end
+
+# Reconstructs original secret from any subset of >= K shares
+action shamir_reconstruct(shares_subset, prime_p)
+    return lagrange_interpolate_zero(shares_subset, prime_p)
+end
+
+# ------------------------------------------------------------------------------
+# 4. SCHNORR ZERO-KNOWLEDGE IDENTIFICATION PROTOCOL (FIAT-SHAMIR HEURISTIC)
+# ------------------------------------------------------------------------------
+
+# Prover generates Zero-Knowledge Proof of discrete logarithm x where y = g^x mod p
+# Returns { "r": commitment, "e": challenge, "s": response }
+action schnorr_prove(secret_x, base_g, prime_p, ephemeral_seed)
+    let p = prime_p
+    let g = base_g
+    let x = secret_x
+
+    # 1. Commitment: pick random ephemeral secret v in [1, p-2], compute r = g^v mod p
+    let s = _zkp_prng(ephemeral_seed)
+    let v = (s % (p - 2)) + 1
+    let r = ff_pow(g, v, p)
+
+    # Public key y = g^x mod p
+    let y = ff_pow(g, x, p)
+
+    # 2. Challenge via Fiat-Shamir heuristic: e = hash(g + y + r) mod (p - 1)
+    # Using polynomial hash combination
+    let challenge_raw = (g * 100003) + (y * 1009) + r
+    let e = (challenge_raw % 65536) + 1 # Non-zero challenge
+
+    # 3. Response: s = (v - e * x) mod (p - 1)
+    let mod_order = p - 1
+    let ex = (e * x) % mod_order
+    let resp = (v - ex) % mod_order
+    if resp < 0
+        resp = resp + mod_order
+    end
+
+    return {
+        "commitment_r": r,
+        "challenge_e": e,
+        "response_s": resp,
+        "public_key_y": y
+    }
+end
+
+# Verifier verifies Zero-Knowledge Proof:
+# Verifier checks if: g^s * y^e mod p == r
+action schnorr_verify(public_y, proof_dict, base_g, prime_p)
+    let p = prime_p
+    let g = base_g
+    let y = public_y
+    let r = proof_dict["commitment_r"]
+    let e = proof_dict["challenge_e"]
+    let s = proof_dict["response_s"]
+
+    # Calculate g^s mod p
+    let gs = ff_pow(g, s, p)
+
+    # Calculate y^e mod p
+    let ye = ff_pow(y, e, p)
+
+    # Calculate verification value: (g^s * y^e) mod p
+    let check = ff_mul(gs, ye, p)
+
+    if check == r
+        return 1 # PROOF VERIFIED: Prover definitely knows x without revealing it!
+    end
+    return 0 # PROOF REJECTED
+end

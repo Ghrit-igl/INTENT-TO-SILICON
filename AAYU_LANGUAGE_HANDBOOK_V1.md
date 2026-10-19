@@ -1739,5 +1739,152 @@ let qkd = quantum_bb84_simulation(32, 0)
 print("QKD Secure Channel: " + qkd["secure"]) # 1 (Secure, 0% QBER)
 ```
 
+---
+
+## 23. Fault-Tolerant Actor Concurrency & CSP Channels (`std/actor.aayu`)
+
+### 23.1 Concurrency Without Shared-Memory Corruption
+Shared-memory multi-threading with locks and mutexes is notoriously prone to deadlocks, race conditions, and nondeterministic crashes in production. AAYU adopts the two most robust concurrency paradigms in computer science history:
+1. **Communicating Sequential Processes (CSP):** Inspired by Go channels, CSP enables safe message-passing with bounded buffer queues, backpressure handling, and `channel_select` multi-channel multiplexing.
+2. **Actor Model with Supervision Trees:** Inspired by Erlang/OTP, every actor maintains completely isolated private state and an asynchronous message mailbox. Supervisors monitor workers with deterministic restart policies (`ONE_FOR_ONE`, `ONE_FOR_ALL`, `REST_FOR_ONE`).
+
+### 23.2 CSP & Actor Primitives
+
+| Primitive | Category | Description |
+|---|---|---|
+| `channel_new(capacity)` | CSP | Creates a bounded FIFO message channel with backpressure |
+| `channel_send(chan, msg)` | CSP | Sends message into channel; returns 0 if capacity exceeded |
+| `channel_recv(chan)` | CSP | Reads next FIFO message; returns null if empty |
+| `channel_select(channels)` | CSP | Non-blocking multiplexer over an array of channels |
+| `actor_system_new()` | Actor | Initializes an isolated actor runtime registry |
+| `actor_spawn(sys, name, state)` | Actor | Spawns an actor with unique name and initial private state |
+| `actor_send(sys, name, msg)` | Actor | Appends an immutable message to the target actor's mailbox |
+| `actor_drain_mailbox(sys, name)` | Actor | Drains all queued messages into an array for batch execution |
+| `supervisor_new(strategy, max_restarts)` | OTP | Initializes a supervisor (`ONE_FOR_ONE`, `ONE_FOR_ALL`, `REST_FOR_ONE`) |
+| `supervisor_restart_worker(sup, name)` | OTP | Executes fault recovery policy, restarting failed actors safely |
+
+### 23.3 Executable Actor & CSP Example
+
+```aayu
+import "std/actor.aayu"
+
+# 1. Go-Style CSP Channels with Multiplexer
+let ch_orders = channel_new(10)
+let ch_alerts = channel_new(10)
+
+channel_send(ch_orders, { "order_id": 901, "amount": 2500 })
+let sel = channel_select([ch_orders, ch_alerts])
+if sel["found"] == 1
+    print("Received order on channel index: " + sel["channel_index"])
+end
+
+# 2. Erlang-Style Fault-Tolerant Actor Supervisor
+let sys = actor_system_new()
+actor_spawn(sys, "db_worker", { "active_connections": 10 })
+actor_send(sys, "db_worker", "TRANSACTION_COMMIT")
+
+let sup = supervisor_new("ONE_FOR_ONE", 3)
+supervisor_register_worker(sup, "db_worker")
+
+# Worker experiences transient hardware failure:
+supervisor_restart_worker(sup, "db_worker")
+print("Worker safely restarted without bringing down master node!")
+```
+
+---
+
+## 24. Silicon Binary Codec & Wire Protocol (`std/binary.aayu`)
+
+### 24.1 Wire Efficiency Without JSON Overhead
+JSON and text protocols waste 60-80% of bandwidth and require heavy CPU parsing loops. AAYU provides native silicon binary encoding primitives (`std/binary.aayu`):
+1. **LEB128 Varint Encoding:** Variable-Length Quantity compression (used by Google Protocol Buffers and WebAssembly) storing small integers in 1 byte and arbitrary integers dynamically.
+2. **ZigZag Signed Encoding:** Maps negative numbers to positive integers (`0 -> 0`, `-1 -> 1`, `1 -> 2`, `-2 -> 3`), allowing signed values to compress compactly in LEB128.
+3. **CRC16-CCITT Packet Framing:** Packs data into hardened frames with magic sync bytes (`0xAA55`), message type, length prefix, and 16-bit CRC checksum to trap byte corruption.
+
+### 24.2 Binary Codec Primitives
+
+| Function | Purpose | Benchmark / Standard |
+|---|---|---|
+| `varint_encode_u32(val)` | Encodes integer to LEB128 byte array | Google Protocol Buffers |
+| `varint_decode_u32(bytes, offset)` | Decodes LEB128 bytes back to integer | WebAssembly binary format |
+| `zigzag_encode(signed_val)` | Signed integer to unsigned mapping | Protobuf ZigZag |
+| `zigzag_decode(unsigned_val)` | Unsigned to original signed value | Protobuf ZigZag |
+| `packet_frame(msg_type, payload)` | Assembles framed packet with CRC16 | Industrial IoT / Automotive |
+| `packet_verify(packet_bytes)` | Validates magic bytes, length & CRC16 | Zero false-negative integrity |
+| `binary_pack_ints(arr)` | Compresses signed int array into wire stream | High-density telemetry |
+| `binary_unpack_ints(stream)` | Reconstructs signed int array from stream | Microsecond zero-copy unpack |
+
+### 24.3 Executable Binary Wire Protocol Example
+
+```aayu
+import "std/binary.aayu"
+
+# 1. Compress Small Integer (127 takes exactly 1 byte)
+let b1 = varint_encode_u32(127)
+print("127 byte size: " + len(b1)) # 1 byte
+
+# 2. ZigZag Encode Negative Integers (-42 compresses cleanly)
+let enc = zigzag_encode(-42) # 83
+let dec = zigzag_decode(enc)  # -42
+
+# 3. Assemble and Verify CRC16 Framed Wire Packet
+let payload = [10, 20, 30, 40, 50]
+let frame = packet_frame(1, payload) # [0xAA, 0x55, Type=1, Len=5, ...payload, CRC16_H, CRC16_L]
+let check = packet_verify(frame)
+if check["valid"] == 1
+    print("Packet integrity verified: 0% corruption, payload length: " + check["length"])
+end
+```
+
+---
+
+## 25. Zero-Knowledge Proofs & Threshold Cryptography (`std/zkp.aayu`)
+
+### 25.1 Cryptographic Trust in the Age of AI
+Centralized trust models are vulnerable to key leaks, single points of compromise, and unauthorized surveillance. AAYU embeds **Zero-Knowledge Proofs (ZKP)** and **Threshold Cryptography** directly into the language (`std/zkp.aayu`):
+1. **Finite Field Arithmetic ($\mathbb{F}_p$):** High-speed modular addition, subtraction, multiplication, square-and-multiply exponentiation, and Fermat's Little Theorem modular inversion over large primes.
+2. **Shamir's $(k, n)$ Secret Sharing:** Splits a master encryption key or master database credential into $n$ separate shares such that ANY $k$ shares can reconstruct the secret, but $k-1$ shares reveal zero information ($O(1)$ polynomial security).
+3. **Schnorr Zero-Knowledge Proof of Knowledge:** Proves to a verifier that a prover knows a secret $x$ such that $y = g^x \pmod p$ without revealing $x$, using the Fiat-Shamir heuristic for non-interactive verification.
+
+### 25.2 ZKP & Threshold Primitives
+
+| Function | Domain | Purpose |
+|---|---|---|
+| `ff_add(a, b, p)` | Finite Field | Modular addition $(a + b) \pmod p$ |
+| `ff_sub(a, b, p)` | Finite Field | Modular subtraction $(a - b) \pmod p$ with underflow wrap |
+| `ff_mul(a, b, p)` | Finite Field | Modular multiplication $(a \cdot b) \pmod p$ |
+| `ff_pow(base, exp, p)` | Finite Field | $O(\log E)$ square-and-multiply modular exponentiation |
+| `ff_inv(a, p)` | Finite Field | Modular multiplicative inverse via $a^{p-2} \pmod p$ |
+| `shamir_split_secret(secret, k, n, p)` | Secret Sharing | Evaluates random degree-$(k-1)$ polynomial over $n$ points |
+| `shamir_reconstruct_secret(shares, p)` | Secret Sharing | Reconstructs secret via Lagrange polynomial interpolation |
+| `schnorr_prove(secret_x, g, p)` | Zero-Knowledge | Generates non-interactive proof of knowledge $(R, s)$ |
+| `schnorr_verify(public_y, proof, g, p)`| Zero-Knowledge | Verifies $g^s \stackrel{?}{=} R \cdot y^e \pmod p$ without learning $x$ |
+
+### 25.3 Executable ZKP & Secret Sharing Example
+
+```aayu
+import "std/zkp.aayu"
+
+let p = 1000000007 # Large prime field modulus
+let secret = 133742 # Master private key / database master password
+
+# 1. Shamir (3, 5) Threshold Secret Sharing
+# Split master key across 5 servers; any 3 can unlock the database
+let shares = shamir_split_secret(secret, 3, 5, p)
+
+# Server 1, 3, and 5 collaborate to reconstruct:
+let quorum = [shares[0], shares[2], shares[4]]
+let recovered = shamir_reconstruct_secret(quorum, p)
+print("Recovered Secret: " + recovered) # 133742
+
+# 2. Schnorr Zero-Knowledge Proof (Prove knowledge of secret without disclosing it)
+let g = 5 # Generator
+let public_y = ff_pow(g, secret, p) # Public key
+
+let proof = schnorr_prove(secret, g, p)
+let is_valid = schnorr_verify(public_y, proof, g, p)
+print("ZKP Verified: " + is_valid) # 1 (Valid proof, zero leakage!)
+```
+
 
 

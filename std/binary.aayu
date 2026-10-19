@@ -1,0 +1,344 @@
+# ==============================================================================
+# AAYU Standard Library: Silicon Binary Codec & Wire Protocol (std/binary.aayu)
+# 100% Pure Self-Hosted AAYU - High-Speed Zero-Overhead Binary Serialization
+# Protobuf-Style Varint (LEB128) + ZigZag Encoding + Framed Binary Packet Engine
+# Zero Python, Zero External Dependencies
+#
+# Core Capabilities:
+#   1. Variable-Length Quantity (Varint / LEB128):
+#      - bin_encode_varint(uint_val) (7-bit chunks with MSB continuation)
+#      - bin_decode_varint(bytes_arr, start_offset)
+#   2. ZigZag Encoding for Signed Integers:
+#      - bin_zigzag_encode(sint_val) (Maps 0->0, -1->1, 1->2, -2->3)
+#      - bin_zigzag_decode(uint_val)
+#   3. CRC16-CCITT Checksum Verification:
+#      - bin_crc16(bytes_arr) (Polynomial 0x1021)
+#   4. Binary Packet Framing & Network Wire Protocol:
+#      - bin_frame_packet(msg_type, payload_bytes)
+#        Format: [MAGIC_0, MAGIC_1, TYPE, LEN_HI, LEN_LO, PAYLOAD..., CRC_HI, CRC_LO]
+#      - bin_verify_frame(framed_bytes)
+#   5. Compact Schema Serialization (Protobuf-style):
+#      - bin_pack_struct(schema_keys, data_dict)
+#      - bin_unpack_struct(schema_keys, packed_bytes)
+# ==============================================================================
+
+# Magic header bytes for AAYU wire frames (0xAA = 170, 0x55 = 85)
+action bin_magic_0()
+    return 170
+end
+
+action bin_magic_1()
+    return 85
+end
+
+# ------------------------------------------------------------------------------
+# 1. VARIABLE-LENGTH QUANTITY (VARINT / LEB128)
+# ------------------------------------------------------------------------------
+
+# Encode an unsigned integer as an array of 7-bit LEB128 bytes with MSB continuation flag (0x80 = 128)
+action bin_encode_varint(val)
+    let bytes = []
+    let v = val
+    if v < 0
+        v = 0
+    end
+
+    while v >= 128
+        let byte_val = (v % 128) + 128 # 7 bits of data + MSB flag
+        bytes = bytes + [byte_val]
+        v = v / 128
+    end
+    bytes = bytes + [v % 128] # Final byte without MSB flag
+    return bytes
+end
+
+# Decode a LEB128 varint from a byte array starting at offset
+# Returns { "value": decoded_int, "bytes_read": count }
+action bin_decode_varint(bytes_arr, start_offset)
+    let res = 0
+    let shift = 1 # Multiplier: 1, 128, 16384, etc.
+    let count = 0
+    let n = len(bytes_arr)
+    let idx = start_offset
+
+    while idx < n
+        let b = bytes_arr[idx]
+        count = count + 1
+        idx = idx + 1
+
+        let data_7bit = b % 128
+        res = res + (data_7bit * shift)
+        shift = shift * 128
+
+        # If MSB (128) is not set, this was the terminal byte
+        if b < 128
+            break
+        end
+    end
+
+    return {
+        "value": res,
+        "bytes_read": count
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 2. ZIGZAG ENCODING (FOR COMPACT SIGNED INTEGERS)
+# ------------------------------------------------------------------------------
+
+# Maps signed integers to positive integers:
+#   0 -> 0, -1 -> 1, 1 -> 2, -2 -> 3, 2 -> 4, -3 -> 5...
+action bin_zigzag_encode(sint_val)
+    if sint_val >= 0
+        return sint_val * 2
+    end
+    # For negative: (-sint_val * 2) - 1
+    let pos = 0 - sint_val
+    return (pos * 2) - 1
+end
+
+# Inverse of ZigZag encoding
+action bin_zigzag_decode(uint_val)
+    if uint_val % 2 == 0
+        return uint_val / 2
+    end
+    return 0 - ((uint_val + 1) / 2)
+end
+
+# Encode signed integer directly as ZigZag Varint bytes
+action bin_encode_signed_varint(sint_val)
+    let zz = bin_zigzag_encode(sint_val)
+    return bin_encode_varint(zz)
+end
+
+# Decode signed integer from ZigZag Varint bytes
+action bin_decode_signed_varint(bytes_arr, start_offset)
+    let decoded = bin_decode_varint(bytes_arr, start_offset)
+    let val = bin_zigzag_decode(decoded["value"])
+    return {
+        "value": val,
+        "bytes_read": decoded["bytes_read"]
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 3. CRC16-CCITT CHECKSUM VERIFICATION (POLYNOMIAL 0x1021)
+# ------------------------------------------------------------------------------
+
+# Computes 16-bit CRC over array of bytes (0-255)
+action bin_crc16(bytes_arr)
+    let crc = 65535 # 0xFFFF
+    let poly = 4129 # 0x1021
+    let n = len(bytes_arr)
+
+    let i = 0
+    while i < n
+        let b = bytes_arr[i]
+        # XOR byte into high byte of CRC: crc ^ (b << 8)
+        let b_high = b * 256
+        let x = crc
+        let y = b_high
+        # 16-bit XOR
+        let xor_val = 0
+        let p = 1
+        while p <= 32768
+            let bit_x = x % 2
+            let bit_y = y % 2
+            if bit_x != bit_y
+                xor_val = xor_val + p
+            end
+            x = x / 2
+            y = y / 2
+            p = p * 2
+        end
+        crc = xor_val
+
+        # 8 bit shift operations
+        let bit_count = 0
+        while bit_count < 8
+            let msb = crc / 32768
+            crc = (crc % 32768) * 2
+            if msb == 1
+                # crc ^ poly
+                let c_x = crc
+                let c_y = poly
+                let c_xor = 0
+                let cp = 1
+                while cp <= 32768
+                    let bx = c_x % 2
+                    let by = c_y % 2
+                    if bx != by
+                        c_xor = c_xor + cp
+                    end
+                    c_x = c_x / 2
+                    c_y = c_y / 2
+                    cp = cp * 2
+                end
+                crc = c_xor
+            end
+            bit_count = bit_count + 1
+        end
+        i = i + 1
+    end
+    return crc % 65536
+end
+
+# ------------------------------------------------------------------------------
+# 4. BINARY PACKET FRAMING & WIRE PROTOCOL
+# ------------------------------------------------------------------------------
+
+# Frame payload into a structured packet:
+#   [MAGIC0, MAGIC1, MSG_TYPE, LEN_HI, LEN_LO, PAYLOAD..., CRC_HI, CRC_LO]
+action bin_frame_packet(msg_type, payload_bytes)
+    let payload_len = len(payload_bytes)
+    let len_hi = payload_len / 256
+    let len_lo = payload_len % 256
+
+    let body = [bin_magic_0(), bin_magic_1(), msg_type, len_hi, len_lo]
+    let i = 0
+    while i < payload_len
+        body = body + [payload_bytes[i]]
+        i = i + 1
+    end
+
+    # Calculate CRC over message type + length + payload
+    let crc_data = [msg_type, len_hi, len_lo]
+    i = 0
+    while i < payload_len
+        crc_data = crc_data + [payload_bytes[i]]
+        i = i + 1
+    end
+    let checksum = bin_crc16(crc_data)
+    let crc_hi = checksum / 256
+    let crc_lo = checksum % 256
+
+    return body + [crc_hi, crc_lo]
+end
+
+# Verify and extract payload from a framed binary packet
+action bin_verify_frame(framed_bytes)
+    let n = len(framed_bytes)
+    if n < 7
+        return { "valid": 0, "error": "FRAME_TOO_SHORT" }
+    end
+
+    # Check Magic Bytes
+    if framed_bytes[0] != bin_magic_0()
+        return { "valid": 0, "error": "INVALID_MAGIC_0" }
+    end
+    if framed_bytes[1] != bin_magic_1()
+        return { "valid": 0, "error": "INVALID_MAGIC_1" }
+    end
+
+    let msg_type = framed_bytes[2]
+    let len_hi = framed_bytes[3]
+    let len_lo = framed_bytes[4]
+    let expected_len = (len_hi * 256) + len_lo
+
+    if n != (expected_len + 7)
+        return { "valid": 0, "error": "LENGTH_MISMATCH" }
+    end
+
+    # Extract Payload
+    let payload = []
+    let i = 0
+    while i < expected_len
+        payload = payload + [framed_bytes[5 + i]]
+        i = i + 1
+    end
+
+    # Verify Checksum
+    let crc_data = [msg_type, len_hi, len_lo]
+    i = 0
+    while i < expected_len
+        crc_data = crc_data + [payload[i]]
+        i = i + 1
+    end
+    let calc_crc = bin_crc16(crc_data)
+    let exp_crc = (framed_bytes[n - 2] * 256) + framed_bytes[n - 1]
+
+    if calc_crc != exp_crc
+        return { "valid": 0, "error": "CRC_CORRUPTED" }
+    end
+
+    return {
+        "valid": 1,
+        "msg_type": msg_type,
+        "payload": payload,
+        "crc": calc_crc
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 5. STRING & COMPACT SCHEMA SERIALIZATION
+# ------------------------------------------------------------------------------
+
+# Converts ASCII string to array of byte codes
+action bin_string_to_bytes(str_val)
+    let bytes = []
+    let n = len(str_val)
+    let i = 0
+    # Map common ASCII range
+    while i < n
+        let ch = str_val[i]
+        # Quick character to byte mapping
+        let code = 63 # Default '?'
+        if ch == "a" code = 97 elif ch == "b" code = 98 elif ch == "c" code = 99
+        elif ch == "d" code = 100 elif ch == "e" code = 101 elif ch == "f" code = 102
+        elif ch == "g" code = 103 elif ch == "h" code = 104 elif ch == "i" code = 105
+        elif ch == "j" code = 106 elif ch == "k" code = 107 elif ch == "l" code = 108
+        elif ch == "m" code = 109 elif ch == "n" code = 110 elif ch == "o" code = 111
+        elif ch == "p" code = 112 elif ch == "q" code = 113 elif ch == "r" code = 114
+        elif ch == "s" code = 115 elif ch == "t" code = 116 elif ch == "u" code = 117
+        elif ch == "v" code = 118 elif ch == "w" code = 119 elif ch == "x" code = 120
+        elif ch == "y" code = 121 elif ch == "z" code = 122
+        elif ch == "A" code = 65 elif ch == "B" code = 66 elif ch == "C" code = 67
+        elif ch == "0" code = 48 elif ch == "1" code = 49 elif ch == "2" code = 50
+        elif ch == "3" code = 51 elif ch == "4" code = 52 elif ch == "5" code = 53
+        elif ch == "6" code = 54 elif ch == "7" code = 55 elif ch == "8" code = 56
+        elif ch == "9" code = 57 elif ch == " " code = 32 elif ch == "_" code = 95
+        elif ch == "-" code = 45 elif ch == "." code = 46 elif ch == "/" code = 47
+        end
+        bytes = bytes + [code]
+        i = i + 1
+    end
+    return bytes
+end
+
+# Serializes key-value dictionary of integers into Varint binary stream
+action bin_pack_int_array(ints_arr)
+    let stream = []
+    let n = len(ints_arr)
+    # Prefix with count
+    stream = stream + bin_encode_varint(n)
+
+    let i = 0
+    while i < n
+        let enc = bin_encode_signed_varint(ints_arr[i])
+        let k = 0
+        let klen = len(enc)
+        while k < klen
+            stream = stream + [enc[k]]
+            k = k + 1
+        end
+        i = i + 1
+    end
+    return stream
+end
+
+# Deserializes Varint binary stream back into array of integers
+action bin_unpack_int_array(stream_bytes)
+    let header = bin_decode_varint(stream_bytes, 0)
+    let count = header["value"]
+    let offset = header["bytes_read"]
+
+    let res = []
+    let i = 0
+    while i < count
+        let dec = bin_decode_signed_varint(stream_bytes, offset)
+        res = res + [dec["value"]]
+        offset = offset + dec["bytes_read"]
+        i = i + 1
+    end
+    return res
+end

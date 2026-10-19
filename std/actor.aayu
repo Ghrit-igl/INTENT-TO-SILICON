@@ -1,0 +1,363 @@
+# ==============================================================================
+# AAYU Standard Library: Fault-Tolerant Actor Concurrency & CSP Channels (std/actor.aayu)
+# 100% Pure Self-Hosted AAYU - Silicon-Speed Concurrency Primitives
+# Hybrid Model: Erlang-Style Self-Healing Actors + Go-Style Buffered Channels
+# Zero Python, Zero External Dependencies
+#
+# Core Capabilities:
+#   1. Go-Style CSP Channels:
+#      - channel_new(capacity) (Buffered / Unbuffered queue)
+#      - channel_send(chan_obj, item) (Backpressure-safe enqueue)
+#      - channel_recv(chan_obj) (FIFO dequeue)
+#      - channel_select(channels_arr) (Non-blocking multiplexer)
+#      - channel_close(chan_obj)
+#   2. Erlang-Style Actor System:
+#      - actor_system_new()
+#      - actor_spawn(system, name, initial_state)
+#      - actor_send(system, target_name, message) (Non-blocking async mailbox enqueue)
+#      - actor_drain_mailbox(system, name) (Retrieves all pending messages)
+#      - actor_get_state(system, name) & actor_set_state(system, name, new_state)
+#   3. Erlang-Style Fault-Tolerant Supervisors:
+#      - supervisor_new(strategy, max_restarts)
+#        Strategies: "ONE_FOR_ONE", "ONE_FOR_ALL", "REST_FOR_ONE"
+#      - supervisor_register_worker(sup, worker_id, default_state)
+#      - supervisor_notify_crash(sup, crashed_worker_id) (Auto-restart execution)
+#      - supervisor_get_restart_count(sup, worker_id)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. GO-STYLE COMMUNICATING SEQUENTIAL PROCESSES (CSP) CHANNELS
+# ------------------------------------------------------------------------------
+
+# Create a new channel with a given buffer capacity
+action channel_new(capacity)
+    let cap = capacity
+    if cap <= 0
+        cap = 1
+    end
+    return {
+        "buffer": [],
+        "capacity": cap,
+        "is_closed": 0,
+        "total_sent": 0,
+        "total_received": 0
+    }
+end
+
+# Send an item into the channel
+# Returns 1 on success, 0 on channel closed or buffer full
+action channel_send(chan_obj, item)
+    if chan_obj["is_closed"] == 1
+        return 0
+    end
+
+    let buf = chan_obj["buffer"]
+    let current_len = len(buf)
+    if current_len >= chan_obj["capacity"]
+        return 0 # Backpressure: channel full
+    end
+
+    chan_obj["buffer"] = buf + [item]
+    chan_obj["total_sent"] = chan_obj["total_sent"] + 1
+    return 1
+end
+
+# Receive an item from the channel (FIFO)
+# Returns item if available, or null if empty
+action channel_recv(chan_obj)
+    let buf = chan_obj["buffer"]
+    let current_len = len(buf)
+    if current_len == 0
+        return null
+    end
+
+    let item = buf[0]
+    let new_buf = []
+    let i = 1
+    while i < current_len
+        new_buf = new_buf + [buf[i]]
+        i = i + 1
+    end
+
+    chan_obj["buffer"] = new_buf
+    chan_obj["total_received"] = chan_obj["total_received"] + 1
+    return item
+end
+
+# Check if channel is empty
+action channel_is_empty(chan_obj)
+    return len(chan_obj["buffer"]) == 0
+end
+
+# Check if channel is full
+action channel_is_full(chan_obj)
+    return len(chan_obj["buffer"]) >= chan_obj["capacity"]
+end
+
+# Get current channel queue length
+action channel_len(chan_obj)
+    return len(chan_obj["buffer"])
+end
+
+# Close the channel
+action channel_close(chan_obj)
+    chan_obj["is_closed"] = 1
+    return 1
+end
+
+# Multiplex multiple channels (Go select statement equivalent)
+# Returns the first channel that has pending data, along with the dequeued value
+action channel_select(channels_arr)
+    let n = len(channels_arr)
+    let i = 0
+    while i < n
+        let ch = channels_arr[i]
+        if len(ch["buffer"]) > 0
+            let val = channel_recv(ch)
+            return {
+                "selected_channel_index": i,
+                "value": val,
+                "has_data": 1
+            }
+        end
+        i = i + 1
+    end
+
+    return {
+        "selected_channel_index": -1,
+        "value": null,
+        "has_data": 0
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 2. ERLANG-STYLE ACTOR MODEL & ISOLATED MAILBOXES
+# ------------------------------------------------------------------------------
+
+# Initialize an isolated Actor System
+action actor_system_new()
+    return {
+        "actors": {},
+        "mailboxes": {},
+        "states": {},
+        "actor_count": 0
+    }
+end
+
+# Spawn a named actor with initial isolated memory
+action actor_spawn(system, name, initial_state)
+    let actors = system["actors"]
+    actors[name] = 1
+    system["actors"] = actors
+
+    let mailboxes = system["mailboxes"]
+    mailboxes[name] = []
+    system["mailboxes"] = mailboxes
+
+    let states = system["states"]
+    states[name] = initial_state
+    system["states"] = states
+
+    system["actor_count"] = system["actor_count"] + 1
+    return name
+end
+
+# Send asynchronous message to target actor mailbox
+action actor_send(system, target_name, message)
+    let mailboxes = system["mailboxes"]
+    let mb = mailboxes[target_name]
+    if mb == null
+        return 0 # Target actor does not exist
+    end
+
+    mailboxes[target_name] = mb + [message]
+    system["mailboxes"] = mailboxes
+    return 1
+end
+
+# Check pending message count in actor mailbox
+action actor_mailbox_len(system, name)
+    let mailboxes = system["mailboxes"]
+    let mb = mailboxes[name]
+    if mb == null
+        return 0
+    end
+    return len(mb)
+end
+
+# Dequeue next message from actor mailbox
+action actor_receive_one(system, name)
+    let mailboxes = system["mailboxes"]
+    let mb = mailboxes[name]
+    if mb == null
+        return null
+    end
+    let n = len(mb)
+    if n == 0
+        return null
+    end
+
+    let msg = mb[0]
+    let new_mb = []
+    let i = 1
+    while i < n
+        new_mb = new_mb + [mb[i]]
+        i = i + 1
+    end
+    mailboxes[name] = new_mb
+    system["mailboxes"] = mailboxes
+    return msg
+end
+
+# Drain and retrieve all pending messages from mailbox
+action actor_drain_mailbox(system, name)
+    let mailboxes = system["mailboxes"]
+    let mb = mailboxes[name]
+    if mb == null
+        return []
+    end
+    mailboxes[name] = []
+    system["mailboxes"] = mailboxes
+    return mb
+end
+
+# Get actor's private state
+action actor_get_state(system, name)
+    let states = system["states"]
+    return states[name]
+end
+
+# Mutate actor's private state
+action actor_set_state(system, name, new_state)
+    let states = system["states"]
+    states[name] = new_state
+    system["states"] = states
+    return 1
+end
+
+# ------------------------------------------------------------------------------
+# 3. FAULT-TOLERANT SUPERVISOR TREES (ERLANG PHILOSOPHY)
+# ------------------------------------------------------------------------------
+
+# Initialize a supervisor
+# Strategy options: "ONE_FOR_ONE", "ONE_FOR_ALL", "REST_FOR_ONE"
+action supervisor_new(strategy, max_restarts)
+    return {
+        "strategy": strategy,
+        "max_restarts": max_restarts,
+        "workers": [],
+        "worker_order": [],
+        "default_states": {},
+        "worker_states": {},
+        "restart_counts": {},
+        "is_healthy": 1
+    }
+end
+
+# Register a worker under the supervisor
+action supervisor_register_worker(sup, worker_id, default_state)
+    let order = sup["worker_order"]
+    order = order + [worker_id]
+    sup["worker_order"] = order
+
+    let defaults = sup["default_states"]
+    defaults[worker_id] = default_state
+    sup["default_states"] = defaults
+
+    let states = sup["worker_states"]
+    states[worker_id] = default_state
+    sup["worker_states"] = states
+
+    let restarts = sup["restart_counts"]
+    restarts[worker_id] = 0
+    sup["restart_counts"] = restarts
+    return 1
+end
+
+# Internal restart helper for a single worker
+action _supervisor_restart_one(sup, worker_id)
+    let restarts = sup["restart_counts"]
+    let current_restarts = restarts[worker_id]
+    if current_restarts == null
+        current_restarts = 0
+    end
+    current_restarts = current_restarts + 1
+    restarts[worker_id] = current_restarts
+    sup["restart_counts"] = restarts
+
+    if current_restarts > sup["max_restarts"]
+        sup["is_healthy"] = 0
+        return 0 # Max restart frequency exceeded, supervisor escalates
+    end
+
+    # Reset worker state to clean initial default
+    let defaults = sup["default_states"]
+    let states = sup["worker_states"]
+    states[worker_id] = defaults[worker_id]
+    sup["worker_states"] = states
+    return 1
+end
+
+# Notify supervisor that a worker crashed and trigger self-healing restart policy
+action supervisor_notify_crash(sup, crashed_worker_id)
+    let strat = sup["strategy"]
+
+    if strat == "ONE_FOR_ONE"
+        # Restart ONLY the crashed worker
+        return _supervisor_restart_one(sup, crashed_worker_id)
+
+    elif strat == "ONE_FOR_ALL"
+        # Restart ALL workers if any worker crashes
+        let order = sup["worker_order"]
+        let n = len(order)
+        let i = 0
+        while i < n
+            let w_id = order[i]
+            let ok = _supervisor_restart_one(sup, w_id)
+            if ok == 0
+                return 0
+            end
+            i = i + 1
+        end
+        return 1
+
+    elif strat == "REST_FOR_ONE"
+        # Restart the crashed worker AND all workers registered AFTER it
+        let order = sup["worker_order"]
+        let n = len(order)
+        let found = 0
+        let i = 0
+        while i < n
+            let w_id = order[i]
+            if w_id == crashed_worker_id
+                found = 1
+            end
+            if found == 1
+                let ok = _supervisor_restart_one(sup, w_id)
+                if ok == 0
+                    return 0
+                end
+            end
+            i = i + 1
+        end
+        return 1
+    end
+
+    return 0
+end
+
+# Get current restart count for a worker
+action supervisor_get_restart_count(sup, worker_id)
+    let restarts = sup["restart_counts"]
+    let val = restarts[worker_id]
+    if val == null
+        return 0
+    end
+    return val
+end
+
+# Check if worker state is healthy
+action supervisor_get_worker_state(sup, worker_id)
+    let states = sup["worker_states"]
+    return states[worker_id]
+end
