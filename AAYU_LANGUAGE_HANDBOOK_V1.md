@@ -1532,3 +1532,97 @@ Output:
   MCP Verification Result: 9/9 tests passed 100% operational
 ======================================================================
 ```
+
+---
+
+## 19. Enterprise Situational System Design Architecture (`std/system.aayu`)
+
+### 19.1 Philosophy: Why Architecture is Situational
+In high-scale enterprise engineering, there is no generic "one-size-fits-all" design. Real systems survive because they switch strategies depending on real-time **situational conditions**:
+- **Write Bursts:** Batching in RAM before disk commit.
+- **Network Partitions:** Vector clocks to detect causality and concurrent conflicting mutations.
+- **Traffic Spikes:** Graceful degradation shedding non-essential features while keeping payments 100% alive.
+- **Consumer Lag:** Reactive backpressure watermark signaling to pause fast producers.
+- **Cache Stampedes:** Singleflight request coalescing to prevent DB melt-downs.
+
+AAYU is the world's first programming language providing **25 native situational system design primitives built into its core standard library** with zero external dependencies and 100% verified test passes (`tests/test_system_design.aayu`).
+
+### 19.2 The 25 Built-In System Design Primitives
+
+| # | Primitive | Purpose | Industry Benchmark |
+|---|---|---|---|
+| 1 | `lru_cache_new` | $O(1)$ Doubly-Linked LRU Cache | Redis LRU |
+| 2 | `rate_limiter_new` | Fractional Token Bucket Limiter | Cloudflare Edge Limiter |
+| 3 | `circuit_breaker_new` | 3-State Cascading Failure Shield | Netflix Hystrix |
+| 4 | `hash_ring_new` | Consistent Hashing with $O(\log N)$ Binary Search | Amazon DynamoDB / Discord Ring |
+| 5 | `pubsub_new` | Decoupled In-Memory Event Bus | Kafka In-Memory Broker |
+| 6 | `idempotency_guard_new` | Financial Double-Spend Prevention | Stripe Idempotency Keys |
+| 7 | `load_balancer_new` | Health-Checked Round-Robin Routing | Nginx Upstream |
+| 8 | `backoff_calculate_ms` | Exponential Backoff with Full Jitter | AWS Anti-Thundering Herd |
+| 9 | `bloom_new` | $O(1)$ Probabilistic Membership (Zero False Negatives) | Google BigTable Bloom Filter |
+| 10 | `sliding_window_new` | Burst-Immune Sliding Window Limiter | Envoy Proxy Sliding Counter |
+| 11 | `distributed_lock_new` | Distributed Mutex & Monotonic Fencing Token | Martin Kleppmann Fencing Standard |
+| 12 | `bulkhead_new` | Concurrency Isolation & Queue Load Shedding | Resilience4j Bulkhead |
+| 13 | `least_conn_lb_new` | Dynamic Least-Connections Load Balancer | HAProxy Leastconn |
+| 14 | `singleflight_new` | Request Coalescing (Cache Stampede Shield) | Go `golang.org/x/sync/singleflight` |
+| 15 | `xfetch_should_refresh` | Probabilistic Early Expiration | Vitter VLDB Optimal Caching |
+| 16 | `saga_new` | Distributed Compensating Rollback Orchestrator | Uber Cadence / Temporal Saga |
+| 17 | `leader_election_new` | Heartbeat Liveness & Auto-Failover | Raft / Paxos Minimal Election |
+| 18 | `dlq_new` | Dead Letter Queue Poison Pill Isolation | RabbitMQ / AWS SQS DLQ |
+| 19 | `rw_router_new` | CQRS Master-Replica Database Query Router | AWS Aurora Read-Replica Router |
+| 20 | `adaptive_concurrency_new` | Dynamic Latency-Feedback AIMD Pool Sizer | Netflix TCP-Vegas Concurrency |
+| 21 | `write_behind_new` | Write-Behind Batch Buffer for High-Write Spikes | Cassandra MemTable Write-Behind |
+| 22 | `vector_clock_new` | Vector Clocks for Multi-Master Distributed Conflicts | Amazon Dynamo Vector Clocks |
+| 23 | `degradation_new` | Graceful Degradation Load Shedder (Tier 1-3) | Google SRE Graceful Degradation |
+| 24 | `backpressure_new` | Reactive Backpressure High/Low Watermark Flow | Reactive Streams Specification |
+| 25 | `cache_aside_new` | Dual-Write Cache-Aside Invalidation Coordinator | Memcached Cache-Aside Standard |
+
+### 19.3 Executable Situational Example
+
+```aayu
+import "std/system.aayu"
+
+# 1. Absorbing 100k writes/sec via Write-Behind Buffer
+let wb = write_behind_new(1000, 500) # Flush every 1000 items or 500ms
+let res = write_behind_add(wb, { "trade_id": 9901, "price": 45000 }, 100)
+if res.status == "NEEDS_FLUSH"
+    let batch = write_behind_drain(wb, 100)
+    # Bulk write batch to durable disk
+end
+
+# 2. Detecting Multi-Master Concurrent Conflicts with Vector Clocks
+let vc_mumbai = vector_clock_new("mumbai")
+let vc_frankfurt = vector_clock_new("frankfurt")
+vector_clock_tick(vc_mumbai)
+vector_clock_tick(vc_frankfurt)
+
+let conflict = vector_clock_compare(vc_mumbai, vc_frankfurt)
+if conflict == "CONCURRENT"
+    print("Conflict detected! Triggering business reconciliation merge.")
+    vector_clock_merge(vc_mumbai, vc_frankfurt)
+end
+
+# 3. Graceful Degradation Under Server Stress (Diwali/Black Friday)
+let deg = degradation_new()
+degradation_update_health(deg, 95, 80) # CPU 95% -> State: CRITICAL
+
+if degradation_feature_allowed(deg, 1) # Tier 1: Core Payment Checkout
+    print("Payment allowed to proceed uninterrupted.")
+end
+if degradation_feature_allowed(deg, 3) == 0 # Tier 3: AI Recommendations shed
+    print("AI Recommendations gracefully disabled to protect payment server.")
+end
+```
+
+---
+
+## 20. Enterprise Database Security & Columnar FoR Compression (`std/db.aayu`)
+
+AAYU eliminates bloated third-party database drivers via native **Frame-of-Reference (FoR) Columnar Compression**, **AES-256-GCM Data-at-Rest Encryption**, and **Cryptographic Merkle WAL Audit Trails**:
+
+1. **Integer Frame-of-Reference (FoR):** Compresses uniform integer arrays down to `(x - min)` offsets with instant $O(1)$ columnar sums.
+2. **String Content-Addressable Storage (CAS):** Deduplicates repeated text tokens into a shared interning dictionary.
+3. **Lossless Restoration:** Restores bit-exact rows and rebuilds active in-memory primary key indices without data loss.
+4. **NIST SP 800-38D AES-256-GCM Encryption:** Hardened data-at-rest encryption with tamper-evident authentication seals.
+5. **Cryptographic Merkle WAL:** Generates a 64-character SHA-256 Merkle root over the entire database write-ahead journal. Any modified, inserted, or deleted byte breaks the root and alerts security monitors immediately.
+

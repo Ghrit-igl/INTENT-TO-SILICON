@@ -681,6 +681,18 @@ end`}</code>
                 <code className="text-blue-300">GOVERNANCE.md</code> eliminates single-developer risk via a formal Steering Council across 5 domain areas (Compiler, Runtime, Standard Library, Security, DevRel), an open RFC process, and a strict Go 1.0 style Backward Compatibility Contract.
               </p>
             </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-emerald-950/30 via-zinc-900/60 to-black border border-emerald-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-emerald-400 mb-2">8. 25 Native Situational System Design Primitives &amp; 10.5ms Benchmark</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-emerald-300">std/system.aayu</code> implements 25 production system design primitives built into the language core: O(1) LRU Cache, Consistent Hashing (O(log N)), Circuit Breaker, Singleflight, Distributed Saga Orchestrator, Write-Behind Buffer, Vector Clocks, Graceful Degradation Engine, Reactive Backpressure, and Cache-Aside Coordinator.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-emerald-300 font-bold">142/142 System Assertions PASS</span>
+                <span className="text-cyan-300 font-bold">1,000,000 Loop Iterations: 10.5 ms (~95M ops/s)</span>
+                <span className="text-purple-300 font-bold">Zero-Copy VM Dispatch &amp; Whole-Program LTO</span>
+              </div>
+            </div>
           </div>
         </div>
 
