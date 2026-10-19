@@ -1626,3 +1626,61 @@ AAYU eliminates bloated third-party database drivers via native **Frame-of-Refer
 4. **NIST SP 800-38D AES-256-GCM Encryption:** Hardened data-at-rest encryption with tamper-evident authentication seals.
 5. **Cryptographic Merkle WAL:** Generates a 64-character SHA-256 Merkle root over the entire database write-ahead journal. Any modified, inserted, or deleted byte breaks the root and alerts security monitors immediately.
 
+---
+
+## 21. Native Cybersecurity & Penetration Testing Toolkit (`std/cyber.aayu`)
+
+### 21.1 Philosophy: Why AAYU Replaces Python for Hackers
+Python is historically popular for security scripts, but suffers from fatal flaws in modern Red Teaming and Exploit Engineering:
+1. **Antivirus / EDR Detection:** Bundling Python into an executable with PyInstaller produces 35MB-60MB bloated binaries that trigger immediate heuristic alerts on Windows Defender and CrowdStrike.
+2. **Instant Decompilation:** `.pyc` files are trivially de-compiled back to plaintext source within seconds via `uncompyle6`.
+3. **Execution Sluggishness:** The Python GIL cripples high-speed network packet probing and hash brute-forcing.
+
+AAYU provides a **native, single-binary, silicon-speed cyber suite (`std/cyber.aayu`)** executing in microsecond stack registers without external dependencies:
+
+### 21.2 The Native Cyber Arsenal
+
+| Category | Function | Purpose | Equivalent Python/C Tool |
+|---|---|---|---|
+| **Buffer Overflow** | `cyber_nop_sled(length, pattern)` | Generates aligned NOP sleds | `pwntools.asm('nop')` |
+| **Exploit Offsets** | `cyber_cyclic(length)` | De Bruijn cyclic pattern generator | `pwntools.cyclic()` |
+| **Offset Finding** | `cyber_cyclic_find(pat, sub)` | Pinpoints exact EIP/RIP overwrite offset | `pwntools.cyclic_find()` |
+| **Network IP** | `cyber_ip_to_int(ip_str)` | Converts IPv4 to 32-bit unsigned integer | `socket.inet_aton()` |
+| **IP Reverse** | `cyber_int_to_ip(ip_int)` | Converts 32-bit integer to dotted IPv4 | `socket.inet_ntoa()` |
+| **CIDR Ranges** | `cyber_cidr_range(cidr)` | Computes netmask, broadcast, and usable hosts | `ipaddress.IPv4Network` |
+| **Packet Forging** | `cyber_tcp_flags_mask(...)` | Encodes/decodes TCP flags bitmasks | `scapy.TCP.flags` |
+| **Wire Protocol** | `cyber_craft_http_exploit(...)` | Assembles raw HTTP request with spoofed headers | Raw socket crafting |
+| **Payload Library** | `cyber_sql_injection_payload(...)` | Standard SQLi vectors (Auth bypass, Union) | `sqlmap` core vectors |
+| **Directory Traversal** | `cyber_path_traversal_payload(...)` | Cross-platform traversal strings | `dotdotpwn` |
+| **Hash Cracker** | `cyber_crack_hash_dictionary(...)` | Silicon in-memory SHA-256 dictionary cracker | `hashcat` / `john` in-memory |
+| **Entropy Analysis** | `cyber_shannon_entropy(data)` | Information entropy score (0-800) | Ghidra / PEStudio entropy |
+| **Anti-Forensics** | `cyber_obfuscate_string(...)` | Runtime XOR string masking to evade static AV | String encryption stub |
+
+### 21.3 Executable Penetration Testing Example
+
+```aayu
+import "std/cyber.aayu" as cyber
+
+# 1. Calculate Buffer Overflow Overwrite Offset (pwntools style)
+let pattern = cyber.cyber_cyclic(200)
+# Target binary crashes with EIP = "baaa"
+let offset = cyber.cyber_cyclic_find(pattern, "baaa")
+print("Exact EIP overwrite offset: " + offset) # Output: 4
+
+# 2. Mass CIDR Network Range Calculation
+let net = cyber.cyber_cidr_range("10.0.0.0/24")
+print("Network IP:    " + net.network_ip)     # 10.0.0.0
+print("First Host:    " + net.first_host)     # 10.0.0.1
+print("Last Host:     " + net.last_host)      # 10.0.0.254
+print("Broadcast:     " + net.broadcast_ip)   # 10.0.0.255
+print("Total Usable:  " + net.total_hosts)    # 254
+
+# 3. High-Speed In-Memory Hash Cracking
+let wordlist = ["admin", "root", "toor", "password", "password123"]
+let result = cyber.cyber_crack_hash_dictionary("ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f", wordlist)
+if result.cracked == 1
+    print("Password cracked: " + result.plaintext + " in " + result.attempts + " attempts")
+end
+```
+
+

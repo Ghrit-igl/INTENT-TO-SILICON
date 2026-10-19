@@ -1,0 +1,136 @@
+# ==============================================================================
+# AAYU Native Cybersecurity & Penetration Testing Master Suite
+# Tests: Buffer Overflow, De Bruijn cyclic offsets, CIDR Math, Packet Forging,
+# Fuzzing, SQLi/Traversal/XSS, Silicon Hash Cracker, Entropy & String Obfuscation
+# ==============================================================================
+import "std/test.aayu"
+import "std/cyber.aayu" as cyber
+import "std/crypto.aayu" as crypto
+
+action main()
+    print("==================================================")
+    print("  RUNNING SUITE: AAYU Cyber & Penetration Toolkit Master Suite")
+    print("==================================================")
+    test_begin_suite("AAYU Cyber & Penetration Toolkit Master Suite")
+
+    # --------------------------------------------------------------------------
+    # 1. BUFFER OVERFLOW & SHELLCODE PWNTOOLS
+    # --------------------------------------------------------------------------
+    print("\n[Phase 1] Testing Buffer Overflow & Cyclic De Bruijn Offsets...")
+    let nop = cyber.cyber_nop_sled(16, "90")
+    assert_eq(len(nop), 32, "16-byte NOP sled produces 32 hex chars")
+    assert_eq(nop, "90909090909090909090909090909090", "NOP sled matches exact \\x90 pattern")
+
+    let cyclic_pat = cyber.cyber_cyclic(100)
+    assert_eq(len(cyclic_pat), 100, "Cyclic pattern length is exactly 100")
+    assert_eq(cyber.cyber_slice(cyclic_pat, 0, 8), "aaaaaaab", "Initial cyclic pattern starts with aaaaaaab")
+
+    # Verify cyclic offset finder (equivalent to pwntools cyclic_find)
+    let offset_0 = cyber.cyber_cyclic_find(cyclic_pat, "aaaa")
+    assert_eq(offset_0, 0, "aaaa found at offset 0")
+
+    let offset_4 = cyber.cyber_cyclic_find(cyclic_pat, "aaab")
+    assert_eq(offset_4, 4, "aaab found at offset 4")
+
+    let not_found = cyber.cyber_cyclic_find(cyclic_pat, "zzzz")
+    assert_eq(not_found, -1, "Missing sequence returns -1")
+
+    # --------------------------------------------------------------------------
+    # 2. NETWORK RECONNAISSANCE & CIDR MATH
+    # --------------------------------------------------------------------------
+    print("\n[Phase 2] Testing IP & CIDR Subnet Range Calculations...")
+    let ip_int = cyber.cyber_ip_to_int("192.168.1.1")
+    assert_eq(ip_int, 3232235777, "192.168.1.1 parsed to 3232235777")
+
+    let ip_str = cyber.cyber_int_to_ip(3232235777)
+    assert_eq(ip_str, "192.168.1.1", "3232235777 converted back to 192.168.1.1")
+
+    let cidr = cyber.cyber_cidr_range("192.168.1.0/24")
+    assert_eq(cidr.network_ip, "192.168.1.0", "Network IP is 192.168.1.0")
+    assert_eq(cidr.broadcast_ip, "192.168.1.255", "Broadcast IP is 192.168.1.255")
+    assert_eq(cidr.first_host, "192.168.1.1", "First usable host is 192.168.1.1")
+    assert_eq(cidr.last_host, "192.168.1.254", "Last usable host is 192.168.1.254")
+    assert_eq(cidr.total_hosts, 254, "Total usable hosts in /24 is 254")
+    assert_eq(cidr.netmask, "255.255.255.0", "Netmask is 255.255.255.0")
+
+    # --------------------------------------------------------------------------
+    # 3. TCP FLAGS BITMASK & PACKET FORGING
+    # --------------------------------------------------------------------------
+    print("\n[Phase 3] Testing TCP Flags Bitmask & Raw HTTP Exploit Crafting...")
+    # SYN = 2, ACK = 16 -> SYN-ACK = 18
+    let syn_ack = cyber.cyber_tcp_flags_mask(1, 1, 0, 0, 0, 0)
+    assert_eq(syn_ack, 18, "SYN-ACK mask is 18")
+
+    let flags = cyber.cyber_decode_tcp_flags(18)
+    assert_eq(len(flags), 2, "Decoded 2 flags")
+    assert_eq(flags[0], "SYN", "First flag is SYN")
+    assert_eq(flags[1], "ACK", "Second flag is ACK")
+
+    # Raw HTTP exploit packet forging
+    let raw_req = cyber.cyber_craft_http_exploit("target.corp.local", "/admin/login", { "X-Forwarded-For": "127.0.0.1" }, "user=admin'--&pass=x")
+    assert_true(len(raw_req) > 0, "Raw HTTP request generated")
+    assert_true(cyber.cyber_cyclic_find(raw_req, "X-Forwarded-For: 127.0.0.1") != -1, "Spoofed header present")
+    assert_true(cyber.cyber_cyclic_find(raw_req, "user=admin'--") != -1, "Body payload present")
+
+    # --------------------------------------------------------------------------
+    # 4. FUZZING & EXPLOIT PAYLOAD LIBRARY
+    # --------------------------------------------------------------------------
+    print("\n[Phase 4] Testing Fuzzing & Exploit Payloads (SQLi, Traversal, XSS)...")
+    let fuzz_buf = cyber.cyber_generate_fuzz_payload("OVERFLOW_", 50, "B")
+    assert_eq(len(fuzz_buf), 59, "Fuzz payload length is 59")
+    assert_eq(cyber.cyber_slice(fuzz_buf, 0, 9), "OVERFLOW_", "Prefix preserved")
+
+    let sqli_auth = cyber.cyber_sql_injection_payload("AUTH_BYPASS")
+    assert_eq(sqli_auth, "' OR '1'='1", "SQLi Auth Bypass verified")
+
+    let sqli_union = cyber.cyber_sql_injection_payload("UNION_SELECT")
+    assert_eq(sqli_union, "' UNION SELECT 1, null, version()--", "SQLi Union Select verified")
+
+    let trav_linux = cyber.cyber_path_traversal_payload(4, "etc/passwd", "linux")
+    assert_eq(trav_linux, "../../../../etc/passwd", "Linux path traversal verified")
+
+    let trav_win = cyber.cyber_path_traversal_payload(3, "windows/win.ini", "windows")
+    assert_eq(trav_win, "..\\..\\..\\windows\\win.ini", "Windows path traversal verified")
+
+    let xss = cyber.cyber_xss_polyglot()
+    assert_true(len(xss) > 20, "XSS polyglot generated")
+
+    # --------------------------------------------------------------------------
+    # 5. HIGH-SPEED HASH CRACKING & SHANNON ENTROPY
+    # --------------------------------------------------------------------------
+    print("\n[Phase 5] Testing Silicon Hash Cracker & Shannon Entropy...")
+    # Target password: "password123"
+    let target_hash = crypto.sha256("password123")
+    let wordlist = ["admin", "root", "123456", "toor", "password", "password123", "letmein"]
+
+    let crack_res = cyber.cyber_crack_hash_dictionary(target_hash, wordlist)
+    assert_eq(crack_res.cracked, 1, "Password successfully cracked in memory")
+    assert_eq(crack_res.plaintext, "password123", "Plaintext password matches 'password123'")
+    assert_eq(crack_res.attempts, 6, "Found on 6th attempt")
+
+    # Shannon Entropy analysis
+    let low_entropy = cyber.cyber_shannon_entropy("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+    assert_true(low_entropy < 100, "Uniform repetitive string has low entropy (< 100)")
+
+    let high_entropy = cyber.cyber_shannon_entropy("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*")
+    assert_true(high_entropy > 500, "High-variety string has high entropy (> 500)")
+
+    # --------------------------------------------------------------------------
+    # 6. ANTI-FORENSICS & RUNTIME STRING OBFUSCATION
+    # --------------------------------------------------------------------------
+    print("\n[Phase 6] Testing Anti-Forensics & Runtime String Obfuscation...")
+    let secret_c2 = "http://192.168.1.100:8080/beacon"
+    let obf_bytes = cyber.cyber_obfuscate_string(secret_c2, 42)
+    assert_eq(len(obf_bytes), len(secret_c2), "Obfuscated bytes length matches secret string")
+
+    # Dynamically unpack in RAM
+    let restored_c2 = cyber.cyber_deobfuscate_string(obf_bytes, 42)
+    assert_eq(restored_c2, secret_c2, "De-obfuscated string in RAM bit-exact with original C2 address")
+
+    test_end_suite()
+    print("\n==================================================================")
+    print("   ALL CYBERSECURITY & PENETRATION TOOLKIT TESTS PASSED!         ")
+    print("==================================================================")
+end
+
+main()

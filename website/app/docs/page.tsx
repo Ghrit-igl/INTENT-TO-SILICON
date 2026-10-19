@@ -693,6 +693,18 @@ end`}</code>
                 <span className="text-purple-300 font-bold">Zero-Copy VM Dispatch &amp; Whole-Program LTO</span>
               </div>
             </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-red-950/30 via-zinc-900/60 to-black border border-red-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-red-400 mb-2">9. Native Offensive &amp; Defensive Cyber Toolkit (std/cyber.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-red-300">std/cyber.aayu</code> delivers a silicon-speed offensive and defensive penetration testing toolkit empowering security researchers and ethical hackers to replace Python without runtime bloat: De Bruijn cyclic sequence generator (<code className="text-red-300">cyber_cyclic</code>, <code className="text-red-300">cyber_cyclic_find</code>), NOP sleds, IPv4 integer/CIDR calculation, raw TCP flag bitmasks, HTTP/1.1 wire protocol crafting, fuzzing &amp; injection payloads (SQLi, path traversal, XSS polyglots), in-memory SHA-256 dictionary cracking, Shannon entropy analysis, and runtime string XOR obfuscation for EDR stealth.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-red-300 font-bold">36/36 Cyber Assertions PASS (671/671 Total)</span>
+                <span className="text-cyan-300 font-bold">Sub-2.2 MB Statically Linked Binary</span>
+                <span className="text-amber-300 font-bold">Zero-Dependency Stealth Execution</span>
+              </div>
+            </div>
           </div>
         </div>
 

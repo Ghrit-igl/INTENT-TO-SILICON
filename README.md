@@ -13,7 +13,7 @@
   <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases"><img src="https://img.shields.io/badge/version-v1.5.0-purple?style=for-the-badge" alt="Version"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Open%20Standard-blue?style=for-the-badge" alt="License"/></a>
   <a href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"><img src="https://img.shields.io/badge/live%20portal-active-emerald?style=for-the-badge" alt="Live Portal"/></a>
-  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-635%20%2F%20635%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
+  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-671%20%2F%20671%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
 
   <a href="https://aayulang.com"><img src="https://img.shields.io/badge/website-aayulang.com-0284c7?style=for-the-badge" alt="Website"/></a>
 </p>
@@ -292,7 +292,8 @@ AAYU's reliability is proven by **323 passing assertions across 17 distinct test
 | 22 | `tests/test_loops_conditions_dsa_oop.aayu` | **Loops, Branching, Dot-OOP, Stack, Queue, MinHeap, BST, Graph, Kadane, TwoSum** | ✅ PASS | **75 / 75** |
 | 23 | `tests/test_system_design.aayu` | **25 Native Situational System Design Primitives (LRU, Hashing, Saga, Clocks, Backpressure)** | ✅ PASS | **142 / 142** |
 | 24 | `tests/test_aayudb_enterprise_security.aayu` | **Columnar FoR Compression, Anti-Tamper RBAC & Cryptographic Merkle WAL Audit** | ✅ PASS | **47 / 47** |
-| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **635 / 635** |
+| 25 | `tests/test_cyber_toolkit.aayu` | **Exploit Engineering, De Bruijn Cyclic Offsets, CIDR, Packet Forging, Silicon Cracker** | ✅ PASS | **36 / 36** |
+| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **671 / 671** |
 
 
 ### ⚡ Ground-Truth Execution Speed & Benchmark Reality
@@ -325,6 +326,7 @@ All standard library modules are written in **100% pure self-hosted AAYU** with 
 
 | Module | Description | Key Functions |
 |---|---|---|
+| `std/cyber.aayu` | Offensive & Defensive Cybersecurity Toolkit | `cyber_nop_sled`, `cyber_cyclic`, `cyber_cyclic_find`, `cyber_ip_to_int`, `cyber_cidr_range`, `cyber_tcp_flags_mask`, `cyber_crack_hash_dictionary`, `cyber_shannon_entropy`, `cyber_obfuscate_string` |
 | `std/system.aayu` | 25 Enterprise Situational System Design Primitives | `lru_cache_new`, `hash_ring_add_node`, `circuit_breaker_allow`, `singleflight_execute`, `saga_create`, `write_behind_add`, `vector_clock_compare`, `degradation_update_health`, `backpressure_push`, `cache_aside_get` |
 | `std/llm.aayu` | Modern LLM Primitives & Transformers | `rope_rotate_embedding`, `kv_cache_create`, `kv_cache_append`, `swiglu_activate`, `bpe_tokenize_simple` |
 | `std/quant.aayu` | Silicon Matrix Quantization (75% RAM savings) | `quantize_symmetric_int8`, `quant_dot_product`, `quantize_int4_blocks`, `dequantize_symmetric_int8` |
