@@ -327,32 +327,52 @@ action all(arr)
     return 1
 end
 
-# Return a new sorted copy of the array in ascending order
-action sorted(arr)
-    let remaining = []
-    let i = 0
-    let n = len(arr)
-    while i < n
-        remaining = remaining + [arr[i]]
-        i = i + 1
-    end
+# Internal helper: Linear merge of two pre-sorted arrays
+action _merge_sorted(left, right)
     let res = []
-    while len(remaining) > 0
-        let min_idx = 0
-        let min_val = remaining[0]
-        let j = 1
-        let rem_len = len(remaining)
-        while j < rem_len
-            if remaining[j] < min_val
-                min_val = remaining[j]
-                min_idx = j
+    let i = 0
+    let j = 0
+    let n_left = len(left)
+    let n_right = len(right)
+
+    while i < n_left
+        if j < n_right
+            if left[i] <= right[j]
+                res = res + [left[i]]
+                i = i + 1
+            else
+                res = res + [right[j]]
+                j = j + 1
             end
-            j = j + 1
+        else
+            res = res + [left[i]]
+            i = i + 1
         end
-        res = res + [min_val]
-        remaining = slice(remaining, 0, min_idx) + slice(remaining, min_idx + 1, rem_len)
     end
+
+    while j < n_right
+        res = res + [right[j]]
+        j = j + 1
+    end
+
     return res
+end
+
+# Return a new sorted copy of the array in ascending order via O(N log N) MergeSort
+action sorted(arr)
+    let n = len(arr)
+    if n <= 1
+        return arr
+    end
+
+    let mid = n / 2
+    let left = slice(arr, 0, mid)
+    let right = slice(arr, mid, n)
+
+    let sorted_left = sorted(left)
+    let sorted_right = sorted(right)
+
+    return _merge_sorted(sorted_left, sorted_right)
 end
 
 # Split a string into an array of substrings using the given delimiter

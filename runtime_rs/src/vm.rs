@@ -1231,6 +1231,23 @@ impl AayuVM {
                         let ia = self.get_int128(a).unwrap_or(0);
                         let ib = self.get_int128(b).unwrap_or(0);
                         self.stack[self.sp - 1] = self.make_int128(ia + ib);
+                    } else if a.is_string() && b.is_string() {
+                        let idx_a = a.as_string_idx();
+                        let idx_b = b.as_string_idx();
+                        let (len_a, len_b) = (
+                            self.string_heap.get(idx_a).map(|s| s.len()).unwrap_or(0),
+                            self.string_heap.get(idx_b).map(|s| s.len()).unwrap_or(0),
+                        );
+                        let mut res = String::with_capacity(len_a + len_b);
+                        if let Some(sa) = self.string_heap.get(idx_a) {
+                            res.push_str(sa);
+                        }
+                        if let Some(sb) = self.string_heap.get(idx_b) {
+                            res.push_str(sb);
+                        }
+                        let idx = self.string_heap.len();
+                        self.string_heap.push(res);
+                        self.stack[self.sp - 1] = NanVal::string(idx);
                     } else if a.is_string() || b.is_string() {
                         let sa = if a.is_string() {
                             self.string_heap.get(a.as_string_idx()).cloned().unwrap_or_default()
@@ -1264,16 +1281,17 @@ impl AayuVM {
                         self.string_heap.push(res);
                         self.stack[self.sp - 1] = NanVal::string(idx);
                     } else if a.is_array() && b.is_array() {
-                        let arr_a = match self.memory.get(a.as_array_idx()) {
-                            crate::memory::HeapObject::AArray(arr) => arr.clone(),
+                        let idx_a = a.as_array_idx();
+                        let idx_b = b.as_array_idx();
+                        let merged = match (self.memory.get(idx_a), self.memory.get(idx_b)) {
+                            (crate::memory::HeapObject::AArray(va), crate::memory::HeapObject::AArray(vb)) => {
+                                let mut m = Vec::with_capacity(va.len() + vb.len());
+                                m.extend_from_slice(va);
+                                m.extend_from_slice(vb);
+                                m
+                            }
                             _ => Vec::new(),
                         };
-                        let arr_b = match self.memory.get(b.as_array_idx()) {
-                            crate::memory::HeapObject::AArray(arr) => arr.clone(),
-                            _ => Vec::new(),
-                        };
-                        let mut merged = arr_a;
-                        merged.extend(arr_b);
                         let idx = self.allocate_heap(crate::memory::HeapObject::AArray(merged));
                         self.stack[self.sp - 1] = NanVal::array(idx);
                     } else if a.is_float() || b.is_float() {
@@ -2196,10 +2214,10 @@ impl AayuVM {
                     if nb + 256 > self.locals.len() {
                         return Err("StackOverflow: locals space exceeded".into());
                     }
-                    for i in 0..argc {
-                        self.locals[nb + i] = self.stack[self.sp - argc + i];
+                    if argc > 0 {
+                        self.locals[nb..nb + argc].copy_from_slice(&self.stack[self.sp - argc..self.sp]);
+                        self.sp -= argc;
                     }
-                    self.sp -= argc;
                     self.call_frames.push(CallFrame { return_ip: self.ip, prev_base: self.base });
                     self.base = nb;
                     self.call_depth = self.call_frames.len();
@@ -2220,7 +2238,7 @@ impl AayuVM {
                 128 => { // BUILD_DICT
                     let num_pairs = ((self.bytecode[self.ip] as usize) << 8) | self.bytecode[self.ip + 1] as usize;
                     self.ip += 2;
-                    let mut dict = std::collections::HashMap::new();
+                    let mut dict = std::collections::HashMap::with_capacity(num_pairs);
                     for _ in 0..num_pairs {
                         if self.sp >= 2 {
                             let key = self.stack[self.sp - 1];
@@ -2244,7 +2262,8 @@ impl AayuVM {
                     self.sp -= 2;
                     let sa = if a.is_string() && a.as_string_idx() < self.string_heap.len() { &self.string_heap[a.as_string_idx()] } else { "" };
                     let sb = if b.is_string() && b.as_string_idx() < self.string_heap.len() { &self.string_heap[b.as_string_idx()] } else { "" };
-                    let mut res = sa.to_string();
+                    let mut res = String::with_capacity(sa.len() + sb.len());
+                    res.push_str(sa);
                     res.push_str(sb);
                     let idx = self.string_heap.len();
                     self.string_heap.push(res);
@@ -2257,7 +2276,14 @@ impl AayuVM {
                     let s_ref = self.stack[self.sp - 3];
                     self.sp -= 3;
                     let s = if s_ref.is_string() && s_ref.as_string_idx() < self.string_heap.len() { &self.string_heap[s_ref.as_string_idx()] } else { "" };
-                    let sliced: String = s.chars().skip(start).take(end.saturating_sub(start)).collect();
+                    let sliced = if s.is_ascii() {
+                        let len = s.len();
+                        let s_start = start.min(len);
+                        let s_end = end.min(len).max(s_start);
+                        s[s_start..s_end].to_string()
+                    } else {
+                        s.chars().skip(start).take(end.saturating_sub(start)).collect()
+                    };
                     let idx = self.string_heap.len();
                     self.string_heap.push(sliced);
                     self.stack[self.sp] = NanVal::string(idx);
@@ -2270,6 +2296,10 @@ impl AayuVM {
                     } else if s_ref.is_array() {
                         if let crate::memory::HeapObject::AArray(arr) = self.memory.get(s_ref.as_array_idx()) {
                             arr.len()
+                        } else { 0 }
+                    } else if s_ref.is_dict() {
+                        if let crate::memory::HeapObject::ADict(dict) = self.memory.get(s_ref.as_dict_idx()) {
+                            dict.len()
                         } else { 0 }
                     } else { 0 };
                     self.stack[self.sp - 1] = NanVal::int(len as i64);
@@ -2673,12 +2703,9 @@ impl AayuVM {
                 134 => { // CreateArray
                     let len = ((self.bytecode[self.ip] as usize) << 8) | self.bytecode[self.ip + 1] as usize;
                     self.ip += 2;
-                    let mut arr = Vec::with_capacity(len);
-                    for _ in 0..len {
-                        arr.push(self.stack[self.sp - 1]);
-                        self.sp -= 1;
-                    }
-                    arr.reverse();
+                    let start = self.sp - len;
+                    let arr = self.stack[start..self.sp].to_vec();
+                    self.sp = start;
                     
                     let idx = self.allocate_heap(crate::memory::HeapObject::AArray(arr));
                     self.stack[self.sp] = NanVal::array(idx);
@@ -2701,13 +2728,16 @@ impl AayuVM {
                         }
                     } else if obj_ref.is_dict() {
                         let idx = obj_ref.as_dict_idx();
-                        let key_str = if key_val.is_string() && key_val.as_string_idx() < self.string_heap.len() {
-                            self.string_heap[key_val.as_string_idx()].clone()
-                        } else {
-                            format!("{}", key_val)
-                        };
                         if let crate::memory::HeapObject::ADict(dict) = self.memory.get(idx) {
-                            self.stack[self.sp] = dict.get(&key_str).copied().unwrap_or(NanVal::null());
+                            if key_val.is_string() && key_val.as_string_idx() < self.string_heap.len() {
+                                let key_str = &self.string_heap[key_val.as_string_idx()];
+                                self.stack[self.sp] = dict.get(key_str.as_str()).copied().unwrap_or(NanVal::null());
+                            } else {
+                                let key_str = format!("{}", key_val);
+                                self.stack[self.sp] = dict.get(&key_str).copied().unwrap_or(NanVal::null());
+                            }
+                        } else {
+                            self.stack[self.sp] = NanVal::null();
                         }
                     } else if obj_ref.is_string() {
                         let index_val = key_val.as_int() as usize;
@@ -2761,13 +2791,18 @@ impl AayuVM {
                         }
                     } else if obj_ref.is_dict() {
                         let idx = obj_ref.as_dict_idx();
-                        let key_str = if key_val.is_string() && key_val.as_string_idx() < self.string_heap.len() {
-                            self.string_heap[key_val.as_string_idx()].clone()
-                        } else {
-                            format!("{}", key_val)
-                        };
                         if let crate::memory::HeapObject::ADict(dict) = self.memory.get_mut(idx) {
-                            dict.insert(key_str, val);
+                            if key_val.is_string() && key_val.as_string_idx() < self.string_heap.len() {
+                                let key_ref = &self.string_heap[key_val.as_string_idx()];
+                                if let Some(existing) = dict.get_mut(key_ref.as_str()) {
+                                    *existing = val;
+                                } else {
+                                    dict.insert(key_ref.clone(), val);
+                                }
+                            } else {
+                                let key_str = format!("{}", key_val);
+                                dict.insert(key_str, val);
+                            }
                         }
                     }
                     continue;
