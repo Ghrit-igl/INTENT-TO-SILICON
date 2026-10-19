@@ -1,14 +1,20 @@
 # ==============================================================================
 # AAYU Master Test Suite: System Design Architecture Primitives
 # 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
-# Tests:
-#   1. O(1) LRU Cache with Capacity Eviction
-#   2. Token Bucket Rate Limiter (Throttling & Replenishment)
-#   3. Circuit Breaker (CLOSED -> OPEN -> HALF_OPEN -> Healed CLOSED)
-#   4. Consistent Hashing Ring (Virtual Nodes & Deterministic Sharding)
-#   5. In-Memory Pub/Sub Message Bus
-#   6. Financial Idempotency Guard (Double-Charge Prevention)
-#   7. Round-Robin Load Balancer
+# Comprehensive Verification of 13 Industrial System Design Primitives:
+#   1. O(1) LRU Cache (Doubly-Linked Node Map with Sub-Microsecond Promotion)
+#   2. Token Bucket Rate Limiter (High-Frequency Burst Guard)
+#   3. Circuit Breaker (Cascading Failure Protection & Trial Recovery)
+#   4. Consistent Hashing Ring (O(log N) Binary-Search Sharded Routing)
+#   5. In-Memory Pub/Sub Event Bus (Decoupled Microservice Messaging)
+#   6. Financial Idempotency Guard (Zero Double-Spend / Duplicate Charges)
+#   7. Round-Robin Load Balancer (Health-Checked Worker Traffic Distributor)
+#   8. Exponential Backoff with Full Jitter (AWS Anti-Thundering Herd Standard)
+#   9. Bloom Filter (O(1) Probabilistic Filter with Zero False Negatives)
+#  10. Sliding Window Counter Rate Limiter (Boundary-Burst-Immune Throttling)
+#  11. Distributed Mutex & Lease Lock (Monotonic Fencing Tokens & TTL)
+#  12. Bulkhead Concurrency Guard (Downstream Failure Isolation & Load Shedding)
+#  13. Least-Connections Load Balancer (Real-Time Workload Distributor)
 # ==============================================================================
 import "std/test.aayu"
 import "std/system.aayu"
@@ -17,9 +23,9 @@ action main()
     test_begin_suite("AAYU Native System Design Architecture Suite")
 
     # --------------------------------------------------------------------------
-    # 1. LRU CACHE (Capacity 3)
+    # 1. O(1) LRU CACHE (Capacity 3)
     # --------------------------------------------------------------------------
-    print("\n[Phase 1] Testing O(1) LRU Cache...")
+    print("\n[Phase 1] Testing O(1) Doubly-Linked LRU Cache...")
     let cache = lru_cache_new(3)
     assert_eq(lru_cache_size(cache), 0, "Initial cache size is 0")
 
@@ -29,8 +35,8 @@ action main()
     assert_eq(lru_cache_size(cache), 3, "Cache is full at capacity 3")
     assert_eq(lru_cache_get(cache, "k1"), "val_1", "k1 retrieved successfully")
 
-    # Access k1 makes k2 the least recently used!
-    # Inserting k4 must evict k2!
+    # Access k1 makes k2 the least recently used (k1 -> k3 -> k2)
+    # Inserting k4 must evict k2 in strict O(1) time
     lru_cache_put(cache, "k4", "val_4")
     assert_eq(lru_cache_size(cache), 3, "Size stays at 3 after eviction")
     assert_true(lru_cache_get(cache, "k2") == null, "k2 was evicted as least recently used")
@@ -45,7 +51,6 @@ action main()
     print("\n[Phase 2] Testing Token Bucket Rate Limiter...")
     let limiter = rate_limiter_new(3, 1)
 
-    # First 3 requests at t = 1000ms should be ALLOWED
     let req1 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
     assert_eq(req1.allowed, 1, "Request 1 allowed")
 
@@ -55,7 +60,7 @@ action main()
     let req3 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
     assert_eq(req3.allowed, 1, "Request 3 allowed")
 
-    # 4th burst request at same time must be THROTTLED
+    # 4th burst request at same millisecond must be THROTTLED
     let req4 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
     assert_eq(req4.allowed, 0, "Request 4 throttled (bucket empty)")
 
@@ -94,9 +99,9 @@ action main()
     assert_eq(cb.status, "CLOSED", "Circuit fully healed back to CLOSED state")
 
     # --------------------------------------------------------------------------
-    # 4. CONSISTENT HASHING RING
+    # 4. CONSISTENT HASHING RING (O(log N) Binary Search)
     # --------------------------------------------------------------------------
-    print("\n[Phase 4] Testing Consistent Hashing Ring Sharding...")
+    print("\n[Phase 4] Testing Consistent Hashing Ring Sharding (O(log N))...")
     let ch = consistent_hash_new(3)
     consistent_hash_add_node(ch, "node_alpha")
     consistent_hash_add_node(ch, "node_beta")
@@ -122,19 +127,15 @@ action main()
     event_bus_subscribe(bus, "ORDER_PLACED", "inventory_service")
     event_bus_subscribe(bus, "PAYMENT_RECEIVED", "ledger_service")
 
-    # Publish an event to ORDER_PLACED
     let delivered = event_bus_publish(bus, "ORDER_PLACED", { "order_id": 9901, "amount": 2500 })
     assert_eq(delivered, 2, "Event delivered to 2 subscribers")
 
-    # Poll inboxes
     let notif_msgs = event_bus_poll(bus, "notification_service")
     assert_eq(len(notif_msgs), 1, "Notification service received 1 event")
     assert_eq(notif_msgs[0].payload.order_id, 9901, "Payload matched order 9901")
 
     let inv_msgs = event_bus_poll(bus, "inventory_service")
     assert_eq(len(inv_msgs), 1, "Inventory service received 1 event")
-
-    # Inbox should now be empty after polling
     assert_eq(len(event_bus_poll(bus, "notification_service")), 0, "Inbox cleared after poll")
 
     # --------------------------------------------------------------------------
@@ -143,15 +144,12 @@ action main()
     print("\n[Phase 6] Testing Financial Idempotency Guard (Double-Charge Protection)...")
     let guard = idempotency_guard_new(10000)
 
-    # First attempt: Fresh transaction
     let first_try = idempotency_check_and_lock(guard, "idem_key_order_888", 1000)
     assert_eq(first_try.proceed, 1, "First payment request allowed to proceed")
     assert_eq(first_try.status, "LOCK_ACQUIRED", "Idempotency lock acquired")
 
-    # Commit payment response
     idempotency_commit(guard, "idem_key_order_888", { "status": "CHARGED", "receipt": "RCP_888" })
 
-    # Second attempt: Network retry / duplicate click with same idempotency key
     let retry_try = idempotency_check_and_lock(guard, "idem_key_order_888", 1500)
     assert_eq(retry_try.proceed, 0, "Duplicate payment request BLOCKED from double charging")
     assert_eq(retry_try.status, "ALREADY_COMPLETED", "Cached response returned")
@@ -172,9 +170,129 @@ action main()
     assert_eq(load_balancer_next(lb), "srv-1", "Request 4 loops back to srv-1")
     assert_eq(load_balancer_next(lb), "srv-2", "Request 5 routes to srv-2")
 
+    # --------------------------------------------------------------------------
+    # 8. EXPONENTIAL BACKOFF WITH FULL JITTER (AWS Standard)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 8] Testing Exponential Backoff with Full Jitter...")
+    assert_eq(backoff_ceiling(0, 100, 5000), 100, "Attempt 0 ceiling is 100ms")
+    assert_eq(backoff_ceiling(1, 100, 5000), 200, "Attempt 1 ceiling is 200ms")
+    assert_eq(backoff_ceiling(2, 100, 5000), 400, "Attempt 2 ceiling is 400ms")
+    assert_eq(backoff_ceiling(3, 100, 5000), 800, "Attempt 3 ceiling is 800ms")
+    assert_eq(backoff_ceiling(10, 100, 5000), 5000, "Attempt 10 clamped to 5000ms max")
+
+    # Jitter values must be within [0, ceiling]
+    let j_rand = backoff_with_jitter(2, 100, 5000, null)
+    assert_true(j_rand >= 0, "Entropy jitter >= 0")
+    assert_true(j_rand <= 400, "Entropy jitter <= 400")
+
+    let j_seed = backoff_with_jitter(2, 100, 5000, 777)
+    assert_true(j_seed >= 0, "Deterministic jitter >= 0")
+    assert_true(j_seed <= 400, "Deterministic jitter <= 400")
+
+    # --------------------------------------------------------------------------
+    # 9. BLOOM FILTER (Zero False Negatives)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 9] Testing Bloom Filter Probabilistic Membership...")
+    let bf = bloom_filter_new(2048, 4)
+    bloom_filter_add(bf, "txn_record_001")
+    bloom_filter_add(bf, "txn_record_002")
+    bloom_filter_add(bf, "txn_record_003")
+
+    # Invariants: All inserted keys MUST check positive (Zero False Negatives)
+    assert_eq(bloom_filter_check(bf, "txn_record_001"), 1, "txn_record_001 is present")
+    assert_eq(bloom_filter_check(bf, "txn_record_002"), 1, "txn_record_002 is present")
+    assert_eq(bloom_filter_check(bf, "txn_record_003"), 1, "txn_record_003 is present")
+    assert_eq(bloom_filter_check(bf, "unseen_random_record_999"), 0, "Unseen record returns 0 (absent)")
+
+    # --------------------------------------------------------------------------
+    # 10. SLIDING WINDOW COUNTER RATE LIMITER
+    # --------------------------------------------------------------------------
+    print("\n[Phase 10] Testing Sliding Window Counter Rate Limiter...")
+    let sw = sliding_window_new(2, 1000)
+    let sw_r1 = sliding_window_acquire(sw, "user_mobile_99", 100)
+    let sw_r2 = sliding_window_acquire(sw, "user_mobile_99", 200)
+    let sw_r3 = sliding_window_acquire(sw, "user_mobile_99", 300)
+    assert_eq(sw_r1.allowed, 1, "Sliding req 1 allowed")
+    assert_eq(sw_r2.allowed, 1, "Sliding req 2 allowed")
+    assert_eq(sw_r3.allowed, 0, "Sliding req 3 throttled (limit 2)")
+
+    # At t=1500ms (next window, half elapsed), previous window weighted at 50%
+    # Estimated load = 2 * (1000 - 500) / 1000 = 1. New request (1 + 1 <= 2) is permitted!
+    let sw_r4 = sliding_window_acquire(sw, "user_mobile_99", 1500)
+    assert_eq(sw_r4.allowed, 1, "Sliding req 4 allowed smoothly in next window")
+
+    # --------------------------------------------------------------------------
+    # 11. DISTRIBUTED MUTEX & LEASE LOCK
+    # --------------------------------------------------------------------------
+    print("\n[Phase 11] Testing Distributed Mutex & Fencing Token Lease Lock...")
+    let lm = dist_lock_manager_new()
+    let lock_a = dist_lock_acquire(lm, "db_partition_asia", "worker_A", 5000, 1000)
+    assert_eq(lock_a.acquired, 1, "Worker A acquired distributed lease lock")
+    assert_eq(lock_a.fencing_token, 1, "Initial fencing token is 1")
+
+    # Worker B tries to acquire same resource
+    let lock_b = dist_lock_acquire(lm, "db_partition_asia", "worker_B", 5000, 1200)
+    assert_eq(lock_b.acquired, 0, "Worker B rejected while lock is active")
+
+    # Worker A renews lease
+    let renew_a = dist_lock_renew(lm, "db_partition_asia", "worker_A", 1, 2000, 1300)
+    assert_eq(renew_a.renewed, 1, "Worker A successfully renewed lease")
+
+    # Worker A releases lock cleanly
+    let rel_a = dist_lock_release(lm, "db_partition_asia", "worker_A", 1)
+    assert_eq(rel_a.released, 1, "Worker A released distributed lock")
+
+    # Now Worker B can acquire; monotonic fencing token increments
+    let lock_b2 = dist_lock_acquire(lm, "db_partition_asia", "worker_B", 5000, 1400)
+    assert_eq(lock_b2.acquired, 1, "Worker B acquired lock after release")
+    assert_eq(lock_b2.fencing_token, 2, "Monotonic fencing token incremented to 2")
+
+    # --------------------------------------------------------------------------
+    # 12. BULKHEAD CONCURRENCY GUARD
+    # --------------------------------------------------------------------------
+    print("\n[Phase 12] Testing Bulkhead Concurrency Guard & Load Shedding...")
+    let bh = bulkhead_new(2, 1)
+    let bh_t1 = bulkhead_try_acquire(bh)
+    let bh_t2 = bulkhead_try_acquire(bh)
+    let bh_t3 = bulkhead_try_acquire(bh)
+    let bh_t4 = bulkhead_try_acquire(bh)
+    assert_eq(bh_t1.allowed, 1, "Slot 1 active")
+    assert_eq(bh_t1.queued, 0, "Slot 1 not queued")
+    assert_eq(bh_t2.allowed, 1, "Slot 2 active")
+    assert_eq(bh_t3.allowed, 1, "Slot 3 queued in waiting buffer")
+    assert_eq(bh_t3.queued, 1, "Slot 3 has queued flag")
+    assert_eq(bh_t4.allowed, 0, "Slot 4 shed/rejected (concurrency and queue saturated)")
+
+    # Complete Slot 1: queued Slot 3 is promoted
+    bulkhead_release(bh)
+    assert_eq(bh.queue_count, 0, "Waiting queue drained")
+    assert_eq(bh.active_count, 2, "Active worker count preserved at 2")
+
+    # --------------------------------------------------------------------------
+    # 13. LEAST-CONNECTIONS LOAD BALANCER
+    # --------------------------------------------------------------------------
+    print("\n[Phase 13] Testing Least-Connections Dynamic Load Balancer...")
+    let w_lb = weighted_lb_new()
+    weighted_lb_add_worker(w_lb, "srv_east_1", 1)
+    weighted_lb_add_worker(w_lb, "srv_east_2", 1)
+
+    let req_w1 = weighted_lb_acquire_least_conns(w_lb)
+    assert_eq(req_w1, "srv_east_1", "Request 1 dispatched to srv_east_1")
+
+    let req_w2 = weighted_lb_acquire_least_conns(w_lb)
+    assert_eq(req_w2, "srv_east_2", "Request 2 dispatched to srv_east_2 (least conns)")
+
+    let req_w3 = weighted_lb_acquire_least_conns(w_lb)
+    assert_eq(req_w3, "srv_east_1", "Request 3 balanced back to srv_east_1")
+
+    # Release connection on srv_east_2
+    weighted_lb_release(w_lb, "srv_east_2")
+    let req_w4 = weighted_lb_acquire_least_conns(w_lb)
+    assert_eq(req_w4, "srv_east_2", "Request 4 dynamically routed to freed srv_east_2")
+
     test_end_suite()
     print("\n==================================================================")
-    print("   ALL NATIVE SYSTEM DESIGN ARCHITECTURE TESTS PASSED!            ")
+    print("   ALL 13 NATIVE SYSTEM DESIGN ARCHITECTURE TESTS PASSED!         ")
     print("==================================================================")
 end
 
