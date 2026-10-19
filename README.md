@@ -263,8 +263,8 @@ print("Bob Balance:   " + ledger["balances"]["0xBob"])   # 40000 ASC
 
 ## 📊 Production Benchmarks & Empirical Proofs
 
-### The 28 Native Silicon Test Suites (860/860 Pass)
-AAYU's reliability is proven by **860 passing assertions across 28 distinct test suites** executed directly on native `aayu.exe`:
+### The 30 Native Silicon Test Suites (1,002/1,002 Pass)
+AAYU's reliability is proven by **1,002 passing assertions across 30 distinct test suites** executed directly on native `aayu.exe`:
 
 | # | Test Suite File | Test Objective | Result | Assertions |
 |---|---|---|---|---|
@@ -296,7 +296,9 @@ AAYU's reliability is proven by **860 passing assertions across 28 distinct test
 | 26 | `tests/test_quantum.aayu` | **Quantum State Vectors, Unitary Gates (H, X, Y, Z, S, T, CNOT, CZ, Toffoli), Bell, Grover, BB84** | ✅ PASS | **59 / 59** |
 | 27 | `tests/test_advanced_engine_suite.aayu` | **Actors & Mailboxes, Go-Style Channels & Select, LEB128 Varint Wire Protocol, Shamir & Schnorr ZKP** | ✅ PASS | **64 / 64** |
 | 28 | `tests/test_agent_consensus_stream.aayu` | **Autonomous AI Agent Swarms, Raft Distributed Consensus & Real-Time Stream CEP Analytics** | ✅ PASS | **66 / 66** |
-| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **860 / 860** |
+| 29 | `tests/test_physics_graph_geo.aayu` | **Rigid 2D/3D Physics, Momentum Conservation, Raycasting, Dijkstra, A*, Kahn DAG & QuadTree** | ✅ PASS | **67 / 67** |
+| 30 | `tests/test_regex_p2p_compression.aayu` | **Linear ReDoS-Immune Regex Engine, Kademlia P2P DHT Routing & Lossless LZW/RLE Codec** | ✅ PASS | **75 / 75** |
+| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **1,002 / 1,002** |
 
 
 ### ⚡ Ground-Truth Execution Speed & Benchmark Reality
