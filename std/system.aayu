@@ -21,6 +21,11 @@
 #  18. Dead Letter Queue & Poison Pill Isolator (Crash-Proof Message Queues)
 #  19. CQRS Read-Write Database Query Router (Master-Replica CQRS Split)
 #  20. Adaptive Concurrency Limiter (Netflix TCP-Vegas AIMD / Little's Law)
+#  21. Write-Behind Batch Buffer (Absorbs High-Write Spikes via In-Memory Coalescing)
+#  22. Vector Clocks (Distributed Causality & Multi-Master Conflict Detection)
+#  23. Graceful Degradation Engine (Load Shedding by Business Criticality Tiers)
+#  24. Reactive Backpressure Controller (High/Low Watermark Flow Regulation)
+#  25. Cache-Aside Invalidation Coordinator (Dual-Write Invalidation Pattern)
 # 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
 # ==============================================================================
 import "std/collections.aayu"
@@ -1183,4 +1188,304 @@ action adaptive_concurrency_release(ac, observed_rtt_ms)
 
     return ac
 end
+
+# ------------------------------------------------------------------------------
+# 21. WRITE-BEHIND BATCH BUFFER (Absorbs High-Write Spikes via In-Memory Coalescing)
+# Batches high-frequency writes in RAM and drains in bulk to disk/database
+# ------------------------------------------------------------------------------
+action write_behind_new(max_batch_size, flush_interval_ms)
+    return {
+        "max_batch_size": max_batch_size,
+        "flush_interval_ms": flush_interval_ms,
+        "buffer": [],
+        "last_flush_time_ms": 0,
+        "total_flushed_count": 0
+    }
+end
+
+action write_behind_add(wb, record, now_ms)
+    let buf = wb.buffer
+    buf = buf + [record]
+    wb.buffer = buf
+    let count = len(buf)
+    if count >= wb.max_batch_size
+        return { "status": "NEEDS_FLUSH", "reason": "BATCH_SIZE_REACHED", "count": count }
+    end
+    if (now_ms - wb.last_flush_time_ms) >= wb.flush_interval_ms
+        return { "status": "NEEDS_FLUSH", "reason": "INTERVAL_ELAPSED", "count": count }
+    end
+    return { "status": "BUFFERED", "reason": "QUEUED", "count": count }
+end
+
+action write_behind_drain(wb, now_ms)
+    let flushed_records = wb.buffer
+    wb.buffer = []
+    wb.last_flush_time_ms = now_ms
+    wb.total_flushed_count = wb.total_flushed_count + len(flushed_records)
+    return flushed_records
+end
+
+# ------------------------------------------------------------------------------
+# 22. VECTOR CLOCKS (Distributed Causality & Multi-Master Conflict Detection)
+# Tracks logical timestamps across asynchronous distributed nodes
+# Comparison outcomes: "BEFORE", "AFTER", "EQUAL", "CONCURRENT" (conflict)
+# ------------------------------------------------------------------------------
+action vector_clock_new(node_id)
+    let init_clocks = {}
+    init_clocks[node_id] = 0
+    return {
+        "node_id": node_id,
+        "clocks": init_clocks
+    }
+end
+
+action vector_clock_tick(vc)
+    let c = vc.clocks
+    let self_id = vc.node_id
+    let cur = 0
+    if c[self_id] != null
+        cur = c[self_id]
+    end
+    c[self_id] = cur + 1
+    vc.clocks = c
+    return vc
+end
+
+action vector_clock_compare(vc1, vc2)
+    let c1 = vc1.clocks
+    let c2 = vc2.clocks
+    let has_greater = 0
+    let has_lesser = 0
+
+    let k1 = keys(c1)
+    let k2 = keys(c2)
+    let all_keys = k1
+    let i = 0
+    let n2 = len(k2)
+    while i < n2
+        let cand = k2[i]
+        let found = 0
+        let j = 0
+        let n_all = len(all_keys)
+        while j < n_all
+            if all_keys[j] == cand
+                found = 1
+                break
+            end
+            j = j + 1
+        end
+        if found == 0
+            all_keys = all_keys + [cand]
+        end
+        i = i + 1
+    end
+
+    let idx = 0
+    let n_keys = len(all_keys)
+    while idx < n_keys
+        let k = all_keys[idx]
+        let v1 = 0
+        let v2 = 0
+        if c1[k] != null
+            v1 = c1[k]
+        end
+        if c2[k] != null
+            v2 = c2[k]
+        end
+
+        if v1 > v2
+            has_greater = 1
+        elif v1 < v2
+            has_lesser = 1
+        end
+        idx = idx + 1
+    end
+
+    if has_greater == 1
+        if has_lesser == 1
+            return "CONCURRENT"
+        end
+        return "AFTER"
+    end
+    if has_lesser == 1
+        return "BEFORE"
+    end
+    return "EQUAL"
+end
+
+action vector_clock_merge(vc1, vc2)
+    let c1 = vc1.clocks
+    let c2 = vc2.clocks
+    let merged = {}
+    let k1 = keys(c1)
+    let i = 0
+    let n1 = len(k1)
+    while i < n1
+        let k = k1[i]
+        merged[k] = c1[k]
+        i = i + 1
+    end
+
+    let k2 = keys(c2)
+    let j = 0
+    let n2 = len(k2)
+    while j < n2
+        let k = k2[j]
+        let v2 = c2[k]
+        if merged[k] != null
+            let v1 = merged[k]
+            if v2 > v1
+                merged[k] = v2
+            end
+        else
+            merged[k] = v2
+        end
+        j = j + 1
+    end
+    vc1.clocks = merged
+    return vc1
+end
+
+# ------------------------------------------------------------------------------
+# 23. GRACEFUL DEGRADATION ENGINE (Load Shedding by Business Criticality Tiers)
+# Protects core revenue-generating services during catastrophic server stress
+# Health States:
+#   "HEALTHY"  -> All Tiers (1, 2, 3) allowed
+#   "DEGRADED" -> Tier 1 and 2 allowed, Tier 3 (Non-essential) shed
+#   "CRITICAL" -> Only Tier 1 (Core Checkout/Payment) allowed, Tier 2 & 3 shed
+# ------------------------------------------------------------------------------
+action degradation_new()
+    return {
+        "health_status": "HEALTHY",
+        "cpu_usage_pct": 20,
+        "memory_usage_pct": 30,
+        "shed_request_count": 0
+    }
+end
+
+action degradation_update_health(deg, cpu_pct, mem_pct)
+    deg.cpu_usage_pct = cpu_pct
+    deg.memory_usage_pct = mem_pct
+
+    if cpu_pct >= 90
+        deg.health_status = "CRITICAL"
+    elif mem_pct >= 90
+        deg.health_status = "CRITICAL"
+    elif cpu_pct >= 75
+        deg.health_status = "DEGRADED"
+    elif mem_pct >= 75
+        deg.health_status = "DEGRADED"
+    else
+        deg.health_status = "HEALTHY"
+    end
+    return deg
+end
+
+action degradation_feature_allowed(deg, feature_tier)
+    let h_status = deg.health_status
+    if h_status == "HEALTHY"
+        return 1
+    end
+    if h_status == "DEGRADED"
+        if feature_tier <= 2
+            return 1
+        end
+        deg.shed_request_count = deg.shed_request_count + 1
+        return 0
+    end
+    # CRITICAL
+    if feature_tier <= 1
+        return 1
+    end
+    deg.shed_request_count = deg.shed_request_count + 1
+    return 0
+end
+
+# ------------------------------------------------------------------------------
+# 24. REACTIVE BACKPRESSURE CONTROLLER (High/Low Watermark Flow Regulation)
+# Prevents OOM crashes when fast producers overwhelm slow database consumers
+# ------------------------------------------------------------------------------
+action backpressure_new(low_watermark, high_watermark)
+    return {
+        "low_watermark": low_watermark,
+        "high_watermark": high_watermark,
+        "current_queue_depth": 0,
+        "is_paused": 0,
+        "pause_events": 0,
+        "resume_events": 0
+    }
+end
+
+action backpressure_push(bp, items_added)
+    bp.current_queue_depth = bp.current_queue_depth + items_added
+    if bp.current_queue_depth >= bp.high_watermark
+        if bp.is_paused == 0
+            bp.is_paused = 1
+            bp.pause_events = bp.pause_events + 1
+        end
+    end
+    return { "queue_depth": bp.current_queue_depth, "is_paused": bp.is_paused }
+end
+
+action backpressure_pop(bp, items_removed)
+    if items_removed >= bp.current_queue_depth
+        bp.current_queue_depth = 0
+    else
+        bp.current_queue_depth = bp.current_queue_depth - items_removed
+    end
+
+    if bp.current_queue_depth <= bp.low_watermark
+        if bp.is_paused == 1
+            bp.is_paused = 0
+            bp.resume_events = bp.resume_events + 1
+        end
+    end
+    return { "queue_depth": bp.current_queue_depth, "is_paused": bp.is_paused }
+end
+
+# ------------------------------------------------------------------------------
+# 25. CACHE-ASIDE INVALIDATION COORDINATOR (Dual-Write Invalidation Pattern)
+# Coordinates caching, cache-aside read-through, and immediate purge on mutations
+# ------------------------------------------------------------------------------
+action cache_aside_new(ttl_ms)
+    return {
+        "ttl_ms": ttl_ms,
+        "entries": {}
+    }
+end
+
+action cache_aside_get(ca, key, now_ms)
+    let k_str = "" + key
+    let e = ca.entries[k_str]
+    if e == null
+        return null
+    end
+    if now_ms >= e.expires_at_ms
+        let ent = ca.entries
+        ent[k_str] = null
+        ca.entries = ent
+        return null
+    end
+    return e.val
+end
+
+action cache_aside_set(ca, key, val, now_ms)
+    let k_str = "" + key
+    let ent = ca.entries
+    ent[k_str] = { "val": val, "expires_at_ms": now_ms + ca.ttl_ms }
+    ca.entries = ent
+    return ca
+end
+
+action cache_aside_invalidate(ca, key)
+    let k_str = "" + key
+    let ent = ca.entries
+    if ent[k_str] != null
+        ent[k_str] = null
+        ca.entries = ent
+        return 1
+    end
+    return 0
+end
+
 

@@ -407,10 +407,113 @@ action main()
     adaptive_concurrency_release(ac, 180)
     assert_eq(ac.current_limit, 4, "Congestion detected: Limit multiplicative decreased back to floor")
 
+    # --------------------------------------------------------------------------
+    # 21. WRITE-BEHIND BATCH BUFFER
+    # --------------------------------------------------------------------------
+    print("\n[Phase 21] Testing Write-Behind Batch Buffer...")
+    let wb = write_behind_new(3, 1000)
+    let wb_res1 = write_behind_add(wb, { "id": 1, "val": "tick_1" }, 100)
+    assert_eq(wb_res1.status, "BUFFERED", "First write buffered")
+    assert_eq(wb_res1.count, 1, "Buffer size is 1")
+
+    let wb_res2 = write_behind_add(wb, { "id": 2, "val": "tick_2" }, 200)
+    assert_eq(wb_res2.status, "BUFFERED", "Second write buffered")
+
+    let wb_res3 = write_behind_add(wb, { "id": 3, "val": "tick_3" }, 300)
+    assert_eq(wb_res3.status, "NEEDS_FLUSH", "Third write triggers batch flush")
+    assert_eq(wb_res3.reason, "BATCH_SIZE_REACHED", "Reason is batch size reached")
+
+    let flushed = write_behind_drain(wb, 300)
+    assert_eq(len(flushed), 3, "Drained 3 records for bulk disk flush")
+    assert_eq(len(wb.buffer), 0, "Buffer empty after flush")
+    assert_eq(wb.total_flushed_count, 3, "Total flushed is 3")
+
+    # --------------------------------------------------------------------------
+    # 22. VECTOR CLOCKS (Distributed Causality & Multi-Master Conflicts)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 22] Testing Vector Clocks Causality & Conflict Detection...")
+    let vc_node_a = vector_clock_new("Node_A")
+    let vc_node_b = vector_clock_new("Node_B")
+
+    vector_clock_tick(vc_node_a)
+    vector_clock_tick(vc_node_b)
+    # vc_node_a has Node_A: 1, vc_node_b has Node_B: 1 -> Strictly concurrent
+    let cmp1 = vector_clock_compare(vc_node_a, vc_node_b)
+    assert_eq(cmp1, "CONCURRENT", "Independent ticks are concurrent")
+
+    # Node B merges Node A's clock, then ticks
+    vector_clock_merge(vc_node_b, vc_node_a)
+    vector_clock_tick(vc_node_b)
+    # vc_node_b now has Node_A: 1, Node_B: 1. vc_node_a has Node_A: 1.
+    let cmp2 = vector_clock_compare(vc_node_a, vc_node_b)
+    assert_eq(cmp2, "BEFORE", "Node A clock is strictly before Node B merged clock")
+
+    let cmp3 = vector_clock_compare(vc_node_b, vc_node_a)
+    assert_eq(cmp3, "AFTER", "Node B clock is strictly after Node A clock")
+
+    # --------------------------------------------------------------------------
+    # 23. GRACEFUL DEGRADATION ENGINE
+    # --------------------------------------------------------------------------
+    print("\n[Phase 23] Testing Graceful Degradation Engine (Business Tier Load Shedding)...")
+    let deg = degradation_new()
+    assert_eq(deg.health_status, "HEALTHY", "Initial state is HEALTHY")
+    assert_eq(degradation_feature_allowed(deg, 3), 1, "Tier 3 allowed under healthy load")
+
+    # Moderate stress: CPU 80% -> DEGRADED
+    degradation_update_health(deg, 80, 50)
+    assert_eq(deg.health_status, "DEGRADED", "System degraded at 80% CPU")
+    assert_eq(degradation_feature_allowed(deg, 1), 1, "Tier 1 (Payments) allowed in DEGRADED")
+    assert_eq(degradation_feature_allowed(deg, 2), 1, "Tier 2 (History) allowed in DEGRADED")
+    assert_eq(degradation_feature_allowed(deg, 3), 0, "Tier 3 (AI/Recommendations) shed in DEGRADED")
+
+    # Severe stress: CPU 95% -> CRITICAL
+    degradation_update_health(deg, 95, 60)
+    assert_eq(deg.health_status, "CRITICAL", "System critical at 95% CPU")
+    assert_eq(degradation_feature_allowed(deg, 1), 1, "Tier 1 (Core Payments) stays alive in CRITICAL")
+    assert_eq(degradation_feature_allowed(deg, 2), 0, "Tier 2 shed in CRITICAL")
+    assert_eq(degradation_feature_allowed(deg, 3), 0, "Tier 3 shed in CRITICAL")
+
+    # --------------------------------------------------------------------------
+    # 24. REACTIVE BACKPRESSURE STREAM CONTROLLER
+    # --------------------------------------------------------------------------
+    print("\n[Phase 24] Testing Reactive Backpressure Stream Controller...")
+    let bp = backpressure_new(2, 5)
+    assert_eq(bp.is_paused, 0, "Initial stream is active (not paused)")
+
+    # Push items up to high watermark (5)
+    backpressure_push(bp, 3)
+    assert_eq(bp.is_paused, 0, "Stream unpaused at depth 3")
+    backpressure_push(bp, 2)
+    assert_eq(bp.is_paused, 1, "High watermark reached (depth 5): Producer paused!")
+    assert_eq(bp.pause_events, 1, "1 pause event recorded")
+
+    # Consumer drains down to low watermark (2)
+    backpressure_pop(bp, 3)
+    assert_eq(bp.is_paused, 0, "Low watermark reached (depth 2): Producer resumed!")
+    assert_eq(bp.resume_events, 1, "1 resume event recorded")
+
+    # --------------------------------------------------------------------------
+    # 25. CACHE-ASIDE INVALIDATION COORDINATOR
+    # --------------------------------------------------------------------------
+    print("\n[Phase 25] Testing Cache-Aside Invalidation Coordinator...")
+    let ca = cache_aside_new(500)
+    cache_aside_set(ca, "user_401", "Ayush", 1000)
+    assert_eq(cache_aside_get(ca, "user_401", 1200), "Ayush", "Cache hit before TTL expiry")
+
+    # Direct mutation invalidation (e.g. user updated profile in DB)
+    let inv = cache_aside_invalidate(ca, "user_401")
+    assert_eq(inv, 1, "Cache successfully invalidated on DB mutation")
+    assert_true(cache_aside_get(ca, "user_401", 1250) == null, "Cache returns null after invalidation")
+
+    # Natural TTL expiration test
+    cache_aside_set(ca, "product_99", "Silicon Chip", 2000)
+    assert_true(cache_aside_get(ca, "product_99", 2600) == null, "Cache expired after TTL elapsed")
+
     test_end_suite()
     print("\n==================================================================")
-    print("   ALL 20 NATIVE SYSTEM DESIGN ARCHITECTURE TESTS PASSED!         ")
+    print("   ALL 25 NATIVE SYSTEM DESIGN ARCHITECTURE TESTS PASSED!         ")
     print("==================================================================")
 end
 
 main()
+
