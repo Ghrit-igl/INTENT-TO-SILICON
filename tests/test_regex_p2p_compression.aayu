@@ -1,0 +1,226 @@
+# ==============================================================================
+# AAYU Master Verification Suite: Regex, P2P DHT & Stream Compression
+# Verifies:
+#   1. ReDoS-Free Linear Regular Expression Engine (std/regex.aayu)
+#   2. Decentralized Kademlia P2P & Content Addressing (std/p2p.aayu)
+#   3. Lossless Stream Compression & LZW Codec (std/compression.aayu)
+# ==============================================================================
+
+import "std/test.aayu"
+import "std/regex.aayu"
+import "std/p2p.aayu"
+import "std/compression.aayu"
+
+test_begin_suite("AAYU Regex, P2P DHT & Stream Compression Master Suite")
+
+# ------------------------------------------------------------------------------
+# Phase 1: Basic Regex Literals & Wildcard '.'
+# ------------------------------------------------------------------------------
+print("\n[Phase 1] Testing Regex Literals & Wildcard '.'...")
+let re_lit = regex_compile("hello")
+assert_eq(regex_match(re_lit, "hello"), 1, "Literal 'hello' matches 'hello'")
+assert_eq(regex_match(re_lit, "world"), 0, "Literal 'hello' rejects 'world'")
+
+let re_dot = regex_compile("h.llo")
+assert_eq(regex_match(re_dot, "hello"), 1, "Wildcard matches 'hello'")
+assert_eq(regex_match(re_dot, "hallo"), 1, "Wildcard matches 'hallo'")
+assert_eq(regex_match(re_dot, "hllo"), 0, "Wildcard rejects missing character")
+
+# ------------------------------------------------------------------------------
+# Phase 2: Character Classes & Negation
+# ------------------------------------------------------------------------------
+print("\n[Phase 2] Testing Character Classes & Negation...")
+let re_digits = regex_compile("^[0-9]+$")
+assert_eq(regex_match(re_digits, "2026"), 1, "Class [0-9]+ matches '2026'")
+assert_eq(regex_match(re_digits, "2026a"), 0, "Class [0-9]+ rejects alphanumeric")
+
+let re_alpha = regex_compile("^[a-z]+$")
+assert_eq(regex_match(re_alpha, "aayu"), 1, "Class [a-z]+ matches 'aayu'")
+assert_eq(regex_match(re_alpha, "AAYU"), 0, "Class [a-z]+ rejects uppercase")
+
+let re_neg = regex_compile("^[^0-9]+$")
+assert_eq(regex_match(re_neg, "silicon"), 1, "Negated [^0-9]+ matches letters")
+assert_eq(regex_match(re_neg, "silicon9"), 0, "Negated [^0-9]+ rejects number")
+
+# ------------------------------------------------------------------------------
+# Phase 3: Quantifiers (*, +, ?)
+# ------------------------------------------------------------------------------
+print("\n[Phase 3] Testing Quantifiers (*, +, ?)...")
+# Optional '?'
+let re_opt = regex_compile("colou?r")
+assert_eq(regex_match(re_opt, "color"), 1, "Optional u matches 'color'")
+assert_eq(regex_match(re_opt, "colour"), 1, "Optional u matches 'colour'")
+
+# Zero or more '*'
+let re_star = regex_compile("^ab*c$")
+assert_eq(regex_match(re_star, "ac"), 1, "Star matches 0 occurrences 'ac'")
+assert_eq(regex_match(re_star, "abc"), 1, "Star matches 1 occurrence 'abc'")
+assert_eq(regex_match(re_star, "abbbc"), 1, "Star matches 3 occurrences 'abbbc'")
+
+# One or more '+'
+let re_plus = regex_compile("^a+b$")
+assert_eq(regex_match(re_plus, "ab"), 1, "Plus matches 'ab'")
+assert_eq(regex_match(re_plus, "aaab"), 1, "Plus matches 'aaab'")
+assert_eq(regex_match(re_plus, "b"), 0, "Plus rejects 0 occurrences 'b'")
+
+# ------------------------------------------------------------------------------
+# Phase 4: Alternation & Anchors
+# ------------------------------------------------------------------------------
+print("\n[Phase 4] Testing Alternation & Anchors...")
+let re_alt = regex_compile("cat|dog")
+assert_eq(regex_match(re_alt, "cat"), 1, "Alternation matches 'cat'")
+assert_eq(regex_match(re_alt, "dog"), 1, "Alternation matches 'dog'")
+assert_eq(regex_match(re_alt, "bird"), 0, "Alternation rejects 'bird'")
+
+let re_methods = regex_compile("GET|POST|DELETE")
+assert_eq(regex_match(re_methods, "GET"), 1, "Alternation matches 'GET'")
+assert_eq(regex_match(re_methods, "POST"), 1, "Alternation matches 'POST'")
+assert_eq(regex_match(re_methods, "PUT"), 0, "Alternation rejects 'PUT'")
+
+# ------------------------------------------------------------------------------
+# Phase 5: Search, Find All, Replace & Split
+# ------------------------------------------------------------------------------
+print("\n[Phase 5] Testing Search, Find All, Replace & Split...")
+let re_err = regex_compile("error")
+let find_res = regex_find(re_err, "server failed with error code 500")
+assert_eq(find_res["found"], 1, "regex_find found keyword")
+assert_eq(find_res["match"], "error", "regex_find extracted exact match")
+
+let re_token = regex_compile("[a-z]+")
+let all_words = regex_find_all(re_token, "aayu fast compiler")
+assert_eq(len(all_words), 3, "regex_find_all found 3 words")
+assert_eq(all_words[0], "aayu", "First word is 'aayu'")
+assert_eq(all_words[1], "fast", "Second word is 'fast'")
+assert_eq(all_words[2], "compiler", "Third word is 'compiler'")
+
+let re_num = regex_compile("[0-9]+")
+let masked_text = regex_replace(re_num, "item123 costs 456 dollars", "XXX")
+assert_eq(masked_text, "itemXXX costs XXX dollars", "regex_replace masked all numbers")
+
+let re_comma = regex_compile(",")
+let split_items = regex_split(re_comma, "apple,banana,orange")
+assert_eq(len(split_items), 3, "regex_split split into 3 elements")
+assert_eq(split_items[0], "apple", "First fruit is 'apple'")
+assert_eq(split_items[1], "banana", "Second fruit is 'banana'")
+assert_eq(split_items[2], "orange", "Third fruit is 'orange'")
+
+let re_email = regex_compile("^[a-z]+@[a-z]+\\.[a-z]+$")
+assert_eq(regex_match(re_email, "developer@aayu.io"), 1, "Email pattern matches valid email")
+assert_eq(regex_match(re_email, "notanemail"), 0, "Email pattern rejects invalid address")
+
+assert_eq(regex_is_redos_safe("^(a+)+$"), 1, "AAYU linear regex is 100% ReDoS immune")
+
+# ------------------------------------------------------------------------------
+# Phase 6: Kademlia XOR Metric & Distance
+# ------------------------------------------------------------------------------
+print("\n[Phase 6] Testing Kademlia XOR Metric & Distance...")
+assert_eq(p2p_xor_distance(42, 42), 0, "XOR distance to self is 0")
+assert_eq(p2p_xor_distance(10, 2), 8, "10 XOR 2 is 8 (1010 ^ 0010 = 1000)")
+assert_eq(p2p_xor_distance(2, 10), 8, "XOR distance is symmetric d(A,B) == d(B,A)")
+assert_eq(p2p_xor_distance(0, 255), 255, "0 XOR 255 is 255")
+assert_eq(p2p_xor_distance(255, 255), 0, "255 XOR 255 is 0")
+assert_true(p2p_xor_distance(100, 200) > 0, "Distance between distinct nodes is positive")
+
+# ------------------------------------------------------------------------------
+# Phase 7: k-Bucket Routing Table & Node Insertion
+# ------------------------------------------------------------------------------
+print("\n[Phase 7] Testing k-Bucket Routing Table & Node Insertion...")
+let local_peer = p2p_node_new(1, "127.0.0.1", 9000)
+let table = p2p_routing_table_new(local_peer, 4)
+
+let peer1 = p2p_node_new(10, "192.168.1.10", 9001)
+let peer2 = p2p_node_new(20, "192.168.1.20", 9002)
+let peer3 = p2p_node_new(30, "192.168.1.30", 9003)
+
+assert_eq(p2p_routing_table_insert(table, peer1), 1, "Peer 1 inserted into routing table")
+assert_eq(p2p_routing_table_insert(table, peer2), 1, "Peer 2 inserted into routing table")
+assert_eq(p2p_routing_table_insert(table, peer3), 1, "Peer 3 inserted into routing table")
+assert_eq(len(table["nodes"]), 3, "Routing table contains 3 peers")
+
+# Self insertion rejected
+assert_eq(p2p_routing_table_insert(table, local_peer), 0, "Routing table rejects self node")
+
+# Updating existing peer refreshes position
+assert_eq(p2p_routing_table_insert(table, peer1), 1, "Peer 1 updated in routing table")
+assert_eq(len(table["nodes"]), 3, "Routing table size unchanged after update")
+assert_eq(table["nodes"][2]["id"], 10, "Peer 1 moved to most recently contacted tail")
+
+# ------------------------------------------------------------------------------
+# Phase 8: Kademlia Closest Nodes Lookup
+# ------------------------------------------------------------------------------
+print("\n[Phase 8] Testing Kademlia Closest Nodes Lookup...")
+# Target ID is 11 (close to peer 10: 11 ^ 10 = 1)
+let closest = p2p_find_closest_nodes(table, 11, 2)
+assert_eq(len(closest), 2, "Found top 2 closest peers")
+assert_eq(closest[0]["id"], 10, "Closest peer to 11 is peer 10 (dist 1)")
+
+# ------------------------------------------------------------------------------
+# Phase 9: Decentralized DHT Storage & Replication
+# ------------------------------------------------------------------------------
+print("\n[Phase 9] Testing Decentralized DHT Storage & Replication...")
+let dht_a = p2p_dht_new(local_peer)
+let dht_b = p2p_dht_new(peer1)
+
+p2p_dht_store(dht_a, "torrent:debian-12.iso", { "size_mb": 650, "hash": "a1b2c3d4" })
+assert_eq(dht_a["records_count"], 1, "Record stored in DHT A")
+
+let fetched = p2p_dht_get(dht_a, "torrent:debian-12.iso")
+assert_eq(fetched["found"], 1, "Record fetched successfully from DHT A")
+assert_eq(fetched["value"]["size_mb"], 650, "Fetched file size is 650 MB")
+assert_eq(fetched["publisher"], 1, "Publisher matches local peer ID 1")
+
+# Replicate from DHT A to DHT B
+let rep_ok = p2p_dht_replicate(dht_a, dht_b, "torrent:debian-12.iso")
+assert_eq(rep_ok, 1, "Replication from DHT A to DHT B succeeded")
+
+let fetched_b = p2p_dht_get(dht_b, "torrent:debian-12.iso")
+assert_eq(fetched_b["found"], 1, "Replicated record found on DHT B")
+assert_eq(fetched_b["value"]["hash"], "a1b2c3d4", "Replicated hash is bit-exact")
+
+# ------------------------------------------------------------------------------
+# Phase 10: Magnet URI Generation & Parsing
+# ------------------------------------------------------------------------------
+print("\n[Phase 10] Testing Magnet URI Generation & Parsing...")
+let magnet = p2p_magnet_uri("3b245504d5f132fb458f003473ae7bf56bac5eee", "AAYU_Silicon_Release", ["udp://tracker.aayu.io:6969"])
+assert_true(len(magnet) > 0, "Magnet URI generated successfully")
+
+let parsed_magnet = p2p_parse_magnet_uri(magnet)
+assert_eq(parsed_magnet["valid"], 1, "Magnet URI parsed as valid")
+assert_eq(parsed_magnet["info_hash"], "3b245504d5f132fb458f003473ae7bf56bac5eee", "Parsed info hash matches exact payload")
+assert_eq(parsed_magnet["name"], "AAYU_Silicon_Release", "Parsed torrent name matches")
+
+# ------------------------------------------------------------------------------
+# Phase 11: Run-Length Encoding (RLE)
+# ------------------------------------------------------------------------------
+print("\n[Phase 11] Testing Run-Length Encoding (RLE)...")
+let rle_raw = "WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWBWWWWWWWWWWWWWW"
+let rle_compressed = rle_compress(rle_raw)
+assert_eq(rle_compressed, "W12B1W12B3W24B1W14", "RLE compressed redundant runs into compact string")
+
+let rle_restored = rle_decompress(rle_compressed)
+assert_eq(rle_restored, rle_raw, "RLE decompressed string bit-for-bit matches original")
+assert_true(compression_ratio(len(rle_raw), len(rle_compressed)) > 50, "RLE compression saved over 50% bytes")
+
+assert_eq(rle_compress("A"), "A1", "Single character RLE is A1")
+assert_eq(rle_decompress("A1"), "A", "Single character decompress restores A")
+
+# ------------------------------------------------------------------------------
+# Phase 12: Lempel-Ziv-Welch (LZW) Dictionary Compression
+# ------------------------------------------------------------------------------
+print("\n[Phase 12] Testing LZW Dictionary Compression & Lossless Verification...")
+let lzw_text = "TOBEORNOTTOBEORTOBEORNOT"
+let lzw_result = lzw_compress(lzw_text)
+assert_true(lzw_result["compressed_len"] < lzw_result["original_len"], "LZW reduced symbol count")
+
+let lzw_restored = lzw_decompress(lzw_result["codes"])
+assert_eq(lzw_restored, lzw_text, "LZW restored text matches bit-for-bit")
+assert_eq(compression_verify_lossless(lzw_text, lzw_restored), 1, "Lossless verification seal confirmed 100%")
+
+let ratio = compression_ratio(lzw_result["original_len"], lzw_result["compressed_len"])
+assert_true(ratio > 30, "LZW saved over 30% dictionary tokens")
+
+test_end_suite()
+
+print("\n==================================================================")
+print("   ALL REGEX, P2P DHT & COMPRESSION TESTS PASSED!                 ")
+print("==================================================================")

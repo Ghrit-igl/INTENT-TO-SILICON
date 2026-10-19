@@ -1,0 +1,315 @@
+# ==============================================================================
+# AAYU Standard Library: Decentralized Kademlia P2P & DHT (std/p2p.aayu)
+# Peer-to-Peer Networking, Distributed Hash Table & Content Addressing
+#   1. Kademlia XOR Metric & Distance Calculation:
+#      - p2p_xor_distance(id1, id2) (Bitwise XOR metric: d(x,y) = x ^ y)
+#      - p2p_node_new(id, ip, port)
+#   2. k-Bucket Routing Table:
+#      - p2p_routing_table_new(local_node, k_size)
+#      - p2p_routing_table_insert(table, node)
+#      - p2p_find_closest_nodes(table, target_id, count)
+#   3. Distributed Hash Table (DHT) Storage & Replication:
+#      - p2p_dht_new(local_node)
+#      - p2p_dht_store(dht, key, value)
+#      - p2p_dht_get(dht, key)
+#      - p2p_dht_replicate(source_dht, target_dht, key)
+#   4. Content Addressing & Magnet URI Protocol:
+#      - p2p_magnet_uri(info_hash, display_name, trackers)
+#      - p2p_parse_magnet_uri(uri)
+# 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
+# ==============================================================================
+
+# Calculates bitwise XOR distance between two integer IDs
+action p2p_xor_distance(id1, id2)
+    let res = 0
+    let power = 1
+    let x = id1
+    let y = id2
+
+    while x > 0
+        let bit_x = x % 2
+        let bit_y = y % 2
+        if bit_x != bit_y
+            res = res + power
+        end
+        x = x / 2
+        y = y / 2
+        power = power * 2
+    end
+
+    while y > 0
+        let bit_x = x % 2
+        let bit_y = y % 2
+        if bit_x != bit_y
+            res = res + power
+        end
+        x = x / 2
+        y = y / 2
+        power = power * 2
+    end
+
+    return res
+end
+
+# Creates a new Kademlia P2P node
+action p2p_node_new(node_id, ip_address, port_number)
+    return {
+        "id": node_id,
+        "ip": ip_address,
+        "port": port_number,
+        "last_seen": 0,
+        "active": 1
+    }
+end
+
+# Initializes a Kademlia k-bucket routing table
+action p2p_routing_table_new(local_node, k_capacity)
+    let cap = k_capacity
+    if cap <= 0
+        cap = 8
+    end
+    return {
+        "local_node": local_node,
+        "k": cap,
+        "nodes": [],
+        "buckets": {}
+    }
+end
+
+# Inserts or updates a contact node in the routing table
+action p2p_routing_table_insert(table, node)
+    if node["id"] == table["local_node"]["id"]
+        return 0 # Do not insert self
+    end
+
+    let nodes = table["nodes"]
+    let n = len(nodes)
+    let found_idx = -1
+
+    let i = 0
+    while i < n
+        if nodes[i]["id"] == node["id"]
+            found_idx = i
+            break
+        end
+        i = i + 1
+    end
+
+    if found_idx >= 0
+        # Move node to tail (most recently contacted)
+        let updated_nodes = []
+        let j = 0
+        while j < n
+            if j != found_idx
+                updated_nodes = updated_nodes + [nodes[j]]
+            end
+            j = j + 1
+        end
+        updated_nodes = updated_nodes + [node]
+        table["nodes"] = updated_nodes
+        return 1
+    end
+
+    # Check capacity limit
+    if len(nodes) < table["k"] * 16
+        table["nodes"] = nodes + [node]
+        return 1
+    end
+
+    return 0
+end
+
+# Finds up to `count` closest nodes to a target ID using Kademlia XOR metric
+action p2p_find_closest_nodes(table, target_id, count)
+    let nodes = table["nodes"]
+    let n = len(nodes)
+    if n == 0
+        return []
+    end
+
+    # Compute distances for all known contacts
+    let candidates = []
+    let i = 0
+    while i < n
+        let node = nodes[i]
+        let dist = p2p_xor_distance(node["id"], target_id)
+        candidates = candidates + [{
+            "node": node,
+            "dist": dist
+        }]
+        i = i + 1
+    end
+
+    # Selection sort by XOR distance ascending
+    let m = len(candidates)
+    let c = 0
+    while c < m
+        let min_idx = c
+        let d = c + 1
+        while d < m
+            if candidates[d]["dist"] < candidates[min_idx]["dist"]
+                min_idx = d
+            end
+            d = d + 1
+        end
+        if min_idx != c
+            let tmp = candidates[c]
+            candidates[c] = candidates[min_idx]
+            candidates[min_idx] = tmp
+        end
+        c = c + 1
+    end
+
+    # Extract top `count` nodes
+    let limit = count
+    if limit > m
+        limit = m
+    end
+
+    let result = []
+    let k = 0
+    while k < limit
+        result = result + [candidates[k]["node"]]
+        k = k + 1
+    end
+
+    return result
+end
+
+# Initializes a local Distributed Hash Table (DHT) node
+action p2p_dht_new(local_node)
+    let rt = p2p_routing_table_new(local_node, 8)
+    return {
+        "local_node": local_node,
+        "routing_table": rt,
+        "storage": {},
+        "records_count": 0
+    }
+end
+
+# Stores a key-value record in the local DHT node
+action p2p_dht_store(dht, key_str, value_any)
+    let store = dht["storage"]
+    store[key_str] = {
+        "value": value_any,
+        "publisher": dht["local_node"]["id"],
+        "stored_at": 1000
+    }
+    dht["storage"] = store
+    dht["records_count"] = dht["records_count"] + 1
+    return 1
+end
+
+# Retrieves a record from the DHT by key
+action p2p_dht_get(dht, key_str)
+    let store = dht["storage"]
+    let record = store[key_str]
+    if record != null
+        return {
+            "found": 1,
+            "value": record["value"],
+            "publisher": record["publisher"]
+        }
+    end
+    return {
+        "found": 0,
+        "value": null,
+        "publisher": null
+    }
+end
+
+# Replicates a stored key from source DHT node to target DHT node
+action p2p_dht_replicate(source_dht, target_dht, key_str)
+    let record = p2p_dht_get(source_dht, key_str)
+    if record["found"] == 1
+        p2p_dht_store(target_dht, key_str, record["value"])
+        return 1
+    end
+    return 0
+end
+
+# Constructs a standard BitTorrent/Kademlia Magnet URI
+action p2p_magnet_uri(info_hash_hex, display_name, trackers_array)
+    let uri = "magnet:?xt=urn:btih:" + info_hash_hex
+    if display_name != null
+        uri = uri + "&dn=" + display_name
+    end
+
+    if trackers_array != null
+        let i = 0
+        while i < len(trackers_array)
+            uri = uri + "&tr=" + trackers_array[i]
+            i = i + 1
+        end
+    end
+
+    return uri
+end
+
+# Parses a Magnet URI into info_hash and display name
+action p2p_parse_magnet_uri(magnet_uri)
+    let n = len(magnet_uri)
+    let prefix = "magnet:?xt=urn:btih:"
+    let p_len = len(prefix)
+
+    if n < p_len
+        return { "valid": 0, "info_hash": null, "name": null }
+    end
+
+    # Check prefix match
+    let i = 0
+    while i < p_len
+        if magnet_uri[i] != prefix[i]
+            return { "valid": 0, "info_hash": null, "name": null }
+        end
+        i = i + 1
+    end
+
+    # Extract info_hash up to next '&' or end of string
+    let hash = ""
+    let pos = p_len
+    while pos < n
+        if magnet_uri[pos] == "&"
+            break
+        end
+        hash = hash + magnet_uri[pos]
+        pos = pos + 1
+    end
+
+    # Look for &dn= parameter
+    let name = null
+    let dn_prefix = "&dn="
+    let d_len = len(dn_prefix)
+    while pos <= n - d_len
+        let match = 1
+        let k = 0
+        while k < d_len
+            if magnet_uri[pos + k] != dn_prefix[k]
+                match = 0
+                break
+            end
+            k = k + 1
+        end
+
+        if match == 1
+            pos = pos + d_len
+            let name_str = ""
+            while pos < n
+                if magnet_uri[pos] == "&"
+                    break
+                end
+                name_str = name_str + magnet_uri[pos]
+                pos = pos + 1
+            end
+            name = name_str
+            break
+        end
+        pos = pos + 1
+    end
+
+    return {
+        "valid": 1,
+        "info_hash": hash,
+        "name": name
+    }
+end

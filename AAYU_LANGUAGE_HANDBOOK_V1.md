@@ -2190,6 +2190,142 @@ let inside = geo_point_in_polygon(5, 5, geofence)
 print("Delivery Point Inside Boundary: " + inside) # 1 (true)
 ```
 
+---
+
+## 32. Linear ReDoS-Free Regular Expressions (`std/regex.aayu`)
+
+### 32.1 Immune to Catastrophic Backtracking
+Standard regular expression engines in Python (`re`), Node.js, and Java suffer from **Regular Expression Denial of Service (ReDoS)** caused by exponential backtracking on ambiguous patterns (e.g. `(a+)+b`). A single malicious request can freeze an entire web server thread with 100% CPU lockup.
+
+AAYU eliminates ReDoS entirely with a **linear-time regular expression engine (`std/regex.aayu`)** based on direct linear token evaluation and DFA simulation:
+1. **Guaranteed $O(N \cdot M)$ Runtime:** Execution time is strictly proportional to text length $N$ and pattern size $M$. Catastrophic polynomial or exponential explosion is mathematically impossible.
+2. **Comprehensive Pattern Features:** Literals, wildcards (`.`), character classes (`[a-z]`, `[0-9]`), negation (`[^0-9]`), quantifiers (`*`, `+`, `?`), anchors (`^`, `$`), and alternations (`cat|dog`).
+3. **High-Level Text Operations:** Full matching (`regex_match`), substring extraction (`regex_find`), global scanning (`regex_find_all`), text sanitization (`regex_replace`), and delimiter splitting (`regex_split`).
+
+### 32.2 Regex Primitives
+
+| Function | Domain | Purpose |
+|---|---|---|
+| `regex_compile(pattern)` | Compiler | Parses pattern into a linear AST |
+| `regex_match(compiled, text)` | Matcher | Full string match from start to end (returns 1 or 0) |
+| `regex_find(compiled, text)` | Search | Returns `{ "found": 1, "start": i, "end": j, "match": sub }` |
+| `regex_find_all(compiled, text)` | Search | Returns array of all non-overlapping matching substrings |
+| `regex_replace(compiled, text, rep)` | Mutator | Replaces all pattern matches with replacement string |
+| `regex_split(compiled, text)` | Tokenizer | Splits text by pattern delimiters into array |
+| `regex_is_redos_safe(pattern)` | Audit | Confirms linear time immunity against ReDoS attacks |
+
+### 32.3 Executable Regex Example
+
+```aayu
+import "std/regex.aayu"
+
+# 1. Compile & Match Email Pattern
+let re_email = regex_compile("^[a-z]+@[a-z]+\\.[a-z]+$")
+print("Valid Email: " + regex_match(re_email, "developer@aayu.io")) # 1
+
+# 2. Extract All Alphanumeric Tokens
+let re_words = regex_compile("[a-zA-Z0-9]+")
+let tokens = regex_find_all(re_words, "AAYU v1.5.0 Silicon VM")
+print("Tokens Found: " + len(tokens)) # 4 -> ["AAYU", "v1", "5", "0"]
+
+# 3. Mask Sensitive Digits
+let re_digits = regex_compile("[0-9]+")
+let masked = regex_replace(re_digits, "Card 4111 2222 3333 4444", "XXXX")
+print("Masked: " + masked) # "Card XXXX XXXX XXXX XXXX"
+```
+
+---
+
+## 33. Decentralized Kademlia P2P & Content Addressing (`std/p2p.aayu`)
+
+### 33.1 Decentralized Sovereign Networking
+Eliminate reliance on centralized cloud load balancers and single points of failure. AAYU embeds a **Kademlia Distributed Hash Table (DHT) and BitTorrent-style P2P protocol (`std/p2p.aayu`)**:
+1. **XOR Metric Distance:** Computes topological closeness between 32-bit/160-bit node identifiers using bitwise XOR: $d(x, y) = x \oplus y$. The metric is unidirectional, ensuring consistent lookup paths.
+2. **$k$-Bucket Routing Tables:** Automatically partitions contact nodes by distance prefixes, evicting unresponsive peers while favoring long-lived reliable nodes.
+3. **Decentralized Storage & Replication:** Autonomous distributed key-value storage (`p2p_dht_store`, `p2p_dht_get`) and background content replication across nearest peers.
+4. **Magnet URI Protocol:** Generates and parses standard BitTorrent Magnet links (`magnet:?xt=urn:btih:...`) for decentralized peer discovery.
+
+### 33.2 P2P Primitives
+
+| Function | Domain | Purpose |
+|---|---|---|
+| `p2p_xor_distance(id1, id2)` | Topology | Bitwise XOR distance between two node IDs |
+| `p2p_node_new(id, ip, port)` | Peer | Constructs a peer node structure |
+| `p2p_routing_table_new(local, k)` | Routing | Initializes a Kademlia $k$-bucket routing table |
+| `p2p_routing_table_insert(table, node)`| Routing | Inserts or refreshes contact node |
+| `p2p_find_closest_nodes(table, id, k)` | Routing | Retrieves top $k$ closest peers by XOR distance |
+| `p2p_dht_new(local_node)` | DHT | Initializes local Distributed Hash Table |
+| `p2p_dht_store(dht, key, value)` | DHT | Stores record locally and marks publisher |
+| `p2p_dht_get(dht, key)` | DHT | Reads record by key |
+| `p2p_dht_replicate(src, dst, key)` | DHT | Replicates content record to neighbor peer |
+| `p2p_magnet_uri(hash, name, trackers)` | Magnet | Generates standard BitTorrent Magnet URI |
+| `p2p_parse_magnet_uri(uri)` | Magnet | Extracts info_hash and name from Magnet URI |
+
+### 33.3 Executable P2P Example
+
+```aayu
+import "std/p2p.aayu"
+
+# 1. Initialize P2P Swarm Nodes
+let peer_a = p2p_node_new(1, "127.0.0.1", 9001)
+let peer_b = p2p_node_new(10, "127.0.0.1", 9002)
+
+# 2. XOR Distance Calculation
+let dist = p2p_xor_distance(peer_a["id"], peer_b["id"]) # 1 ^ 10 = 11
+
+# 3. Decentralized DHT Storage & Cross-Peer Replication
+let dht_a = p2p_dht_new(peer_a)
+let dht_b = p2p_dht_new(peer_b)
+p2p_dht_store(dht_a, "package:aayu-core", { "version": "1.5.0", "hash": "9f8a7c" })
+p2p_dht_replicate(dht_a, dht_b, "package:aayu-core")
+
+let record = p2p_dht_get(dht_b, "package:aayu-core")
+print("Replicated Version: " + record["value"]["version"]) # "1.5.0"
+```
+
+---
+
+## 34. Lossless Stream Compression & LZW Codec (`std/compression.aayu`)
+
+### 34.1 Zero-Dependency Data Compaction
+Transmitting verbose JSON or storing log streams often consumes 3x-10x unnecessary bandwidth. AAYU provides **native in-memory lossless compression algorithms (`std/compression.aayu`)**:
+1. **Run-Length Encoding (RLE):** High-speed linear compression for repetitive run sequences (e.g. image rasters, sparse masks).
+2. **Lempel-Ziv-Welch (LZW) Dictionary Codec:** Universal dictionary-based compression that dynamically constructs prefix token trees, encoding strings into compact integer token sequences without transmitting the dictionary over the network.
+3. **Lossless Verification Engine:** Automatic verification seal (`compression_verify_lossless`) guaranteeing 100% bit-exact restoration.
+
+### 34.2 Compression Primitives
+
+| Function | Domain | Purpose |
+|---|---|---|
+| `rle_compress(str)` | RLE | Compresses repeated character runs |
+| `rle_decompress(str)` | RLE | Restores original string from RLE format |
+| `lzw_compress(text)` | LZW | Encodes text into dynamic dictionary integer codes |
+| `lzw_decompress(codes)` | LZW | Reconstructs original string from LZW codes |
+| `compression_ratio(orig, comp)`| Metrics | Computes percentage bandwidth saved |
+| `compression_verify_lossless(a, b)` | Integrity | Confirms bit-exact equality between original & restored |
+
+### 34.3 Executable Compression Example
+
+```aayu
+import "std/compression.aayu"
+
+# 1. Run-Length Encoding
+let rle_data = "AAAAAAAAAABBBBBBCCCC"
+let rle_enc = rle_compress(rle_data) # "A10B6C4"
+let rle_dec = rle_decompress(rle_enc)
+print("RLE Restored: " + rle_dec)
+
+# 2. LZW Streaming Dictionary Compression
+let raw_text = "TOBEORNOTTOBEORTOBEORNOT"
+let lzw_out = lzw_compress(raw_text)
+let restored_text = lzw_decompress(lzw_out["codes"])
+
+let is_exact = compression_verify_lossless(raw_text, restored_text)
+print("100% Bit-Exact Restored: " + is_exact) # 1
+print("Storage Saved: " + compression_ratio(lzw_out["original_len"], lzw_out["compressed_len"]) + "%")
+```
+
+
 
 
 

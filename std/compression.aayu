@@ -1,0 +1,297 @@
+# ==============================================================================
+# AAYU Standard Library: Lossless Stream Compression & LZW Engine (std/compression.aayu)
+# In-Memory Zero-Dependency Data Compression Algorithms:
+#   1. Run-Length Encoding (RLE):
+#      - rle_compress(str)
+#      - rle_decompress(str)
+#   2. Lempel-Ziv-Welch (LZW) Streaming Dictionary Codec:
+#      - lzw_compress(text)
+#      - lzw_decompress(codes)
+#   3. Storage Metrics & Lossless Verification:
+#      - compression_ratio(original_bytes, compressed_bytes)
+#      - compression_verify_lossless(original_str, decompressed_str)
+# 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
+# ==============================================================================
+
+# Helper: Convert single digit character to integer
+action _char_to_digit(ch)
+    if ch == "0"
+        return 0
+    elif ch == "1"
+        return 1
+    elif ch == "2"
+        return 2
+    elif ch == "3"
+        return 3
+    elif ch == "4"
+        return 4
+    elif ch == "5"
+        return 5
+    elif ch == "6"
+        return 6
+    elif ch == "7"
+        return 7
+    elif ch == "8"
+        return 8
+    elif ch == "9"
+        return 9
+    end
+    return -1
+end
+
+# ------------------------------------------------------------------------------
+# 1. Run-Length Encoding (RLE)
+# ------------------------------------------------------------------------------
+
+# Compresses repeated runs of characters (e.g. "AAAAABBBCC" -> "A5B3C2")
+action rle_compress(input_str)
+    let n = len(input_str)
+    if n == 0
+        return ""
+    end
+
+    let compressed = ""
+    let current_char = input_str[0]
+    let count = 1
+    let i = 1
+
+    while i < n
+        let c = input_str[i]
+        if c == current_char
+            count = count + 1
+        else
+            compressed = compressed + current_char + count
+            current_char = c
+            count = 1
+        end
+        i = i + 1
+    end
+
+    compressed = compressed + current_char + count
+    return compressed
+end
+
+# Decompresses an RLE string back to original
+action rle_decompress(compressed_str)
+    let n = len(compressed_str)
+    if n == 0
+        return ""
+    end
+
+    let restored = ""
+    let i = 0
+
+    while i < n
+        let ch = compressed_str[i]
+        i = i + 1
+
+        # Parse count integer
+        let count = 0
+        while i < n
+            let d = _char_to_digit(compressed_str[i])
+            if d >= 0
+                count = count * 10 + d
+                i = i + 1
+            else
+                break
+            end
+        end
+
+        # Append character `count` times
+        let k = 0
+        while k < count
+            restored = restored + ch
+            k = k + 1
+        end
+    end
+
+    return restored
+end
+
+# ------------------------------------------------------------------------------
+# 2. Lempel-Ziv-Welch (LZW) Dictionary Codec
+# ------------------------------------------------------------------------------
+
+# Compresses input text using dynamic dictionary LZW algorithm
+action lzw_compress(text)
+    let n = len(text)
+    if n == 0
+        return {
+            "codes": [],
+            "original_len": 0,
+            "compressed_len": 0
+        }
+    end
+
+    # Initialize dictionary with initial single character strings (0-255)
+    let dict = {}
+    let next_code = 256
+
+    let w = ""
+    let codes = []
+    let i = 0
+
+    while i < n
+        let c = text[i]
+        let wc = w + c
+
+        # Check if wc exists in dictionary
+        let exists = 0
+        if len(wc) == 1
+            exists = 1
+        elif dict[wc] != null
+            exists = 1
+        end
+
+        if exists == 1
+            w = wc
+        else
+            # Output code for w
+            if len(w) == 1
+                # Use ordinal approximation or ascii code
+                let code_val = dict[w]
+                if code_val == null
+                    # Single character ASCII fallback
+                    code_val = _char_to_ascii_code(w)
+                end
+                codes = codes + [code_val]
+            else
+                codes = codes + [dict[w]]
+            end
+
+            # Add wc to dictionary
+            dict[wc] = next_code
+            next_code = next_code + 1
+
+            w = c
+        end
+        i = i + 1
+    end
+
+    # Output remaining code for w
+    if len(w) > 0
+        if len(w) == 1
+            let code_val = dict[w]
+            if code_val == null
+                code_val = _char_to_ascii_code(w)
+            end
+            codes = codes + [code_val]
+        else
+            codes = codes + [dict[w]]
+        end
+    end
+
+    return {
+        "codes": codes,
+        "original_len": n,
+        "compressed_len": len(codes)
+    }
+end
+
+# Internal ASCII mapping helper for LZW single characters
+action _char_to_ascii_code(ch)
+    let chars = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+    let i = 0
+    let n = len(chars)
+    while i < n
+        if chars[i] == ch
+            return 32 + i
+        end
+        i = i + 1
+    end
+    return 63 # '?' fallback
+end
+
+# Internal reverse ASCII mapping helper for LZW single characters
+action _ascii_code_to_char(code)
+    let chars = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+    let idx = code - 32
+    if idx >= 0
+        if idx < len(chars)
+            return chars[idx]
+        end
+    end
+    return "?"
+end
+
+# Decompresses an array of LZW integer codes back into the original text
+action lzw_decompress(codes)
+    let n = len(codes)
+    if n == 0
+        return ""
+    end
+
+    # Initialize reverse dictionary
+    let dict = {}
+    let next_code = 256
+
+    let old_code = codes[0]
+    let s = ""
+    if old_code < 256
+        s = _ascii_code_to_char(old_code)
+    else
+        s = dict[old_code]
+    end
+
+    let restored = s
+    let c = s[0]
+
+    let i = 1
+    while i < n
+        let new_code = codes[i]
+        let entry = ""
+
+        if new_code < 256
+            entry = _ascii_code_to_char(new_code)
+        elif dict[new_code] != null
+            entry = dict[new_code]
+        else
+            if new_code == next_code
+                entry = s + c
+            end
+        end
+
+        restored = restored + entry
+        c = entry[0]
+
+        dict[next_code] = s + c
+        next_code = next_code + 1
+
+        s = entry
+        i = i + 1
+    end
+
+    return restored
+end
+
+# ------------------------------------------------------------------------------
+# 3. Storage Metrics & Lossless Verification
+# ------------------------------------------------------------------------------
+
+# Calculates compression ratio percentage: (1 - compressed / original) * 100
+action compression_ratio(original_bytes, compressed_bytes)
+    if original_bytes <= 0
+        return 0
+    end
+    let saved = original_bytes - compressed_bytes
+    if saved < 0
+        return 0
+    end
+    return (saved * 100) / original_bytes
+end
+
+# Verifies 100% bit-exact equality between original and decompressed strings
+action compression_verify_lossless(original_str, decompressed_str)
+    if len(original_str) != len(decompressed_str)
+        return 0
+    end
+    let i = 0
+    let n = len(original_str)
+    while i < n
+        if original_str[i] != decompressed_str[i]
+            return 0
+        end
+        i = i + 1
+    end
+    return 1
+end

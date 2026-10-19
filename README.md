@@ -13,7 +13,7 @@
   <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases"><img src="https://img.shields.io/badge/version-v1.5.0-purple?style=for-the-badge" alt="Version"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Open%20Standard-blue?style=for-the-badge" alt="License"/></a>
   <a href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"><img src="https://img.shields.io/badge/live%20portal-active-emerald?style=for-the-badge" alt="Live Portal"/></a>
-  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-927%20%2F%20927%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
+  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-1%2C002%20%2F%201%2C002%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
 
   <a href="https://aayulang.com"><img src="https://img.shields.io/badge/website-aayulang.com-0284c7?style=for-the-badge" alt="Website"/></a>
 </p>
@@ -329,6 +329,9 @@ All standard library modules are written in **100% pure self-hosted AAYU** with 
 
 | Module | Description | Key Functions |
 |---|---|---|
+| `std/regex.aayu` | Linear ReDoS-Free Regular Expressions & DFA | `regex_compile`, `regex_match`, `regex_find`, `regex_find_all`, `regex_replace`, `regex_split`, `regex_is_redos_safe` |
+| `std/p2p.aayu` | Decentralized Kademlia P2P & DHT Routing | `p2p_xor_distance`, `p2p_node_new`, `p2p_routing_table_new`, `p2p_routing_table_insert`, `p2p_find_closest_nodes`, `p2p_dht_store`, `p2p_dht_get`, `p2p_magnet_uri` |
+| `std/compression.aayu` | Lossless Stream Compression & LZW Dictionary Codec | `rle_compress`, `rle_decompress`, `lzw_compress`, `lzw_decompress`, `compression_ratio`, `compression_verify_lossless` |
 | `std/physics.aayu` | Rigid Body Physics & 2D/3D Collision Dynamics | `vec2_add`, `vec2_dot`, `vec3_cross`, `aabb_intersects`, `circle_intersects_aabb`, `ray_intersects_circle`, `body_integrate`, `body_resolve_1d_elastic_collision` |
 | `std/graph.aayu` | Graph Theory, Dijkstra, A* & DSU | `wgraph_new`, `wgraph_dijkstra`, `astar_grid_path`, `topological_sort`, `dsu_new`, `dsu_find`, `dsu_union`, `dsu_connected` |
 | `std/geo.aayu` | Geospatial Computing, Geohash & QuadTree | `geo_haversine_distance`, `geo_encode_geohash`, `geo_decode_geohash`, `geo_point_in_polygon`, `quadtree_new`, `quadtree_insert`, `quadtree_query_range` |
