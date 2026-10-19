@@ -1,0 +1,200 @@
+# ==============================================================================
+# AAYU Enterprise Test Suite: AayuDb Security, Columnar Compression & Merkle WAL
+# 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
+# Tests:
+#   1. Columnar FoR + CAS Dictionary Compression & Exact Lossless Reconstruction
+#   2. Table Restoration into Active Engine
+#   3. NIST SP 800-38D AES-256-GCM Authenticated Encryption at Rest
+#   4. Active Tamper Detection & Anti-Tamper Security Violation Rejection
+#   5. Cryptographic Merkle WAL Audit Trail & Timing-Safe Integrity Guard
+#   6. Enterprise Role-Based Access Control (RBAC) & Least Privilege Enforcement
+# ==============================================================================
+import "std/db.aayu"
+import "std/crypto.aayu"
+import "std/test.aayu"
+
+action main()
+    test_begin_suite("AayuDb Enterprise Security, Compression & Merkle WAL Suite")
+
+    print("\n[Phase 1] Initializing Enterprise Database with Financial Ledger...")
+    let db = db_init("SovereignBankDB")
+    db = db_create_table(db, "transactions", "tx_id")
+
+    # Insert batch of transactions
+    let t1 = { "tx_id": 101, "sender": "Corp_A", "recipient": "Corp_B", "amount": 500000, "status": "SETTLED" }
+    let t2 = { "tx_id": 102, "sender": "Corp_B", "recipient": "Corp_C", "amount": 350000, "status": "SETTLED" }
+    let t3 = { "tx_id": 103, "sender": "Corp_A", "recipient": "Corp_C", "amount": 120000, "status": "PENDING" }
+    let t4 = { "tx_id": 104, "sender": "Corp_D", "recipient": "Corp_A", "amount": 800000, "status": "SETTLED" }
+    let t5 = { "tx_id": 105, "sender": "Corp_C", "recipient": "Corp_B", "amount": 450000, "status": "SETTLED" }
+
+    let i1 = db_insert(db, "transactions", t1)
+    db = i1["db"]
+    let i2 = db_insert(db, "transactions", t2)
+    db = i2["db"]
+    let i3 = db_insert(db, "transactions", t3)
+    db = i3["db"]
+    let i4 = db_insert(db, "transactions", t4)
+    db = i4["db"]
+    let i5 = db_insert(db, "transactions", t5)
+    db = i5["db"]
+
+    assert_eq(db["tables"]["transactions"]["count"], 5, "Initial transaction count is 5")
+
+    # --------------------------------------------------------------------------
+    # PHASE 2: COLUMNAR COMPRESSION (Frame-of-Reference + CAS Token Interning)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 2] Enterprise Columnar Compression (FoR + CAS Interning)...")
+    let comp = db_compress_table(db, "transactions")
+    assert_eq(comp["status"], "OK", "db_compress_table succeeded")
+    assert_eq(comp["count"], 5, "Compressed pack row count is 5")
+
+    # Verify FoR numeric column 'amount'
+    let amt_col = comp["columns"]["amount"]
+    assert_eq(amt_col["type"], "INT_FOR", "Amount column compressed with INT_FOR")
+    assert_eq(amt_col["min"], 120000, "Amount minimum base is 120000")
+    assert_eq(amt_col["max"], 800000, "Amount maximum is 800000")
+    # Sum: 500k + 350k + 120k + 800k + 450k = 2220000
+    assert_eq(amt_col["sum"], 2220000, "O(1) Instant columnar sum is 2220000")
+
+    # Verify CAS string dictionary column 'status'
+    let status_col = comp["columns"]["status"]
+    assert_eq(status_col["type"], "STR_CAS", "Status column compressed with STR_CAS")
+    # Distinct statuses: SETTLED and PENDING (2 distinct values across 5 rows)
+    assert_eq(status_col["distinct_count"], 2, "Status column deduplicated to 2 distinct tokens")
+
+    # Compression report
+    print("  Raw bytes estimate: " + comp["raw_bytes"] + " bytes")
+    print("  Compressed bytes estimate: " + comp["compressed_bytes"] + " bytes")
+    print("  Reduction percentage: " + comp["reduction_pct"] + "%")
+    assert_true(comp["reduction_pct"] > 0, "Compression achieved significant space savings")
+
+    # --------------------------------------------------------------------------
+    # PHASE 3: 100% BIT-EXACT LOSSLESS DECOMPRESSION & RESTORATION
+    # --------------------------------------------------------------------------
+    print("\n[Phase 3] Lossless Decompression & Table Restoration...")
+    let decomp = db_decompress_table(comp)
+    assert_eq(decomp["status"], "OK", "db_decompress_table succeeded")
+    assert_eq(decomp["count"], 5, "Decompressed row count is 5")
+
+    # Verify exact bit-for-bit field fidelity
+    let row0 = decomp["rows"][0]
+    assert_eq(row0["tx_id"], 101, "Row 0 tx_id bit-exact")
+    assert_eq(row0["sender"], "Corp_A", "Row 0 sender bit-exact")
+    assert_eq(row0["recipient"], "Corp_B", "Row 0 recipient bit-exact")
+    assert_eq(row0["amount"], 500000, "Row 0 amount bit-exact")
+    assert_eq(row0["status"], "SETTLED", "Row 0 status bit-exact")
+
+    let row2 = decomp["rows"][2]
+    assert_eq(row2["tx_id"], 103, "Row 2 tx_id bit-exact")
+    assert_eq(row2["amount"], 120000, "Row 2 amount bit-exact")
+    assert_eq(row2["status"], "PENDING", "Row 2 status bit-exact")
+
+    # Test restoring decompressed table back into another database
+    let restored_db = db_init("RestoredBankDB")
+    let restore_res = db_restore_compressed_table(restored_db, comp)
+    restored_db = restore_res["db"]
+    assert_eq(restore_res["status"], "OK", "Restoration into active DB engine succeeded")
+
+    let lookup_restored = db_find_pk(restored_db, "transactions", 104)
+    assert_eq(lookup_restored["sender"], "Corp_D", "O(1) PK Lookup works on restored table")
+    assert_eq(lookup_restored["amount"], 800000, "Amount matches on restored table")
+
+    # --------------------------------------------------------------------------
+    # PHASE 4: NIST SP 800-38D AES-256-GCM DATA-AT-REST ENCRYPTION
+    # --------------------------------------------------------------------------
+    print("\n[Phase 4] NIST SP 800-38D AES-256-GCM Data-at-Rest Encryption...")
+    let master_key = "sovereign_enterprise_master_key"
+    let enc_box = db_encrypt_table(db, "transactions", master_key)
+    assert_eq(enc_box["status"], "OK", "Table encryption succeeded")
+    assert_eq(enc_box["encrypted"], 1, "Encrypted flag is set")
+    assert_true(len(enc_box["ciphertext"]) > 0, "Ciphertext is populated")
+    assert_eq(len(enc_box["seal_hash"]), 64, "Seal hash is 64-character SHA-256")
+
+    # Authenticated Decryption with matching master key
+    let dec_res = db_decrypt_table(enc_box, master_key)
+    assert_eq(dec_res["status"], "OK", "Authenticated decryption succeeded")
+
+    # --------------------------------------------------------------------------
+    # PHASE 5: ACTIVE TAMPER DETECTION & DEFENSE
+    # --------------------------------------------------------------------------
+    print("\n[Phase 5] Active Anti-Tamper Security Violation Guard...")
+    # Attempt 1: Attacker tries decryption with unauthorized key
+    let rogue_key = "rogue_attacker_hacker_key_99999"
+    let dec_rogue = db_decrypt_table(enc_box, rogue_key)
+    assert_eq(dec_rogue["status"], "SECURITY_ALERT", "Decryption rejected for unauthorized key")
+
+    # Attempt 2: Attacker alters ciphertext bits on disk
+    let tampered_box = {
+        "status": "OK",
+        "table": enc_box["table"],
+        "nonce": enc_box["nonce"],
+        "ciphertext": enc_box["ciphertext"] + "ff",
+        "seal_hash": enc_box["seal_hash"],
+        "encrypted": 1
+    }
+    let dec_tampered = db_decrypt_table(tampered_box, master_key)
+    assert_eq(dec_tampered["status"], "SECURITY_ALERT", "Tampered ciphertext bit-flip detected and rejected")
+
+    # --------------------------------------------------------------------------
+    # PHASE 6: CRYPTOGRAPHIC MERKLE WRITE-AHEAD LOG (WAL) IMMUTABILITY
+    # --------------------------------------------------------------------------
+    print("\n[Phase 6] Cryptographic Merkle WAL Audit Root...")
+    let merkle_root = db_wal_merkle_root(db)
+    assert_eq(len(merkle_root), 64, "Merkle Root is valid 64-character SHA-256")
+
+    # Verify integrity with expected root
+    let wal_valid = db_verify_wal_integrity(db, merkle_root)
+    assert_true(wal_valid, "WAL verification confirmed pristine un-tampered journal")
+
+    # Test tampering detection on WAL
+    let fake_root = "0000000000000000000000000000000000000000000000000000000000000000"
+    let fake_valid = db_verify_wal_integrity(db, fake_root)
+    assert_eq(fake_valid, false, "WAL verification correctly rejects modified root")
+
+    # --------------------------------------------------------------------------
+    # PHASE 7: ENTERPRISE ROLE-BASED ACCESS CONTROL (RBAC)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 7] Enterprise Role-Based Access Control (RBAC)...")
+    db = db_enable_rbac(db)
+
+    # Provision users
+    db = db_create_user(db, "alice_admin", "ADMIN", "secret_admin_token_#1")
+    db = db_create_user(db, "bob_operator", "OPERATOR", "secret_op_token_#2")
+    db = db_create_user(db, "carol_analyst", "READ_ONLY", "secret_analyst_token_#3")
+    db = db_create_user(db, "dave_auditor", "AUDITOR", "secret_auditor_token_#4")
+
+    # Verify authentication
+    let auth_alice = db_authenticate(db, "alice_admin", "secret_admin_token_#1")
+    assert_true(auth_alice, "Alice authenticated successfully")
+
+    let auth_wrong = db_authenticate(db, "alice_admin", "wrong_password_guess")
+    assert_eq(auth_wrong, false, "Invalid token rejected cleanly")
+
+    # Verify RBAC Permissions
+    # ADMIN can do everything
+    assert_eq(db_authorize(db, "alice_admin", "SELECT"), 1, "Admin authorized for SELECT")
+    assert_eq(db_authorize(db, "alice_admin", "INSERT"), 1, "Admin authorized for INSERT")
+    assert_eq(db_authorize(db, "alice_admin", "DELETE"), 1, "Admin authorized for DELETE")
+
+    # OPERATOR can SELECT, INSERT, UPDATE, but CANNOT DELETE
+    assert_eq(db_authorize(db, "bob_operator", "SELECT"), 1, "Operator authorized for SELECT")
+    assert_eq(db_authorize(db, "bob_operator", "INSERT"), 1, "Operator authorized for INSERT")
+    assert_eq(db_authorize(db, "bob_operator", "DELETE"), 0, "Operator strictly DENIED from DELETE")
+
+    # READ_ONLY can only SELECT
+    assert_eq(db_authorize(db, "carol_analyst", "SELECT"), 1, "Analyst authorized for SELECT")
+    assert_eq(db_authorize(db, "carol_analyst", "INSERT"), 0, "Analyst strictly DENIED from INSERT")
+    assert_eq(db_authorize(db, "carol_analyst", "DELETE"), 0, "Analyst strictly DENIED from DELETE")
+
+    # AUDITOR can SELECT and AUDIT_WAL
+    assert_eq(db_authorize(db, "dave_auditor", "SELECT"), 1, "Auditor authorized for SELECT")
+    assert_eq(db_authorize(db, "dave_auditor", "AUDIT_WAL"), 1, "Auditor authorized for AUDIT_WAL")
+    assert_eq(db_authorize(db, "dave_auditor", "INSERT"), 0, "Auditor strictly DENIED from INSERT")
+
+    test_end_suite()
+    print("\n==================================================================")
+    print("   ALL ENTERPRISE SECURITY, COMPRESSION & WAL TESTS PASSED!       ")
+    print("==================================================================")
+end
+
+main()
