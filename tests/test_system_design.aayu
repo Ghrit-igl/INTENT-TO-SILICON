@@ -1,0 +1,181 @@
+# ==============================================================================
+# AAYU Master Test Suite: System Design Architecture Primitives
+# 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
+# Tests:
+#   1. O(1) LRU Cache with Capacity Eviction
+#   2. Token Bucket Rate Limiter (Throttling & Replenishment)
+#   3. Circuit Breaker (CLOSED -> OPEN -> HALF_OPEN -> Healed CLOSED)
+#   4. Consistent Hashing Ring (Virtual Nodes & Deterministic Sharding)
+#   5. In-Memory Pub/Sub Message Bus
+#   6. Financial Idempotency Guard (Double-Charge Prevention)
+#   7. Round-Robin Load Balancer
+# ==============================================================================
+import "std/test.aayu"
+import "std/system.aayu"
+
+action main()
+    test_begin_suite("AAYU Native System Design Architecture Suite")
+
+    # --------------------------------------------------------------------------
+    # 1. LRU CACHE (Capacity 3)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 1] Testing O(1) LRU Cache...")
+    let cache = lru_cache_new(3)
+    assert_eq(lru_cache_size(cache), 0, "Initial cache size is 0")
+
+    lru_cache_put(cache, "k1", "val_1")
+    lru_cache_put(cache, "k2", "val_2")
+    lru_cache_put(cache, "k3", "val_3")
+    assert_eq(lru_cache_size(cache), 3, "Cache is full at capacity 3")
+    assert_eq(lru_cache_get(cache, "k1"), "val_1", "k1 retrieved successfully")
+
+    # Access k1 makes k2 the least recently used!
+    # Inserting k4 must evict k2!
+    lru_cache_put(cache, "k4", "val_4")
+    assert_eq(lru_cache_size(cache), 3, "Size stays at 3 after eviction")
+    assert_true(lru_cache_get(cache, "k2") == null, "k2 was evicted as least recently used")
+    assert_eq(lru_cache_get(cache, "k1"), "val_1", "k1 still exists (was promoted)")
+    assert_eq(lru_cache_get(cache, "k3"), "val_3", "k3 exists")
+    assert_eq(lru_cache_get(cache, "k4"), "val_4", "k4 exists")
+
+    # --------------------------------------------------------------------------
+    # 2. TOKEN BUCKET RATE LIMITER
+    # Capacity 3 tokens, refill 1 token/sec
+    # --------------------------------------------------------------------------
+    print("\n[Phase 2] Testing Token Bucket Rate Limiter...")
+    let limiter = rate_limiter_new(3, 1)
+
+    # First 3 requests at t = 1000ms should be ALLOWED
+    let req1 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
+    assert_eq(req1.allowed, 1, "Request 1 allowed")
+
+    let req2 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
+    assert_eq(req2.allowed, 1, "Request 2 allowed")
+
+    let req3 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
+    assert_eq(req3.allowed, 1, "Request 3 allowed")
+
+    # 4th burst request at same time must be THROTTLED
+    let req4 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
+    assert_eq(req4.allowed, 0, "Request 4 throttled (bucket empty)")
+
+    # After 2000ms (2 seconds), 2 tokens refilled!
+    let req5 = rate_limiter_acquire(limiter, "client_ip_1", 3000)
+    assert_eq(req5.allowed, 1, "Request 5 allowed after token replenishment")
+
+    # --------------------------------------------------------------------------
+    # 3. CIRCUIT BREAKER
+    # Threshold 3 failures, Recovery timeout 5000ms
+    # --------------------------------------------------------------------------
+    print("\n[Phase 3] Testing Circuit Breaker Failure Protection...")
+    let cb = circuit_breaker_new(3, 5000)
+    assert_eq(cb.status, "CLOSED", "Initial circuit state is CLOSED")
+    assert_eq(circuit_breaker_allow_request(cb, 1000), 1, "Requests allowed in CLOSED state")
+
+    # Record 2 failures (under threshold 3)
+    circuit_breaker_record_failure(cb, 1100)
+    circuit_breaker_record_failure(cb, 1200)
+    assert_eq(cb.status, "CLOSED", "State remains CLOSED under threshold")
+
+    # 3rd failure TRIPS the circuit to OPEN!
+    circuit_breaker_record_failure(cb, 1300)
+    assert_eq(cb.status, "OPEN", "Circuit tripped to OPEN after 3 failures")
+
+    # During cooldown, requests must be BLOCKED immediately
+    assert_eq(circuit_breaker_allow_request(cb, 2000), 0, "Requests blocked while circuit is OPEN")
+
+    # After 5000ms cooldown (at t = 6500ms), circuit enters HALF_OPEN trial
+    assert_eq(circuit_breaker_allow_request(cb, 6500), 1, "Trial request permitted in HALF_OPEN")
+    assert_eq(cb.status, "HALF_OPEN", "Circuit transitioned to HALF_OPEN")
+
+    # 2 consecutive successful trials heal the circuit back to CLOSED
+    circuit_breaker_record_success(cb)
+    circuit_breaker_record_success(cb)
+    assert_eq(cb.status, "CLOSED", "Circuit fully healed back to CLOSED state")
+
+    # --------------------------------------------------------------------------
+    # 4. CONSISTENT HASHING RING
+    # --------------------------------------------------------------------------
+    print("\n[Phase 4] Testing Consistent Hashing Ring Sharding...")
+    let ch = consistent_hash_new(3)
+    consistent_hash_add_node(ch, "node_alpha")
+    consistent_hash_add_node(ch, "node_beta")
+    consistent_hash_add_node(ch, "node_gamma")
+
+    let node1 = consistent_hash_get_node(ch, "user_account_101")
+    let node2 = consistent_hash_get_node(ch, "user_account_202")
+    let node3 = consistent_hash_get_node(ch, "user_account_303")
+
+    assert_true(node1 != null, "Key 101 mapped to a storage node")
+    assert_true(node2 != null, "Key 202 mapped to a storage node")
+    assert_true(node3 != null, "Key 303 mapped to a storage node")
+
+    # Deterministic mapping: Same key must always map to same node
+    assert_eq(consistent_hash_get_node(ch, "user_account_101"), node1, "Consistent hash is deterministic")
+
+    # --------------------------------------------------------------------------
+    # 5. IN-MEMORY PUB/SUB EVENT BUS
+    # --------------------------------------------------------------------------
+    print("\n[Phase 5] Testing Pub/Sub Message Bus...")
+    let bus = event_bus_new()
+    event_bus_subscribe(bus, "ORDER_PLACED", "notification_service")
+    event_bus_subscribe(bus, "ORDER_PLACED", "inventory_service")
+    event_bus_subscribe(bus, "PAYMENT_RECEIVED", "ledger_service")
+
+    # Publish an event to ORDER_PLACED
+    let delivered = event_bus_publish(bus, "ORDER_PLACED", { "order_id": 9901, "amount": 2500 })
+    assert_eq(delivered, 2, "Event delivered to 2 subscribers")
+
+    # Poll inboxes
+    let notif_msgs = event_bus_poll(bus, "notification_service")
+    assert_eq(len(notif_msgs), 1, "Notification service received 1 event")
+    assert_eq(notif_msgs[0].payload.order_id, 9901, "Payload matched order 9901")
+
+    let inv_msgs = event_bus_poll(bus, "inventory_service")
+    assert_eq(len(inv_msgs), 1, "Inventory service received 1 event")
+
+    # Inbox should now be empty after polling
+    assert_eq(len(event_bus_poll(bus, "notification_service")), 0, "Inbox cleared after poll")
+
+    # --------------------------------------------------------------------------
+    # 6. FINANCIAL IDEMPOTENCY GUARD
+    # --------------------------------------------------------------------------
+    print("\n[Phase 6] Testing Financial Idempotency Guard (Double-Charge Protection)...")
+    let guard = idempotency_guard_new(10000)
+
+    # First attempt: Fresh transaction
+    let first_try = idempotency_check_and_lock(guard, "idem_key_order_888", 1000)
+    assert_eq(first_try.proceed, 1, "First payment request allowed to proceed")
+    assert_eq(first_try.status, "LOCK_ACQUIRED", "Idempotency lock acquired")
+
+    # Commit payment response
+    idempotency_commit(guard, "idem_key_order_888", { "status": "CHARGED", "receipt": "RCP_888" })
+
+    # Second attempt: Network retry / duplicate click with same idempotency key
+    let retry_try = idempotency_check_and_lock(guard, "idem_key_order_888", 1500)
+    assert_eq(retry_try.proceed, 0, "Duplicate payment request BLOCKED from double charging")
+    assert_eq(retry_try.status, "ALREADY_COMPLETED", "Cached response returned")
+    assert_eq(retry_try.response.receipt, "RCP_888", "Receipt matches original transaction")
+
+    # --------------------------------------------------------------------------
+    # 7. ROUND-ROBIN LOAD BALANCER
+    # --------------------------------------------------------------------------
+    print("\n[Phase 7] Testing Round-Robin Load Balancer...")
+    let lb = load_balancer_new()
+    load_balancer_add_worker(lb, "srv-1")
+    load_balancer_add_worker(lb, "srv-2")
+    load_balancer_add_worker(lb, "srv-3")
+
+    assert_eq(load_balancer_next(lb), "srv-1", "Request 1 routes to srv-1")
+    assert_eq(load_balancer_next(lb), "srv-2", "Request 2 routes to srv-2")
+    assert_eq(load_balancer_next(lb), "srv-3", "Request 3 routes to srv-3")
+    assert_eq(load_balancer_next(lb), "srv-1", "Request 4 loops back to srv-1")
+    assert_eq(load_balancer_next(lb), "srv-2", "Request 5 routes to srv-2")
+
+    test_end_suite()
+    print("\n==================================================================")
+    print("   ALL NATIVE SYSTEM DESIGN ARCHITECTURE TESTS PASSED!            ")
+    print("==================================================================")
+end
+
+main()
