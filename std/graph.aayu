@@ -1,0 +1,421 @@
+# ==============================================================================
+# AAYU Standard Library: Advanced Graph Theory & Pathfinding (std/graph.aayu)
+# 100% Pure Self-Hosted AAYU (.aayu)
+# Weighted Dijkstra, A* Heuristic Grid Pathfinder, Kahn's Topological Sort & Disjoint-Set
+# Zero Python, Zero External Packages, Zero C/C++ Dependencies
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Weighted Graph & Dijkstra's Algorithm
+# ------------------------------------------------------------------------------
+
+# Creates a weighted directed graph
+action wgraph_new()
+    return {
+        "nodes": [],
+        "edges": {} # map from u -> array of { "to": v, "weight": w }
+    }
+end
+
+# Adds a node to the weighted graph if not already present
+action wgraph_add_node(g, u)
+    let nodes = g["nodes"]
+    let i = 0
+    let found = 0
+    while i < len(nodes)
+        if nodes[i] == u
+            found = 1
+        end
+        i = i + 1
+    end
+    if found == 0
+        nodes = nodes + [u]
+        g["nodes"] = nodes
+        let edges = g["edges"]
+        edges[u] = []
+        g["edges"] = edges
+    end
+    return 1
+end
+
+# Adds a weighted directed edge from u to v
+action wgraph_add_edge(g, u, v, weight)
+    wgraph_add_node(g, u)
+    wgraph_add_node(g, v)
+    let edges = g["edges"]
+    let out = edges[u]
+    out = out + [{ "to": v, "weight": weight }]
+    edges[u] = out
+    g["edges"] = edges
+    return 1
+end
+
+# Dijkstra's Single-Source Shortest Path
+action wgraph_dijkstra(g, start_node, target_node)
+    let nodes = g["nodes"]
+    let edges = g["edges"]
+
+    let dist = {}
+    let prev = {}
+    let visited = {}
+
+    let i = 0
+    let inf = 999999999
+    while i < len(nodes)
+        let n = nodes[i]
+        dist[n] = inf
+        prev[n] = null
+        visited[n] = 0
+        i = i + 1
+    end
+    dist[start_node] = 0
+
+    let unvisited_count = len(nodes)
+    while unvisited_count > 0
+        # Find unvisited node with minimum distance
+        let min_node = null
+        let min_dist = inf
+        let j = 0
+        while j < len(nodes)
+            let curr = nodes[j]
+            if visited[curr] == 0
+                if dist[curr] < min_dist
+                    min_dist = dist[curr]
+                    min_node = curr
+                end
+            end
+            j = j + 1
+        end
+
+        if min_node == null
+            unvisited_count = 0
+        else
+            visited[min_node] = 1
+            unvisited_count = unvisited_count - 1
+
+            if min_node == target_node
+                unvisited_count = 0 # Reached target early
+            else
+                let out_edges = edges[min_node]
+                let k = 0
+                while k < len(out_edges)
+                    let edge = out_edges[k]
+                    let neighbor = edge["to"]
+                    let w = edge["weight"]
+                    let alt = dist[min_node] + w
+                    if alt < dist[neighbor]
+                        dist[neighbor] = alt
+                        prev[neighbor] = min_node
+                    end
+                    k = k + 1
+                end
+            end
+        end
+    end
+
+    if dist[target_node] == inf
+        return { "distance": -1, "path": [] }
+    end
+
+    # Reconstruct path backwards from target
+    let path = []
+    let curr_p = target_node
+    while curr_p != null
+        path = [curr_p] + path
+        curr_p = prev[curr_p]
+    end
+
+    return {
+        "distance": dist[target_node],
+        "path": path
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 2. A* (A-Star) Heuristic Grid Pathfinder
+# ------------------------------------------------------------------------------
+
+action astar_abs(val)
+    if val < 0
+        return -val
+    end
+    return val
+end
+
+# Manhattan heuristic distance: |x1 - x2| + |y1 - y2|
+action astar_manhattan(x1, y1, x2, y2)
+    return astar_abs(x1 - x2) + astar_abs(y1 - y2)
+end
+
+# A* pathfinder on a 2D integer grid: 0 = walkable, 1 = obstacle
+action astar_grid_path(grid, width, height, sx, sy, gx, gy)
+    if sx == gx
+        if sy == gy
+            return { "found": 1, "cost": 0, "path": [{ "x": sx, "y": sy }] }
+        end
+    end
+
+    let closed_set = {}
+    let open_set = [{ "x": sx, "y": sy, "g": 0, "f": astar_manhattan(sx, sy, gx, gy), "parent": null }]
+
+    let max_iterations = width * height * 2
+    let iter = 0
+
+    while len(open_set) > 0
+        if iter > max_iterations
+            return { "found": 0, "cost": -1, "path": [] }
+        end
+        iter = iter + 1
+
+        # Find node in open_set with lowest f score
+        let best_idx = 0
+        let best_f = open_set[0]["f"]
+        let i = 1
+        while i < len(open_set)
+            if open_set[i]["f"] < best_f
+                best_f = open_set[i]["f"]
+                best_idx = i
+            end
+            i = i + 1
+        end
+
+        let current = open_set[best_idx]
+        let cx = current["x"]
+        let cy = current["y"]
+
+        # Check if goal reached!
+        if cx == gx
+            if cy == gy
+                # Reconstruct path
+                let path = []
+                let curr_node = current
+                while curr_node != null
+                    path = [{ "x": curr_node["x"], "y": curr_node["y"] }] + path
+                    curr_node = curr_node["parent"]
+                end
+                return {
+                    "found": 1,
+                    "cost": len(path) - 1,
+                    "path": path
+                }
+            end
+        end
+
+        # Remove current from open_set
+        let new_open = []
+        let j = 0
+        while j < len(open_set)
+            if j != best_idx
+                new_open = new_open + [open_set[j]]
+            end
+            j = j + 1
+        end
+        open_set = new_open
+
+        # Mark current in closed_set
+        let key_curr = cx + "_" + cy
+        closed_set[key_curr] = 1
+
+        # Explore 4 orthogonal neighbors (Right, Down, Left, Up)
+        let dxs = [1, 0, -1, 0]
+        let dys = [0, 1, 0, -1]
+        let k = 0
+        while k < 4
+            let nx = cx + dxs[k]
+            let ny = cy + dys[k]
+
+            # Bounds check
+            if nx >= 0
+                if nx < width
+                    if ny >= 0
+                        if ny < height
+                            let cell_val = grid[ny][nx]
+                            let neighbor_key = nx + "_" + ny
+                            if cell_val == 0
+                                if closed_set[neighbor_key] != 1
+                                    let tentative_g = current["g"] + 1
+                                    let h = astar_manhattan(nx, ny, gx, gy)
+                                    let f = tentative_g + h
+
+                                    let neighbor_node = {
+                                        "x": nx,
+                                        "y": ny,
+                                        "g": tentative_g,
+                                        "f": f,
+                                        "parent": current
+                                    }
+                                    open_set = open_set + [neighbor_node]
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            k = k + 1
+        end
+    end
+
+    return { "found": 0, "cost": -1, "path": [] }
+end
+
+# ------------------------------------------------------------------------------
+# 3. Kahn's Topological Sort & Circular Dependency Detection
+# ------------------------------------------------------------------------------
+
+# Performs Topological Sort on a DAG with cycle detection
+# nodes: array of node ids
+# edges: array of { "from": u, "to": v } (meaning u must precede v)
+action topological_sort(nodes, edge_list)
+    let in_degree = {}
+    let adj = {}
+
+    let i = 0
+    while i < len(nodes)
+        let n = nodes[i]
+        in_degree[n] = 0
+        adj[n] = []
+        i = i + 1
+    end
+
+    let j = 0
+    while j < len(edge_list)
+        let e = edge_list[j]
+        let u = e["from"]
+        let v = e["to"]
+        in_degree[v] = in_degree[v] + 1
+        let out = adj[u]
+        out = out + [v]
+        adj[u] = out
+        j = j + 1
+    end
+
+    # Enqueue nodes with in-degree 0
+    let queue = []
+    let k = 0
+    while k < len(nodes)
+        let node_id = nodes[k]
+        if in_degree[node_id] == 0
+            queue = queue + [node_id]
+        end
+        k = k + 1
+    end
+
+    let order = []
+    while len(queue) > 0
+        let curr = queue[0]
+        # Pop from queue
+        let new_q = []
+        let q_idx = 1
+        while q_idx < len(queue)
+            new_q = new_q + [queue[q_idx]]
+            q_idx = q_idx + 1
+        end
+        queue = new_q
+
+        order = order + [curr]
+
+        let neighbors = adj[curr]
+        let m = 0
+        while m < len(neighbors)
+            let neighbor = neighbors[m]
+            in_degree[neighbor] = in_degree[neighbor] - 1
+            if in_degree[neighbor] == 0
+                queue = queue + [neighbor]
+            end
+            m = m + 1
+        end
+    end
+
+    if len(order) != len(nodes)
+        # Cycle detected! (e.g. A depends on B, B depends on A)
+        return {
+            "cyclic": 1,
+            "order": [],
+            "error": "CIRCULAR_DEPENDENCY_DETECTED"
+        }
+    end
+
+    return {
+        "cyclic": 0,
+        "order": order,
+        "error": null
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 4. Disjoint-Set Union (DSU / Union-Find) with Path Compression & Rank
+# ------------------------------------------------------------------------------
+
+# Creates a new Disjoint-Set Union structure for an array of element identifiers
+action dsu_new(items)
+    let parent = {}
+    let rank = {}
+    let i = 0
+    while i < len(items)
+        let item = items[i]
+        parent[item] = item
+        rank[item] = 0
+        i = i + 1
+    end
+    return {
+        "parent": parent,
+        "rank": rank,
+        "components": len(items)
+    }
+end
+
+# Finds the root representative of set containing x with path compression
+action dsu_find(dsu, x)
+    let p = dsu["parent"]
+    let curr = x
+    while p[curr] != curr
+        curr = p[curr]
+    end
+    # Path compression
+    let root = curr
+    curr = x
+    while p[curr] != root
+        let next_p = p[curr]
+        p[curr] = root
+        curr = next_p
+    end
+    dsu["parent"] = p
+    return root
+end
+
+# Unions the sets containing x and y by rank
+# Returns 1 if sets were merged, 0 if already in same set (cycle)
+action dsu_union(dsu, x, y)
+    let root_x = dsu_find(dsu, x)
+    let root_y = dsu_find(dsu, y)
+    if root_x == root_y
+        return 0 # Already in same component!
+    end
+
+    let p = dsu["parent"]
+    let r = dsu["rank"]
+
+    if r[root_x] < r[root_y]
+        p[root_x] = root_y
+    else
+        if r[root_x] > r[root_y]
+            p[root_y] = root_x
+        else
+            p[root_y] = root_x
+            r[root_x] = r[root_x] + 1
+        end
+    end
+
+    dsu["parent"] = p
+    dsu["rank"] = r
+    dsu["components"] = dsu["components"] - 1
+    return 1
+end
+
+# Checks if two elements belong to the same connected component
+action dsu_connected(dsu, x, y)
+    if dsu_find(dsu, x) == dsu_find(dsu, y)
+        return 1
+    end
+    return 0
+end

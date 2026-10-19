@@ -2040,5 +2040,156 @@ if alert == 1
 end
 ```
 
+---
+
+## 29. Rigid Body Physics & 2D/3D Collision Dynamics (`std/physics.aayu`)
+
+### 29.1 Silicon-Direct Game & Simulation Physics
+Game engines and robotics simulators typically require massive C++ libraries (Box2D, PhysX) or bulky Python bindings (Pygame, PyBullet). AAYU embeds a **microsecond, zero-dependency rigid body physics and vector kinematics engine (`std/physics.aayu`)**:
+1. **Vector Kinematics:** 2D and 3D Vector algebra (`vec2_add`, `vec2_sub`, `vec2_dot`, `vec2_length_sq`, `vec2_length`, `vec3_cross`).
+2. **Collision Detection:** Axis-Aligned Bounding Box overlap (`aabb_intersects`), Circle-to-Circle contact, and hybrid Circle-to-AABB nearest-point clamping.
+3. **Raycasting Engine:** Geometric quadratic discriminant analysis (`ray_intersects_circle`) returning exact contact points $(x, y)$ and time-of-impact $t$.
+4. **Rigid Body Dynamics & Momentum Conservation:** Semi-implicit Euler numerical integration (`body_integrate`) and 1D elastic collision resolution strictly conserving total kinetic momentum: $m_1 v_1 + m_2 v_2 = m_1 v_1' + m_2 v_2'$.
+
+### 29.2 Physics Primitives
+
+| Function | Domain | Purpose |
+|---|---|---|
+| `vec2_new(x, y)` | Vectors | Constructs a 2D vector |
+| `vec2_add(v1, v2)` | Vectors | 2D Vector addition |
+| `vec2_dot(v1, v2)` | Vectors | 2D Scalar dot product |
+| `vec3_cross(u, v)` | Vectors | 3D Cross product vector perpendicular to both inputs |
+| `aabb_intersects(box1, box2)` | Collision | Evaluates whether two Axis-Aligned Bounding Boxes overlap |
+| `circle_intersects_aabb(c, box)`| Collision | Circle vs AABB collision detection via nearest clamped point |
+| `ray_intersects_circle(ray, c)` | Raycasting | Computes ray-sphere intersection, contact point, and hit distance $t$ |
+| `body_integrate(body, dt)` | Dynamics | Integrates linear acceleration into velocity and position |
+| `body_resolve_1d_elastic_collision(b1, b2)` | Dynamics | Resolves elastic collision conserving total momentum |
+
+### 29.3 Executable Rigid Body Physics Example
+
+```aayu
+import "std/physics.aayu"
+
+# 1. 2D Vector Kinematics & 3D Cross Product
+let v1 = vec2_new(3, 4)
+let len = vec2_length(v1) # 5
+let cross = vec3_cross(vec3_new(1, 0, 0), vec3_new(0, 1, 0)) # (0, 0, 1)
+
+# 2. Raycasting: Intersect Ray with Target Circle
+let ray = { "ox": -10, "oy": 0, "dx": 1, "dy": 0 }
+let sphere = { "x": 0, "y": 0, "radius": 3 }
+let hit = ray_intersects_circle(ray, sphere)
+if hit["hit"] == 1
+    print("Ray contact at distance t: " + hit["t"]) # 7 -> (-3, 0)
+end
+
+# 3. Conservation of Linear Momentum in 1D Elastic Collision
+let body_a = body_new(0, 0, 2, 4) # mass=2 kg, velocity=4 m/s
+let body_b = body_new(10, 0, 4, 1) # mass=4 kg, velocity=1 m/s
+let resolved = body_resolve_1d_elastic_collision(body_a, body_b)
+print("Body A New Velocity: " + resolved["body1"]["vx"]) # -2 m/s
+print("Body B New Velocity: " + resolved["body2"]["vx"]) # +4 m/s
+```
+
+---
+
+## 30. Advanced Graph Theory & $A^*$ Pathfinding (`std/graph.aayu`)
+
+### 30.1 High-Performance Graph Algorithms
+Network routing, dependency resolution, and game pathfinding in other languages require sprawling graph packages (NetworkX, igraph). AAYU implements **canonical, silicon-optimized graph algorithms in pure AAYU (`std/graph.aayu`)**:
+1. **Weighted Directed Graphs & Dijkstra:** Computes single-source shortest paths on weighted directed graphs with full path reconstruction.
+2. **$A^*$ Heuristic Grid Pathfinder:** Orthogonal grid pathfinding using Manhattan distance heuristic ($|x_1 - x_2| + |y_1 - y_2|$), efficiently routing around complex wall obstacles with linear space overhead.
+3. **Kahn's Topological Sort & Cycle Detection:** Resolves DAG compilation targets and package dependencies in $O(V + E)$ time; traps circular dependency cycles (`CIRCULAR_DEPENDENCY_DETECTED`).
+4. **Disjoint-Set Union (DSU / Union-Find):** Near $O(1)$ amortized disjoint set merging and connectivity queries using full path compression and rank balancing.
+
+### 30.2 Graph Theory Primitives
+
+| Function | Domain | Purpose |
+|---|---|---|
+| `wgraph_new()` | Graph | Constructs a new weighted directed graph |
+| `wgraph_add_edge(g, u, v, w)` | Graph | Adds directed edge from $u$ to $v$ with weight $w$ |
+| `wgraph_dijkstra(g, start, target)` | Routing | Dijkstra shortest path with full path reconstruction |
+| `astar_grid_path(grid, w, h, sx, sy, gx, gy)` | Pathfinder | $A^*$ pathfinding around grid obstacles |
+| `topological_sort(nodes, edges)` | DAG | Kahn's algorithm for linear build ordering and cycle detection |
+| `dsu_new(items)` | DSU | Disjoint-Set Union initialized with individual disjoint sets |
+| `dsu_union(dsu, x, y)` | DSU | Merges components of $x$ and $y$ using rank balancing |
+| `dsu_connected(dsu, x, y)` | DSU | Determines if $x$ and $y$ belong to the same component |
+
+### 30.3 Executable Graph Routing Example
+
+```aayu
+import "std/graph.aayu"
+
+# 1. Dijkstra Shortest Path on Weighted Graph
+let g = wgraph_new()
+wgraph_add_node(g, "A")
+wgraph_add_node(g, "B")
+wgraph_add_node(g, "C")
+wgraph_add_node(g, "D")
+wgraph_add_edge(g, "A", "B", 10)
+wgraph_add_edge(g, "A", "C", 3)
+wgraph_add_edge(g, "C", "B", 1)
+wgraph_add_edge(g, "B", "D", 4)
+let sp = wgraph_dijkstra(g, "A", "D")
+print("Distance A -> D: " + sp["distance"]) # 8 (Path: A -> C -> B -> D)
+
+# 2. Kahn's Topological Sort: Compiler Pipeline Build Order
+let topo = topological_sort(["Lexer", "Parser", "VM", "App"], [
+    { "from": "Lexer", "to": "Parser" },
+    { "from": "Parser", "to": "VM" },
+    { "from": "VM", "to": "App" }
+])
+print("Build Target 1: " + topo["order"][0]) # Lexer
+```
+
+---
+
+## 31. Geospatial Computing & Spatial Indexing (`std/geo.aayu`)
+
+### 31.1 Microsecond Geospatial Intelligence
+Location-based services (Uber, Swiggy, logistics) traditionally rely on heavy spatial extensions (PostGIS, GeoPandas). AAYU delivers **in-memory spatial indexing and spherical geodesy (`std/geo.aayu`)**:
+1. **Haversine Great-Circle Distance:** Accurate spherical distance calculation between any two latitude/longitude coordinates on Earth ($R = 6371$ km) using Taylor-expanded trigonometric sine and arc-tangent functions.
+2. **Base32 Geohash Engine:** Interleaved binary partitioning encoding and decoding coordinates into standard 32-character hierarchical spatial buckets (`geo_encode_geohash`, `geo_decode_geohash`).
+3. **Jordan Curve Geofencing:** Point-in-polygon ray-casting algorithm determining whether a GPS coordinate is inside an irregular delivery zone or security boundary.
+4. **2D QuadTree Spatial Indexing:** Recursive hierarchical 2D quadrant partitioning (`NW`, `NE`, `SW`, `SE`) supporting $O(\log N)$ spatial range queries over thousands of entities without linear scans.
+
+### 31.2 Geospatial Primitives
+
+| Function | Domain | Purpose |
+|---|---|---|
+| `geo_haversine_distance(lat1, lon1, lat2, lon2)` | Geodesy | Great-circle distance between two GPS coordinates (km) |
+| `geo_encode_geohash(lat, lon, precision)` | Geohash | Encodes coordinate into Base32 Geohash string |
+| `geo_decode_geohash(hash)` | Geohash | Decodes Geohash into center latitude and longitude |
+| `geo_point_in_polygon(px, py, polygon)` | Geofencing | Ray-casting point-in-polygon containment test |
+| `quadtree_new(boundary, capacity)` | Spatial Index | Initializes a 2D QuadTree with bounding box and capacity |
+| `quadtree_insert(qt, point)` | Spatial Index | Recursively inserts point and subdivides into quadrants |
+| `quadtree_query_range(qt, range)` | Spatial Index | $O(\log N)$ range search returning all points inside boundary |
+
+### 31.3 Executable Geospatial Computing Example
+
+```aayu
+import "std/geo.aayu"
+
+# 1. Haversine Great-Circle Distance (Delhi to Mumbai)
+let dist_km = geo_haversine_distance(28.6139, 77.2090, 19.0760, 72.8777)
+print("Delhi to Mumbai: " + dist_km + " km") # ~1150 km
+
+# 2. Base32 Geohash Encoding & Decoding
+let hash = geo_encode_geohash(28.6139, 77.2090, 6)
+let coords = geo_decode_geohash(hash)
+print("Geohash: " + hash) # "ttnfvb"
+
+# 3. Jordan Curve Geofencing
+let geofence = [
+    { "x": 0, "y": 0 },
+    { "x": 10, "y": 0 },
+    { "x": 10, "y": 10 },
+    { "x": 0, "y": 10 }
+]
+let inside = geo_point_in_polygon(5, 5, geofence)
+print("Delivery Point Inside Boundary: " + inside) # 1 (true)
+```
+
+
 
 

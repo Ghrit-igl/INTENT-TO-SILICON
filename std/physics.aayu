@@ -1,0 +1,298 @@
+# ==============================================================================
+# AAYU Standard Library: Rigid Body Physics & Collision Engine (std/physics.aayu)
+# 100% Pure Self-Hosted AAYU (.aayu)
+# 2D/3D Vectors, AABB/Circle Collisions, Raycasting & Momentum Conservation
+# Zero Python, Zero External Packages, Zero C/C++ Dependencies
+# ==============================================================================
+
+# Integer square root using Newton-Raphson approximation
+action phys_int_sqrt(n)
+    if n <= 0
+        return 0
+    end
+    if n == 1
+        return 1
+    end
+    let x = n / 2
+    let i = 0
+    while i < 25
+        if x == 0
+            return 1
+        end
+        let next_x = (x + (n / x)) / 2
+        if next_x >= x
+            return x
+        end
+        x = next_x
+        i = i + 1
+    end
+    return x
+end
+
+# ------------------------------------------------------------------------------
+# 1. 2D / 3D Vector Mathematics
+# ------------------------------------------------------------------------------
+
+# Creates a 2D vector
+action vec2_new(x, y)
+    return { "x": x, "y": y }
+end
+
+# Vector addition: v1 + v2
+action vec2_add(v1, v2)
+    return { "x": v1["x"] + v2["x"], "y": v1["y"] + v2["y"] }
+end
+
+# Vector subtraction: v1 - v2
+action vec2_sub(v1, v2)
+    return { "x": v1["x"] - v2["x"], "y": v1["y"] - v2["y"] }
+end
+
+# Scalar multiplication: v * s
+action vec2_scale(v, s)
+    return { "x": v["x"] * s, "y": v["y"] * s }
+end
+
+# Dot product: v1 . v2
+action vec2_dot(v1, v2)
+    return (v1["x"] * v2["x"]) + (v1["y"] * v2["y"])
+end
+
+# Squared magnitude of vector: |v|^2
+action vec2_length_sq(v)
+    return (v["x"] * v["x"]) + (v["y"] * v["y"])
+end
+
+# Magnitude of vector: |v|
+action vec2_length(v)
+    return phys_int_sqrt(vec2_length_sq(v))
+end
+
+# Squared Euclidean distance between two points
+action vec2_dist_sq(p1, p2)
+    let dx = p1["x"] - p2["x"]
+    let dy = p1["y"] - p2["y"]
+    return (dx * dx) + (dy * dy)
+end
+
+# Creates a 3D vector
+action vec3_new(x, y, z)
+    return { "x": x, "y": y, "z": z }
+end
+
+# Dot product of two 3D vectors
+action vec3_dot(v1, v2)
+    return (v1["x"] * v2["x"]) + (v1["y"] * v2["y"]) + (v1["z"] * v2["z"])
+end
+
+# Cross product of two 3D vectors: v1 x v2
+action vec3_cross(v1, v2)
+    let cx = (v1["y"] * v2["z"]) - (v1["z"] * v2["y"])
+    let cy = (v1["z"] * v2["x"]) - (v1["x"] * v2["z"])
+    let cz = (v1["x"] * v2["y"]) - (v1["y"] * v2["x"])
+    return { "x": cx, "y": cy, "z": cz }
+end
+
+# ------------------------------------------------------------------------------
+# 2. Collision Detection (AABB & Circle)
+# ------------------------------------------------------------------------------
+
+# Creates an Axis-Aligned Bounding Box (AABB)
+action aabb_new(min_x, min_y, max_x, max_y)
+    return {
+        "min_x": min_x,
+        "min_y": min_y,
+        "max_x": max_x,
+        "max_y": max_y
+    }
+end
+
+# Tests overlap between two AABBs (Broadphase Collision)
+action aabb_intersects(b1, b2)
+    if b1["max_x"] < b2["min_x"]
+        return 0
+    end
+    if b1["min_x"] > b2["max_x"]
+        return 0
+    end
+    if b1["max_y"] < b2["min_y"]
+        return 0
+    end
+    if b1["min_y"] > b2["max_y"]
+        return 0
+    end
+    return 1 # Overlapping on all axes!
+end
+
+# Creates a 2D bounding circle / sphere
+action circle_new(center_x, center_y, radius)
+    return { "x": center_x, "y": center_y, "radius": radius }
+end
+
+# Tests overlap between two circles: dist^2 <= (r1 + r2)^2
+action circle_intersects_circle(c1, c2)
+    let dx = c1["x"] - c2["x"]
+    let dy = c1["y"] - c2["y"]
+    let dist_sq = (dx * dx) + (dy * dy)
+    let r_sum = c1["radius"] + c2["radius"]
+    let r_sum_sq = r_sum * r_sum
+    if dist_sq <= r_sum_sq
+        return 1
+    end
+    return 0
+end
+
+# Helper to clamp val between min_val and max_val
+action phys_clamp(val, min_val, max_val)
+    if val < min_val
+        return min_val
+    end
+    if val > max_val
+        return max_val
+    end
+    return val
+end
+
+# Tests overlap between circle and AABB
+action circle_intersects_aabb(c, box)
+    let closest_x = phys_clamp(c["x"], box["min_x"], box["max_x"])
+    let closest_y = phys_clamp(c["y"], box["min_y"], box["max_y"])
+    let dx = c["x"] - closest_x
+    let dy = c["y"] - closest_y
+    let dist_sq = (dx * dx) + (dy * dy)
+    let r_sq = c["radius"] * c["radius"]
+    if dist_sq <= r_sq
+        return 1
+    end
+    return 0
+end
+
+# ------------------------------------------------------------------------------
+# 3. Raycasting Engine
+# ------------------------------------------------------------------------------
+
+# Creates a 2D ray with origin and normalized direction vector
+action ray_new(origin_x, origin_y, dir_x, dir_y)
+    return {
+        "ox": origin_x,
+        "oy": origin_y,
+        "dx": dir_x,
+        "dy": dir_y
+    }
+end
+
+# Ray-to-Circle intersection test via quadratic formula
+# Returns { "hit": 1/0, "t": distance, "hit_x": x, "hit_y": y }
+action ray_intersects_circle(ray, circle)
+    let ox = ray["ox"]
+    let oy = ray["oy"]
+    let dx = ray["dx"]
+    let dy = ray["dy"]
+    let cx = circle["x"]
+    let cy = circle["y"]
+    let r = circle["radius"]
+
+    let oc_x = ox - cx
+    let oc_y = oy - cy
+
+    # a = d . d
+    let a = (dx * dx) + (dy * dy)
+    # b = 2 * (oc . d)
+    let b = 2 * ((oc_x * dx) + (oc_y * dy))
+    # c = (oc . oc) - r^2
+    let c = ((oc_x * oc_x) + (oc_y * oc_y)) - (r * r)
+
+    let discriminant = (b * b) - (4 * a * c)
+    if discriminant < 0
+        return { "hit": 0, "t": -1, "hit_x": 0, "hit_y": 0 }
+    end
+
+    let sqrt_d = phys_int_sqrt(discriminant)
+    let t = (-b - sqrt_d) / (2 * a)
+    if t < 0
+        t = (-b + sqrt_d) / (2 * a)
+    end
+
+    if t >= 0
+        return {
+            "hit": 1,
+            "t": t,
+            "hit_x": ox + (t * dx),
+            "hit_y": oy + (t * dy)
+        }
+    end
+
+    return { "hit": 0, "t": -1, "hit_x": 0, "hit_y": 0 }
+end
+
+# ------------------------------------------------------------------------------
+# 4. Rigid Body Dynamics & Momentum Conservation
+# ------------------------------------------------------------------------------
+
+# Creates a 2D rigid body with mass, position and velocity
+action body_new(mass, x, y, vx, vy)
+    return {
+        "mass": mass,
+        "x": x,
+        "y": y,
+        "vx": vx,
+        "vy": vy,
+        "fx": 0,
+        "fy": 0
+    }
+end
+
+# Applies an external force to the rigid body
+action body_apply_force(body, fx, fy)
+    body["fx"] = body["fx"] + fx
+    body["fy"] = body["fy"] + fy
+    return 1
+end
+
+# Integrates motion over time delta dt using Semi-Implicit Euler
+action body_integrate(body, dt)
+    let m = body["mass"]
+    if m <= 0
+        return 0 # Static immovable body
+    end
+    # a = F / m
+    let ax = body["fx"] / m
+    let ay = body["fy"] / m
+
+    # v = v + a * dt
+    body["vx"] = body["vx"] + (ax * dt)
+    body["vy"] = body["vy"] + (ay * dt)
+
+    # x = x + v * dt
+    body["x"] = body["x"] + (body["vx"] * dt)
+    body["y"] = body["y"] + (body["vy"] * dt)
+
+    # Clear applied forces
+    body["fx"] = 0
+    body["fy"] = 0
+    return 1
+end
+
+# Resolves a 1D elastic collision between two bodies conserving momentum
+# v1' = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2)
+# v2' = ((m2 - m1) * v2 + 2 * m1 * v1) / (m1 + m2)
+action body_resolve_1d_elastic_collision(b1, b2)
+    let m1 = b1["mass"]
+    let m2 = b2["mass"]
+    let v1 = b1["vx"]
+    let v2 = b2["vx"]
+
+    let total_m = m1 + m2
+    let new_v1 = (((m1 - m2) * v1) + (2 * m2 * v2)) / total_m
+    let new_v2 = (((m2 - m1) * v2) + (2 * m1 * v1)) / total_m
+
+    b1["vx"] = new_v1
+    b2["vx"] = new_v2
+
+    return {
+        "v1_prime": new_v1,
+        "v2_prime": new_v2,
+        "initial_momentum": (m1 * v1) + (m2 * v2),
+        "final_momentum": (m1 * new_v1) + (m2 * new_v2)
+    }
+end

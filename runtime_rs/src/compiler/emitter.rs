@@ -217,11 +217,6 @@ impl Emitter {
                                     self.bytecode.push((const_idx >> 8) as u8);
                                     self.bytecode.push((const_idx & 0xFF) as u8);
                                     return;
-                                } else {
-                                    self.emit_expression(left);
-                                    self.bytecode.push(if is_global { 47 } else { 46 }); // AddToGlobal / AddToLocal
-                                    self.bytecode.push((slot % 256) as u8);
-                                    return;
                                 }
                             }
                         }

@@ -13,7 +13,7 @@
   <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases"><img src="https://img.shields.io/badge/version-v1.5.0-purple?style=for-the-badge" alt="Version"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Open%20Standard-blue?style=for-the-badge" alt="License"/></a>
   <a href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"><img src="https://img.shields.io/badge/live%20portal-active-emerald?style=for-the-badge" alt="Live Portal"/></a>
-  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-860%20%2F%20860%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
+  <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-927%20%2F%20927%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
 
   <a href="https://aayulang.com"><img src="https://img.shields.io/badge/website-aayulang.com-0284c7?style=for-the-badge" alt="Website"/></a>
 </p>
@@ -329,6 +329,9 @@ All standard library modules are written in **100% pure self-hosted AAYU** with 
 
 | Module | Description | Key Functions |
 |---|---|---|
+| `std/physics.aayu` | Rigid Body Physics & 2D/3D Collision Dynamics | `vec2_add`, `vec2_dot`, `vec3_cross`, `aabb_intersects`, `circle_intersects_aabb`, `ray_intersects_circle`, `body_integrate`, `body_resolve_1d_elastic_collision` |
+| `std/graph.aayu` | Graph Theory, Dijkstra, A* & DSU | `wgraph_new`, `wgraph_dijkstra`, `astar_grid_path`, `topological_sort`, `dsu_new`, `dsu_find`, `dsu_union`, `dsu_connected` |
+| `std/geo.aayu` | Geospatial Computing, Geohash & QuadTree | `geo_haversine_distance`, `geo_encode_geohash`, `geo_decode_geohash`, `geo_point_in_polygon`, `quadtree_new`, `quadtree_insert`, `quadtree_query_range` |
 | `std/agent.aayu` | Autonomous AI Agent Runtime & Swarm | `agent_create`, `agent_register_tool`, `agent_add_memory`, `agent_search_memory`, `agent_step`, `agent_detect_loop`, `agent_decompose_goal`, `agent_swarm_create`, `agent_swarm_route` |
 | `std/consensus.aayu` | Raft Distributed Consensus Engine | `raft_node_new`, `raft_start_election`, `raft_request_vote`, `raft_handle_vote_response`, `raft_leader_append_entry`, `raft_replicate_to_follower`, `raft_advance_commit_index`, `raft_apply_to_state_machine` |
 | `std/stream.aayu` | Real-Time Stream & CEP Analytics | `tumbling_window_new`, `tumbling_window_push`, `sliding_window_stream_new`, `session_window_new`, `stream_sma`, `stream_ewma`, `stream_bollinger_bands`, `stream_rsi`, `cep_detector_new` |

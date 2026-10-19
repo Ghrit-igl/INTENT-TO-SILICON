@@ -785,8 +785,44 @@ end`}</code>
               </p>
               <div className="flex flex-wrap gap-4 font-mono text-[11px]">
                 <span className="text-rose-300 font-bold">66/66 Systems Engine Assertions PASS</span>
-                <span className="text-emerald-300 font-bold">860/860 Total Silicon Test Suite PASS</span>
-                <span className="text-cyan-300 font-bold">Tumbling, Sliding &amp; Session Windows</span>
+                <span className="text-emerald-300 font-bold">Tumbling, Sliding &amp; Session Windows</span>
+                <span className="text-cyan-300 font-bold">Real-Time Bollinger Bands &amp; RSI</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-emerald-950/30 via-zinc-900/60 to-black border border-emerald-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-emerald-400 mb-2">17. Rigid Body Physics &amp; Collision Dynamics (std/physics.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-emerald-300">std/physics.aayu</code> delivers a silicon-speed 2D/3D kinematics and game physics engine replacing heavy C++ libraries (Box2D, PhysX) and Python bindings: 2D and 3D vector algebra (<code className="text-emerald-300">vec2_add</code>, <code className="text-emerald-300">vec2_dot</code>, <code className="text-emerald-300">vec3_cross</code>), Axis-Aligned Bounding Box (AABB) overlap tests, Circle-to-Circle contact, Circle-to-AABB clamping, raycasting with geometric quadratic discriminants (<code className="text-emerald-300">ray_intersects_circle</code>), Euler numerical integration, and 1D elastic collisions strictly conserving total kinetic momentum.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-emerald-300 font-bold">Native 2D/3D Vector Kinematics</span>
+                <span className="text-cyan-300 font-bold">AABB, Circle &amp; Raycast Intersections</span>
+                <span className="text-amber-300 font-bold">100% Momentum Conservation</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-indigo-950/30 via-zinc-900/60 to-black border border-indigo-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-indigo-400 mb-2">18. Advanced Graph Theory &amp; A* Pathfinding (std/graph.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-indigo-300">std/graph.aayu</code> replaces bloated graph packages (NetworkX, igraph) with canonical silicon-optimized graph algorithms: Weighted directed graphs with Dijkstra single-source shortest path and full path reconstruction, A* orthogonal grid pathfinding (<code className="text-indigo-300">astar_grid_path</code>) using Manhattan heuristics to navigate around maze obstacles, Kahn&apos;s topological sort for build pipelines with circular dependency detection (<code className="text-indigo-300">CIRCULAR_DEPENDENCY_DETECTED</code>), and Disjoint-Set Union (DSU / Union-Find) with path compression and rank balancing.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-indigo-300 font-bold">Dijkstra Shortest Path &amp; Path Reconstruction</span>
+                <span className="text-cyan-300 font-bold">A* Grid Pathfinder with Obstacle Avoidance</span>
+                <span className="text-purple-300 font-bold">Kahn Topo Sort &amp; DSU Union-Find</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-sky-950/30 via-zinc-900/60 to-black border border-sky-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-sky-400 mb-2">19. Geospatial Computing &amp; Spatial Indexing (std/geo.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-sky-300">std/geo.aayu</code> brings microsecond geodesy and spatial indexing to logistics without heavy PostGIS or GeoPandas bloat: Haversine great-circle distance (<code className="text-sky-300">geo_haversine_distance</code>) between GPS coordinates on Earth using Taylor-expanded trigonometry, Base32 Geohash encoding and decoding (<code className="text-sky-300">geo_encode_geohash</code>, <code className="text-sky-300">geo_decode_geohash</code>) with binary partitioning, Jordan Curve theorem point-in-polygon geofencing, and hierarchical 2D QuadTree spatial partitioning (<code className="text-sky-300">quadtree_insert</code>, <code className="text-sky-300">quadtree_query_range</code>) for O(log N) range searches.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-sky-300 font-bold">67/67 Physics, Graph &amp; Geo Assertions PASS</span>
+                <span className="text-emerald-300 font-bold">927/927 Total Silicon Test Suite PASS</span>
+                <span className="text-amber-300 font-bold">Haversine, Geohash &amp; QuadTree Indexing</span>
               </div>
             </div>
           </div>
@@ -795,9 +831,9 @@ end`}</code>
         {/* Download Master Handbook Banner */}
         <div className="p-8 rounded-2xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-black border border-purple-500/40 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
-            <h3 className="text-xl font-bold text-white mb-2">The Ultimate AAYU Master Handbook (36 Chapters)</h3>
+            <h3 className="text-xl font-bold text-white mb-2">The Ultimate AAYU Master Handbook (39 Chapters)</h3>
             <p className="text-zinc-400 text-sm max-w-xl">
-              Complete engineering manual by Ayush Ghrit Kaushik. Includes all 36 chapters, memory architecture, 20 master interview problems, algorithmic patterns, smart contracts, creative DSP, Quantum simulation, Actor concurrency, Binary wire codec, Zero-Knowledge proofs, AI Agent swarms, Raft consensus, and Real-Time Stream CEP.
+              Complete engineering manual by Ayush Ghrit Kaushik. Includes all 39 chapters, memory architecture, 20 master interview problems, algorithmic patterns, smart contracts, creative DSP, Quantum simulation, Actor concurrency, Binary wire codec, Zero-Knowledge proofs, AI Agent swarms, Raft consensus, Real-Time Stream CEP, Rigid Body Physics, A* Graph Routing, and Geospatial Indexing.
             </p>
           </div>
           <a
@@ -805,7 +841,7 @@ end`}</code>
             download="The_Ultimate_AAYU_Handbook_Ayush_Ghrit_Kaushik.pdf"
             className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shrink-0 shadow-lg shadow-purple-600/30 transition hover:scale-105"
           >
-            Download PDF (2.58 MB)
+            Download PDF (2.65 MB)
           </a>
         </div>
 

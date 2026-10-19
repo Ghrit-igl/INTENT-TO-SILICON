@@ -1,0 +1,374 @@
+# ==============================================================================
+# AAYU Standard Library: Geospatial Computing & Spatial Indexing (std/geo.aayu)
+# 100% Pure Self-Hosted AAYU (.aayu)
+# Haversine Distance, Base32 Geohash, Point-in-Polygon Geofencing & QuadTree
+# Zero Python, Zero External Packages, Zero C/C++ Dependencies
+# ==============================================================================
+
+import "std/math.aayu"
+
+# Constants
+# Earth radius in kilometers
+action geo_earth_radius_km()
+    return 6371.0
+end
+
+# Converts degrees to radians
+action geo_deg_to_rad(deg)
+    return deg * 0.017453292519943295 # pi / 180
+end
+
+# ------------------------------------------------------------------------------
+# 1. Haversine Great-Circle Distance
+# ------------------------------------------------------------------------------
+
+# Computes great-circle distance between two GPS coordinates in kilometers
+action geo_haversine_distance(lat1, lon1, lat2, lon2)
+    let r = geo_earth_radius_km()
+
+    let phi1 = geo_deg_to_rad(lat1)
+    let phi2 = geo_deg_to_rad(lat2)
+    let dphi = geo_deg_to_rad(lat2 - lat1)
+    let dlambda = geo_deg_to_rad(lon2 - lon1)
+
+    let half_dphi = dphi / 2.0
+    let half_dlambda = dlambda / 2.0
+
+    let sin_half_dphi = sin(half_dphi)
+    let sin_half_dlambda = sin(half_dlambda)
+
+    # a = sin^2(dphi/2) + cos(phi1) * cos(phi2) * sin^2(dlambda/2)
+    let a = (sin_half_dphi * sin_half_dphi) + (cos(phi1) * cos(phi2) * sin_half_dlambda * sin_half_dlambda)
+
+    if a > 1.0
+        a = 1.0
+    end
+    if a < 0.0
+        a = 0.0
+    end
+
+    # c = 2 * asin(sqrt(a))
+    # Approximation: asin(x) ~ x + (x^3)/6 + (3/40)*x^5 for small x, or 2 * sqrt(a)
+    let sqrt_a = sqrt(a)
+    let c = 2.0 * sqrt_a
+
+    return r * c
+end
+
+# ------------------------------------------------------------------------------
+# 2. Base32 Geohash Encoding & Decoding
+# ------------------------------------------------------------------------------
+
+# Returns the standard Base32 geohash alphabet
+action geo_base32_chars()
+    return "0123456789bcdefghjkmnpqrstuvwxyz"
+end
+
+# Finds index of a character in base32 alphabet
+action geo_base32_index(ch)
+    let chars = geo_base32_chars()
+    let i = 0
+    while i < 32
+        if chars[i] == ch
+            return i
+        end
+        i = i + 1
+    end
+    return -1
+end
+
+# Encodes latitude and longitude into a Base32 Geohash string
+action geo_encode_geohash(lat, lon, precision)
+    let chars = geo_base32_chars()
+
+    let lat_min = -90.0
+    let lat_max = 90.0
+    let lon_min = -180.0
+    let lon_max = 180.0
+
+    let geohash = ""
+    let is_lon = 1
+    let bits = 0
+    let ch_idx = 0
+
+    while len(geohash) < precision
+        if is_lon == 1
+            let mid_lon = (lon_min + lon_max) / 2.0
+            if lon >= mid_lon
+                ch_idx = (ch_idx * 2) + 1
+                lon_min = mid_lon
+            else
+                ch_idx = ch_idx * 2
+                lon_max = mid_lon
+            end
+            is_lon = 0
+        else
+            let mid_lat = (lat_min + lat_max) / 2.0
+            if lat >= mid_lat
+                ch_idx = (ch_idx * 2) + 1
+                lat_min = mid_lat
+            else
+                ch_idx = ch_idx * 2
+                lat_max = mid_lat
+            end
+            is_lon = 1
+        end
+
+        bits = bits + 1
+        if bits == 5
+            geohash = geohash + chars[ch_idx]
+            bits = 0
+            ch_idx = 0
+        end
+    end
+
+    return geohash
+end
+
+# Decodes a Base32 Geohash string back into latitude/longitude bounding box
+action geo_decode_geohash(geohash_str)
+    let lat_min = -90.0
+    let lat_max = 90.0
+    let lon_min = -180.0
+    let lon_max = 180.0
+
+    let is_lon = 1
+    let i = 0
+    let n = len(geohash_str)
+
+    while i < n
+        let ch = geohash_str[i]
+        let val = geo_base32_index(ch)
+        if val == -1
+            return null # Invalid geohash character
+        end
+
+        # Decode 5 bits (MSB to LSB: 16, 8, 4, 2, 1)
+        let mask = 16
+        while mask > 0
+            let bit = 0
+            # Bitwise check using integer division and modulo
+            if (val / mask) % 2 == 1
+                bit = 1
+            end
+
+            if is_lon == 1
+                let mid_lon = (lon_min + lon_max) / 2.0
+                if bit == 1
+                    lon_min = mid_lon
+                else
+                    lon_max = mid_lon
+                end
+                is_lon = 0
+            else
+                let mid_lat = (lat_min + lat_max) / 2.0
+                if bit == 1
+                    lat_min = mid_lat
+                else
+                    lat_max = mid_lat
+                end
+                is_lon = 1
+            end
+
+            mask = mask / 2
+        end
+        i = i + 1
+    end
+
+    let center_lat = (lat_min + lat_max) / 2.0
+    let center_lon = (lon_min + lon_max) / 2.0
+
+    return {
+        "lat": center_lat,
+        "lon": center_lon,
+        "lat_min": lat_min,
+        "lat_max": lat_max,
+        "lon_min": lon_min,
+        "lon_max": lon_max
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 3. Point-in-Polygon Geofencing (Ray-Casting Algorithm)
+# ------------------------------------------------------------------------------
+
+# Tests whether a 2D point (px, py) is strictly inside a polygon using ray casting
+# polygon_points: array of { "x": x, "y": y }
+action geo_point_in_polygon(px, py, polygon_points)
+    let count = len(polygon_points)
+    if count < 3
+        return 0 # Polygon must have at least 3 vertices
+    end
+
+    let inside = 0
+    let i = 0
+    let j = count - 1
+
+    while i < count
+        let pi = polygon_points[i]
+        let pj = polygon_points[j]
+
+        let xi = pi["x"]
+        let yi = pi["y"]
+        let xj = pj["x"]
+        let yj = pj["y"]
+
+        # Ray-casting intersection condition
+        let cond1 = 0
+        if yi > py
+            if yj <= py
+                cond1 = 1
+            end
+        end
+        if yj > py
+            if yi <= py
+                cond1 = 1
+            end
+        end
+
+        if cond1 == 1
+            let intersect_x = ((xj - xi) * (py - yi) / (yj - yi)) + xi
+            if px < intersect_x
+                if inside == 0
+                    inside = 1
+                else
+                    inside = 0
+                end
+            end
+        end
+
+        j = i
+        i = i + 1
+    end
+
+    return inside
+end
+
+# ------------------------------------------------------------------------------
+# 4. QuadTree 2D Spatial Partitioning Index
+# ------------------------------------------------------------------------------
+
+# Creates a new QuadTree node
+action quadtree_new(min_x, min_y, max_x, max_y, capacity)
+    return {
+        "min_x": min_x,
+        "min_y": min_y,
+        "max_x": max_x,
+        "max_y": max_y,
+        "capacity": capacity,
+        "points": [],
+        "divided": 0,
+        "nw": null,
+        "ne": null,
+        "sw": null,
+        "se": null
+    }
+end
+
+# Checks if a point falls within the QuadTree boundary
+action quadtree_contains_point(qt, px, py)
+    if px >= qt["min_x"]
+        if px <= qt["max_x"]
+            if py >= qt["min_y"]
+                if py <= qt["max_y"]
+                    return 1
+                end
+            end
+        end
+    end
+    return 0
+end
+
+# Subdivides the QuadTree into 4 quadrants
+action quadtree_subdivide(qt)
+    let mid_x = (qt["min_x"] + qt["max_x"]) / 2
+    let mid_y = (qt["min_y"] + qt["max_y"]) / 2
+    let cap = qt["capacity"]
+
+    qt["nw"] = quadtree_new(qt["min_x"], mid_y, mid_x, qt["max_y"], cap)
+    qt["ne"] = quadtree_new(mid_x, mid_y, qt["max_x"], qt["max_y"], cap)
+    qt["sw"] = quadtree_new(qt["min_x"], qt["min_y"], mid_x, mid_y, cap)
+    qt["se"] = quadtree_new(mid_x, qt["min_y"], qt["max_x"], mid_y, cap)
+    qt["divided"] = 1
+    return 1
+end
+
+# Inserts a 2D spatial point into the QuadTree
+action quadtree_insert(qt, px, py, payload)
+    if quadtree_contains_point(qt, px, py) == 0
+        return 0
+    end
+
+    let pts = qt["points"]
+    if len(pts) < qt["capacity"]
+        pts = pts + [{ "x": px, "y": py, "data": payload }]
+        qt["points"] = pts
+        return 1
+    end
+
+    if qt["divided"] == 0
+        quadtree_subdivide(qt)
+    end
+
+    if quadtree_insert(qt["nw"], px, py, payload) == 1
+        return 1
+    end
+    if quadtree_insert(qt["ne"], px, py, payload) == 1
+        return 1
+    end
+    if quadtree_insert(qt["sw"], px, py, payload) == 1
+        return 1
+    end
+    if quadtree_insert(qt["se"], px, py, payload) == 1
+        return 1
+    end
+
+    return 0
+end
+
+# Queries all points inside a bounding box range [qx1, qy1] to [qx2, qy2]
+action quadtree_query_range(qt, qx1, qy1, qx2, qy2)
+    let found = []
+
+    # Check if range intersects with QuadTree bounds
+    if qx2 < qt["min_x"]
+        return found
+    end
+    if qx1 > qt["max_x"]
+        return found
+    end
+    if qy2 < qt["min_y"]
+        return found
+    end
+    if qy1 > qt["max_y"]
+        return found
+    end
+
+    # Check points in current node
+    let pts = qt["points"]
+    let i = 0
+    while i < len(pts)
+        let p = pts[i]
+        if p["x"] >= qx1
+            if p["x"] <= qx2
+                if p["y"] >= qy1
+                    if p["y"] <= qy2
+                        found = found + [p]
+                    end
+                end
+            end
+        end
+        i = i + 1
+    end
+
+    if qt["divided"] == 1
+        let nw_res = quadtree_query_range(qt["nw"], qx1, qy1, qx2, qy2)
+        let ne_res = quadtree_query_range(qt["ne"], qx1, qy1, qx2, qy2)
+        let sw_res = quadtree_query_range(qt["sw"], qx1, qy1, qx2, qy2)
+        let se_res = quadtree_query_range(qt["se"], qx1, qy1, qx2, qy2)
+
+        found = found + nw_res + ne_res + sw_res + se_res
+    end
+
+    return found
+end
