@@ -26,19 +26,19 @@ export function Navbar() {
             <Image src="/aayu-logo.png" alt="AAYU Logo" width={32} height={32} className="object-contain group-hover:scale-110 transition-transform" />
             <span className="font-bold text-xl tracking-tight text-white">AAYU</span>
           </Link>
-          <nav className="hidden lg:flex gap-6 text-sm font-medium text-zinc-400 items-center">
+          <nav className="hidden lg:flex gap-5 text-sm font-medium text-zinc-400 items-center">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <Link href="/docs" className="hover:text-white transition-colors">Documentation</Link>
+            <Link href="/docs" className="hover:text-white transition-colors">Docs</Link>
             <Link href="/tutorial" className="hover:text-white transition-colors text-purple-400 font-bold">Tutorial</Link>
-            <Link href="/blog" className="hover:text-white transition-colors">Manifesto</Link>
-            <Link href="/reports" className="hover:text-white transition-colors text-cyan-400 font-bold">Benchmarks & Proofs</Link>
-            <Link href="/examples" className="hover:text-white transition-colors">Examples</Link>
-            <Link href="/download" className="hover:text-white transition-colors flex items-center gap-1">
+            <Link href="/handbook.html" target="_blank" className="hover:text-white transition-colors text-amber-300 font-bold flex items-center gap-1">Handbook (42 Ch)</Link>
+            <Link href="/mobile-ide/index.html" target="_blank" className="hover:text-white transition-colors text-emerald-400 font-bold flex items-center gap-1">Mobile IDE</Link>
+            <Link href="/reports" className="hover:text-white transition-colors text-cyan-400 font-bold">Benchmarks</Link>
+            <Link href="/download" className="hover:text-white transition-colors flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-lg border border-white/10 text-white font-semibold">
               <span className="relative flex h-2 w-2 mr-1">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              Download
+              Download (APK · CLI)
             </Link>
           </nav>
         </div>
@@ -65,19 +65,20 @@ export function Navbar() {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-black/95 border-b border-white/10 px-4 py-6 flex flex-col gap-6 text-base font-medium">
+        <div className="lg:hidden bg-black/95 border-b border-white/10 px-4 py-6 flex flex-col gap-5 text-base font-medium">
           <Link href="/" onClick={() => setMobileMenuOpen(false)} className="text-zinc-400 hover:text-white transition-colors block">Home</Link>
-          <Link href="/docs" onClick={() => setMobileMenuOpen(false)} className="text-zinc-400 hover:text-white transition-colors block">Documentation</Link>
+          <Link href="/docs" onClick={() => setMobileMenuOpen(false)} className="text-zinc-400 hover:text-white transition-colors block">Docs</Link>
           <Link href="/tutorial" onClick={() => setMobileMenuOpen(false)} className="text-purple-400 font-bold hover:text-purple-300 transition-colors block">Tutorial</Link>
-          <Link href="/blog" onClick={() => setMobileMenuOpen(false)} className="text-zinc-400 hover:text-white transition-colors block">Manifesto</Link>
-          <Link href="/reports" onClick={() => setMobileMenuOpen(false)} className="text-cyan-400 font-bold hover:text-cyan-300 transition-colors block">Benchmarks & Proofs</Link>
+          <Link href="/handbook.html" target="_blank" onClick={() => setMobileMenuOpen(false)} className="text-amber-300 font-bold hover:text-amber-200 transition-colors block">Master Handbook (42 Chapters HTML)</Link>
+          <Link href="/mobile-ide/index.html" target="_blank" onClick={() => setMobileMenuOpen(false)} className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors block">AAYU Mobile IDE (Web / PWA)</Link>
+          <Link href="/reports" onClick={() => setMobileMenuOpen(false)} className="text-cyan-400 font-bold hover:text-cyan-300 transition-colors block">Benchmarks &amp; Proofs</Link>
           <Link href="/examples" onClick={() => setMobileMenuOpen(false)} className="text-zinc-400 hover:text-white transition-colors block">Examples</Link>
-          <Link href="/download" onClick={() => setMobileMenuOpen(false)} className="text-zinc-400 hover:text-white transition-colors flex items-center gap-2">
+          <Link href="/download" onClick={() => setMobileMenuOpen(false)} className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-2">
             <span className="relative flex h-2 w-2 mr-1">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            Download AAYU
+            Download (Android APK &amp; Native CLI)
           </Link>
           <div className="pt-4 border-t border-zinc-800 flex flex-col gap-4">
             <Link href="https://github.com/Minato95-ayu/INTENT-TO-SILICON" target="_blank" className="flex items-center gap-2 text-zinc-400 hover:text-white">

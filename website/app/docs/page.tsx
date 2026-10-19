@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Book, Code, Database, BrainCircuit, MonitorPlay, Server, Search, Terminal, Zap } from 'lucide-react';
+import { Book, Code, Database, BrainCircuit, MonitorPlay, Server, Search, Terminal, Zap, BookOpen, ExternalLink } from 'lucide-react';
 
 export default function DocsPage() {
   return (
@@ -872,13 +872,24 @@ end`}</code>
               Complete engineering manual by Ayush Ghrit Kaushik. Includes all 42 chapters, memory architecture, 20 master interview problems, algorithmic patterns, smart contracts, creative DSP, Quantum simulation, Actor concurrency, Binary wire codec, Zero-Knowledge proofs, AI Agent swarms, Raft consensus, Real-Time Stream CEP, Rigid Body Physics, A* Graph Routing, Geospatial Indexing, ReDoS-Free Regex, Kademlia P2P, and Lossless LZW Compression.
             </p>
           </div>
-          <a
-            href="/aayu-handbook.pdf"
-            download="The_Ultimate_AAYU_Handbook_Ayush_Ghrit_Kaushik.pdf"
-            className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shrink-0 shadow-lg shadow-purple-600/30 transition hover:scale-105"
-          >
-            Download PDF (2.72 MB)
-          </a>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <a
+              href="/aayu-handbook.pdf"
+              download="The_Ultimate_AAYU_Handbook_Ayush_Ghrit_Kaushik.pdf"
+              className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-lg shadow-purple-600/30 transition hover:scale-105"
+            >
+              Download PDF (4.4 MB)
+            </a>
+            <Link
+              href="/handbook.html"
+              target="_blank"
+              className="px-5 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-purple-500/40 text-amber-300 font-bold text-sm transition hover:scale-105 flex items-center gap-1.5"
+            >
+              <BookOpen className="w-4 h-4 text-amber-400" />
+              <span>Read Online (HTML)</span>
+              <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
+            </Link>
+          </div>
         </div>
 
       </div>

@@ -89,7 +89,7 @@ export default function Home() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm text-zinc-300 mb-6">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              v1.5.0 Enterprise · Native MCP Protocol Server · 57/57 Suites Pass (100%) · Hardware IEEE-754 Math
+              v1.5.0 Enterprise · 42-Chapter Master Handbook · 1,002/1,002 Silicon Assertions (100% PASS) · Android Mobile IDE v1.4 APK
             </div>
             
             <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-zinc-500">
@@ -103,22 +103,51 @@ export default function Home() {
               AAYU is an experimental programming language and toolchain: pure AAYU self-hosted compiler sources, a NanBox Rust bytecode VM, 4KB slotted B-Tree storage, audited FIPS cryptography, turnkey cloud SDKs, and an autonomous Intent Engine.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+            <div className="flex flex-wrap gap-3 mb-8">
+              <a 
+                href="/downloads/aayu-android.apk" 
+                download="aayu-android.apk"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-extrabold text-sm shadow-xl shadow-emerald-500/20 hover:scale-105 transition-transform"
+              >
+                <Smartphone className="w-4 h-4 text-black" />
+                <span>Android Mobile APK (12.6 MB)</span>
+              </a>
+              <a 
+                href="/aayu-handbook.pdf" 
+                download="The_Ultimate_AAYU_Handbook_Ayush_Ghrit_Kaushik.pdf"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-xl shadow-purple-600/20 hover:scale-105 transition-transform border border-purple-400/30"
+              >
+                <BookOpen className="w-4 h-4 text-purple-200" />
+                <span>42-Ch Handbook (PDF)</span>
+              </a>
+              <Link 
+                href="/handbook.html" 
+                target="_blank"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-amber-300 font-bold text-sm border border-amber-500/30 hover:scale-105 transition-transform"
+              >
+                <BookOpen className="w-4 h-4 text-amber-400" />
+                <span>Read Online</span>
+                <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
+              </Link>
+              <Link 
+                href="/mobile-ide/index.html" 
+                target="_blank"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-cyan-300 font-bold text-sm border border-cyan-500/30 hover:scale-105 transition-transform"
+              >
+                <Play className="w-4 h-4 text-cyan-400" />
+                <span>Mobile Web IDE</span>
+                <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
+              </Link>
               <Link href="/download">
-                  <Button className="h-full px-6 bg-zinc-800 text-white hover:bg-zinc-700 font-bold rounded-xl gap-2 py-3 border border-white/10 transition-colors">
-                    <Download className="w-4 h-4" /> Download AAYU
-                  </Button>
-                </Link>
-              <Link href="/tutorial">
-                <Button className="h-full px-6 bg-purple-600 text-white hover:bg-purple-500 font-bold rounded-xl gap-2 py-3">
-                  <Terminal className="w-4 h-4" /> Start Tutorial
+                <Button className="h-full px-4 bg-zinc-800 text-white hover:bg-zinc-700 font-bold rounded-xl gap-2 py-3 border border-white/10 transition-colors">
+                  <Download className="w-4 h-4" /> All Downloads
                 </Button>
               </Link>
             </div>
             
             <div className="flex flex-wrap gap-4 text-sm font-semibold text-zinc-500">
               <span className="flex items-center gap-1"><Zap className="w-4 h-4 text-yellow-500"/> Rust bytecode VM</span>
-              <span className="flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-emerald-500"/> 57/57 Test Suites Pass (400+ Assertions)</span>
+              <span className="flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-emerald-500"/> 30 Test Suites (1,002 / 1,002 Pass)</span>
               <span className="flex items-center gap-1"><HardDrive className="w-4 h-4 text-cyan-500"/> 4KB Slotted Disk B-Tree DB</span>
             </div>
           </div>
@@ -190,7 +219,7 @@ export default function Home() {
               >
                 <BookOpen className="w-4 h-4 text-purple-200" />
                 <span>Download Handbook (PDF)</span>
-                <span className="text-[10px] font-mono bg-black/30 px-2 py-0.5 rounded text-purple-200">2.58 MB</span>
+                <span className="text-[10px] font-mono bg-black/30 px-2 py-0.5 rounded text-purple-200">4.41 MB · 42 Ch</span>
               </a>
 
               <a
@@ -549,18 +578,38 @@ export default function Home() {
                   >
                     <Download className="w-4 h-4 text-black" />
                     <span>Download Android App (.apk)</span>
-                    <span className="rounded bg-black/20 px-2 py-0.5 text-xs text-black/90 font-mono">12.5 MB · APK (v1.4)</span>
+                    <span className="rounded bg-black/20 px-2 py-0.5 text-xs text-black/90 font-mono">12.6 MB · APK (v1.4)</span>
                   </a>
 
+                  <Link
+                    href="/mobile-ide/index.html"
+                    target="_blank"
+                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-500/40 px-5 py-3 text-sm font-bold text-cyan-300 shadow-lg shadow-cyan-500/15 transition hover:scale-105"
+                  >
+                    <Play className="w-4 h-4 text-cyan-400" />
+                    <span>Launch Mobile Web IDE</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
+                  </Link>
+
                   <a
-                    href="/AAYU_OFFICIAL_HANDBOOK.pdf"
+                    href="/aayu-handbook.pdf"
                     download="The_Official_AAYU_Handbook_Ayush_Ghrit_Kaushik.pdf"
                     className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 border border-purple-400/30 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-purple-600/20 transition hover:scale-105"
                   >
                     <BookOpen className="w-4 h-4 text-purple-200" />
-                    <span>Download Handbook (26 Ch PDF)</span>
-                    <span className="rounded bg-black/30 px-2 py-0.5 text-xs text-purple-200 font-mono">2.58 MB</span>
+                    <span>Download Handbook (42 Ch PDF)</span>
+                    <span className="rounded bg-black/30 px-2 py-0.5 text-xs text-purple-200 font-mono">4.41 MB · 98 Pages</span>
                   </a>
+
+                  <Link
+                    href="/handbook.html"
+                    target="_blank"
+                    className="inline-flex items-center gap-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-white/10 px-4 py-3 text-sm font-semibold text-amber-300 transition hover:scale-105"
+                  >
+                    <BookOpen className="w-4 h-4 text-amber-400" />
+                    <span>Read Online</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
+                  </Link>
 
                   <a
                     href="/downloads/aayu-mobile-ide.zip"
@@ -568,19 +617,7 @@ export default function Home() {
                     className="inline-flex items-center gap-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:scale-105"
                   >
                     <Download className="w-4 h-4 text-zinc-400" />
-                    <span>Mobile IDE (.zip)</span>
-                    <span className="rounded bg-black/20 px-2 py-0.5 text-xs text-zinc-400 font-mono">124 KB</span>
-                  </a>
-
-                  <a
-                    href="https://github.com/Minato95-ayu/INTENT-TO-SILICON"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-white/10 px-4 py-3 text-sm font-semibold text-white transition"
-                  >
-                    <FolderGit2 className="w-4 h-4 text-zinc-400" />
-                    <span>GitHub Source</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
+                    <span>Offline ZIP (150 KB)</span>
                   </a>
                 </div>
 

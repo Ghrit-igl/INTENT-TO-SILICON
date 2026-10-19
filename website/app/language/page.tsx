@@ -1,5 +1,5 @@
 import React from 'react';
-import { Code2, Zap, ShieldCheck, Terminal, BookOpen, Smartphone, Cpu, CheckCircle2 } from 'lucide-react';
+import { Code2, Zap, ShieldCheck, Terminal, BookOpen, Smartphone, Cpu, CheckCircle2, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -230,18 +230,29 @@ aayu mcp --verify
         {/* Handbook Download Banner */}
         <div className="p-8 rounded-2xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-black border border-purple-500/40 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
-            <h3 className="text-xl font-bold text-white mb-2">Read the Full 21-Chapter Handbook</h3>
+            <h3 className="text-xl font-bold text-white mb-2">Read the Full 42-Chapter Master Handbook</h3>
             <p className="text-zinc-400 text-sm max-w-xl">
-              Deep dive into compiler AST trees, bytecode ISA opcodes, SQLite storage engine, and master algorithms in the official 1.8 MB PDF.
+              Deep dive into compiler AST trees, bytecode ISA opcodes, SQLite &amp; B-Tree engines, and master algorithms in the official 4.4 MB PDF (98 Pages · 1,002 / 1,002 Passing Silicon Assertions).
             </p>
           </div>
-          <a
-            href="/aayu-handbook.pdf"
-            download="The_Ultimate_AAYU_Handbook_Ayush_Ghrit_Kaushik.pdf"
-            className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shrink-0 shadow-lg shadow-purple-600/30 transition hover:scale-105"
-          >
-            Download Handbook PDF
-          </a>
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href="/aayu-handbook.pdf"
+              download="The_Ultimate_AAYU_Handbook_Ayush_Ghrit_Kaushik.pdf"
+              className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shrink-0 shadow-lg shadow-purple-600/30 transition hover:scale-105"
+            >
+              Download Handbook PDF
+            </a>
+            <Link
+              href="/handbook.html"
+              target="_blank"
+              className="px-5 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-purple-500/30 text-amber-300 font-bold text-sm shrink-0 transition hover:scale-105 flex items-center gap-1.5"
+            >
+              <BookOpen className="w-4 h-4 text-amber-400" />
+              <span>Read Online (HTML)</span>
+              <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
+            </Link>
+          </div>
         </div>
 
       </div>

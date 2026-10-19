@@ -319,21 +319,35 @@ export default function PlaygroundPage() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <a
               href="/downloads/aayu-android.apk"
               download
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
             >
-              <Smartphone className="w-3.5 h-3.5" /> Get Mobile APK
+              <Smartphone className="w-3.5 h-3.5" /> Mobile APK (12.6 MB)
             </a>
+            <Link
+              href="/mobile-ide/index.html"
+              target="_blank"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-300 font-bold text-xs transition"
+            >
+              <Play className="w-3.5 h-3.5 text-cyan-400" /> Web IDE
+            </Link>
             <a
               href="/aayu-handbook.pdf"
               download="The_Ultimate_AAYU_Handbook_Ayush_Ghrit_Kaushik.pdf"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
             >
-              <BookOpen className="w-3.5 h-3.5" /> Handbook PDF
+              <BookOpen className="w-3.5 h-3.5" /> Handbook (42 Ch PDF)
             </a>
+            <Link
+              href="/handbook.html"
+              target="_blank"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-amber-300 font-bold text-xs transition"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-amber-400" /> Read Online
+            </Link>
           </div>
         </div>
 
