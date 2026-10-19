@@ -234,6 +234,7 @@ fn expand_file(
                 }
                 if let Some(f) = found {
                     resolved = f;
+                } else {
                     let mut global_dirs: Vec<PathBuf> = Vec::new();
                     if let Ok(cwd) = std::env::current_dir() {
                         global_dirs.push(cwd.clone());
