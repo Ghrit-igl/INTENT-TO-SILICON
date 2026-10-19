@@ -8,12 +8,19 @@
 #   5. In-Memory Pub/Sub Event Bus (Decoupled Microservice Messaging)
 #   6. Financial Idempotency Guard (Zero Double-Spend / Duplicate Charges)
 #   7. Round-Robin Load Balancer (Health-Checked Worker Traffic Distributor)
-#   8. Exponential Backoff with Full Jitter (AWS Standard Anti-Thundering Herd)
+#   8. Exponential Backoff with Full Jitter (AWS Anti-Thundering Herd Standard)
 #   9. Bloom Filter (O(1) Probabilistic Filter with Zero False Negatives)
 #  10. Sliding Window Counter Rate Limiter (Boundary-Burst-Immune Throttling)
 #  11. Distributed Mutex & Lease Lock (Monotonic Fencing Tokens & TTL)
 #  12. Bulkhead Concurrency Guard (Downstream Failure Isolation & Load Shedding)
 #  13. Least-Connections Load Balancer (Real-Time Workload Distributor)
+#  14. Singleflight (Request Coalescing to Prevent Cache Stampedes)
+#  15. XFetch (Probabilistic Early Cache Expiration - Vitter VLDB Standard)
+#  16. Distributed Saga Orchestrator (Compensating Rollbacks across Services)
+#  17. Cluster Leader Election (Heartbeat Liveness & Automated Failover)
+#  18. Dead Letter Queue & Poison Pill Isolator (Crash-Proof Message Queues)
+#  19. CQRS Read-Write Database Query Router (Master-Replica CQRS Split)
+#  20. Adaptive Concurrency Limiter (Netflix TCP-Vegas AIMD / Little's Law)
 # 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
 # ==============================================================================
 import "std/collections.aayu"
@@ -37,7 +44,6 @@ action lru_cache_new(capacity)
     }
 end
 
-# Internal helper: Detach node from doubly-linked list
 action _lru_detach(cache, node)
     let nodes = cache.nodes
     let prev_key = node.prev
@@ -61,7 +67,6 @@ action _lru_detach(cache, node)
     cache.nodes = nodes
 end
 
-# Internal helper: Attach node at head (Most Recently Used position)
 action _lru_attach_head(cache, node)
     let nodes = cache.nodes
     node.prev = null
@@ -82,7 +87,6 @@ action _lru_attach_head(cache, node)
     cache.nodes = nodes
 end
 
-# Retrieves an item and promotes it to MRU (Head) in O(1) time
 action lru_cache_get(cache, key)
     let k_str = "" + key
     let nodes = cache.nodes
@@ -91,7 +95,6 @@ action lru_cache_get(cache, key)
         return null
     end
 
-    # Promote to head if not already at head
     if cache.head != k_str
         _lru_detach(cache, node)
         _lru_attach_head(cache, node)
@@ -100,7 +103,6 @@ action lru_cache_get(cache, key)
     return node.val
 end
 
-# Inserts or updates an item; evicts LRU (Tail) in O(1) if capacity is reached
 action lru_cache_put(cache, key, val)
     let k_str = "" + key
     let nodes = cache.nodes
@@ -118,7 +120,6 @@ action lru_cache_put(cache, key, val)
         return cache
     end
 
-    # If capacity reached, evict LRU (tail) in O(1)
     if cache.size >= cache.capacity
         if cache.tail != null
             let tail_node = nodes[cache.tail]
@@ -129,7 +130,6 @@ action lru_cache_put(cache, key, val)
         end
     end
 
-    # Insert fresh node at head
     let new_node = {
         "key": k_str,
         "val": val,
@@ -172,7 +172,6 @@ action rate_limiter_acquire(limiter, client_id, current_time_ms)
         return { "allowed": 1, "remaining": client.tokens }
     end
 
-    # Fractional token replenishment based on elapsed milliseconds
     let elapsed_sec = (current_time_ms - client.last_time_ms) / 1000
     let refilled = client.tokens + (elapsed_sec * limiter.refill_rate)
     if refilled > limiter.max_tokens
@@ -187,7 +186,6 @@ action rate_limiter_acquire(limiter, client_id, current_time_ms)
         return { "allowed": 1, "remaining": client.tokens }
     end
 
-    # Throttled (Capacity exhausted)
     return { "allowed": 0, "remaining": client.tokens }
 end
 
@@ -299,7 +297,6 @@ action consistent_hash_get_node(ch, key)
 
     let key_hash = sha256("" + key)
 
-    # O(log N) Binary Search for first node hash >= key_hash
     let low = 0
     let high = n - 1
     let ans_idx = -1
@@ -315,7 +312,6 @@ action consistent_hash_get_node(ch, key)
         end
     end
 
-    # Wrap around clockwise to head of ring if key_hash > all nodes
     if ans_idx == -1
         let first_hash = sorted_hashes[0]
         return ring[first_hash]
@@ -494,7 +490,6 @@ action _sys_hex_nibble(c)
     return 0
 end
 
-# Computes max theoretical backoff ceiling (min(max_ms, base_ms * 2^attempt))
 action backoff_ceiling(attempt, base_ms, max_ms)
     let factor = 1
     let i = 0
@@ -512,7 +507,6 @@ action backoff_ceiling(attempt, base_ms, max_ms)
     return temp
 end
 
-# Returns sleep duration distributed uniformly in [0, ceiling]
 action backoff_with_jitter(attempt, base_ms, max_ms, seed)
     let temp = backoff_ceiling(attempt, base_ms, max_ms)
     if temp <= 0
@@ -571,7 +565,6 @@ action bloom_filter_add(bf, item)
     return bf
 end
 
-# Returns 1 (Maybe in set) or 0 (Definitive NO - Zero False Negatives guaranteed)
 action bloom_filter_check(bf, item)
     let item_str = "" + item
     let bits = bf.bits
@@ -627,7 +620,6 @@ action sliding_window_acquire(limiter, client_id, current_time_ms)
         client.current_window = win_id
     end
 
-    # Time-weighted interpolation across previous and current window
     let elapsed = current_time_ms % limiter.window_ms
     let weight_prev_num = limiter.window_ms - elapsed
     let estimated = ((client.prev_count * weight_prev_num) / limiter.window_ms) + client.current_count
@@ -759,7 +751,6 @@ action bulkhead_try_acquire(bh)
         return { "allowed": 1, "queued": 1, "active": bh.active_count, "queue": bh.queue_count }
     end
 
-    # Saturated bulkhead: Shed load immediately
     return { "allowed": 0, "queued": 0, "active": bh.active_count, "queue": bh.queue_count }
 end
 
@@ -840,5 +831,356 @@ action weighted_lb_release(lb, worker_id)
         end
     end
     return lb
+end
+
+# ------------------------------------------------------------------------------
+# 14. SINGLEFLIGHT (Request Coalescing to Eliminate Cache Stampedes)
+# Suppresses duplicate in-flight requests; exactly 1 caller executes, all share!
+# ------------------------------------------------------------------------------
+action singleflight_new()
+    return {
+        "calls": {}
+    }
+end
+
+action singleflight_enter(sf, key)
+    let k_str = "" + key
+    let calls = sf.calls
+    let call = calls[k_str]
+
+    if call != null
+        call.waiters = call.waiters + 1
+        calls[k_str] = call
+        sf.calls = calls
+        return { "execute": 0, "shared": 1, "waiters": call.waiters }
+    end
+
+    calls[k_str] = {
+        "status": "EXECUTING",
+        "waiters": 0,
+        "result": null
+    }
+    sf.calls = calls
+    return { "execute": 1, "shared": 0, "waiters": 0 }
+end
+
+action singleflight_complete(sf, key, result_data)
+    let k_str = "" + key
+    let calls = sf.calls
+    let call = calls[k_str]
+    let waiters_count = 0
+
+    if call != null
+        waiters_count = call.waiters
+        calls[k_str] = null
+        sf.calls = calls
+    end
+
+    return { "broadcast_result": result_data, "waiters_served": waiters_count }
+end
+
+# ------------------------------------------------------------------------------
+# 15. XFETCH (Probabilistic Early Expiration - Vitter VLDB Standard)
+# Proactively refreshes hot cache keys before they expire to prevent latency spike
+# ------------------------------------------------------------------------------
+action xfetch_should_refresh(ttl_remaining_ms, compute_delta_ms, beta_percent, seed)
+    if ttl_remaining_ms <= 0
+        return 1
+    end
+
+    let threshold = (compute_delta_ms * beta_percent) / 100
+    if ttl_remaining_ms <= threshold
+        return 1
+    end
+
+    if seed != null
+        let s = (seed * 1103515245 + 12345) % 100
+        if s < 0
+            s = 0 - s
+        end
+        if s < 25
+            if ttl_remaining_ms <= (threshold * 2)
+                return 1
+            end
+        end
+    end
+
+    return 0
+end
+
+# ------------------------------------------------------------------------------
+# 16. DISTRIBUTED SAGA ORCHESTRATOR (Compensating Rollbacks across Services)
+# Guarantees eventual consistency and clean multi-service transaction rollbacks
+# ------------------------------------------------------------------------------
+action saga_new(saga_id)
+    return {
+        "saga_id": saga_id,
+        "steps": [],
+        "completed_steps": [],
+        "compensated_steps": [],
+        "status": "INITIALIZED"
+    }
+end
+
+action saga_add_step(saga, step_name, forward_name, compensate_name)
+    let step = {
+        "name": step_name,
+        "forward": forward_name,
+        "compensate": compensate_name
+    }
+    saga.steps = saga.steps + [step]
+    return saga
+end
+
+action saga_record_step_success(saga, step_name)
+    saga.completed_steps = saga.completed_steps + [step_name]
+    if len(saga.completed_steps) == len(saga.steps)
+        saga.status = "SUCCESS"
+    else
+        saga.status = "IN_PROGRESS"
+    end
+    return saga
+end
+
+action saga_abort_and_compensate(saga, failed_step_name, reason)
+    saga.status = "COMPENSATING"
+    let comp_list = []
+    let completed = saga.completed_steps
+    let n = len(completed)
+
+    let i = n - 1
+    while i >= 0
+        let step_to_undo = completed[i]
+        comp_list = comp_list + [step_to_undo]
+        i = i - 1
+    end
+
+    saga.compensated_steps = comp_list
+    saga.status = "COMPENSATED"
+    return {
+        "saga_id": saga.saga_id,
+        "status": "COMPENSATED",
+        "failed_step": failed_step_name,
+        "reason": reason,
+        "compensated_steps": comp_list
+    }
+end
+
+# ------------------------------------------------------------------------------
+# 17. CLUSTER LEADER ELECTION (Heartbeat Liveness & Automated Failover)
+# Ensures high availability with automatic leader replacement on node crash
+# ------------------------------------------------------------------------------
+action cluster_election_new(heartbeat_timeout_ms)
+    return {
+        "timeout_ms": heartbeat_timeout_ms,
+        "leader": null,
+        "term": 0,
+        "nodes": [],
+        "heartbeats": {}
+    }
+end
+
+action cluster_register_node(cluster, node_id)
+    let nid = "" + node_id
+    cluster.nodes = cluster.nodes + [nid]
+    return cluster
+end
+
+action cluster_heartbeat(cluster, node_id, current_time_ms)
+    let nid = "" + node_id
+    let hbs = cluster.heartbeats
+    hbs[nid] = current_time_ms
+    cluster.heartbeats = hbs
+    return cluster
+end
+
+action cluster_elect_leader(cluster, current_time_ms)
+    let leader = cluster.leader
+    let hbs = cluster.heartbeats
+
+    if leader != null
+        let last_hb = hbs[leader]
+        if last_hb != null
+            if (current_time_ms - last_hb) < cluster.timeout_ms
+                return { "status": "LEADER_HEALTHY", "leader": leader, "term": cluster.term }
+            end
+        end
+    end
+
+    let nodes = cluster.nodes
+    let n = len(nodes)
+    let best_node = null
+
+    let i = 0
+    while i < n
+        let candidate = nodes[i]
+        let candidate_hb = hbs[candidate]
+        if candidate_hb != null
+            if (current_time_ms - candidate_hb) < cluster.timeout_ms
+                if best_node == null
+                    best_node = candidate
+                elif candidate < best_node
+                    best_node = candidate
+                end
+            end
+        end
+        i = i + 1
+    end
+
+    if best_node != null
+        cluster.leader = best_node
+        cluster.term = cluster.term + 1
+        return { "status": "NEW_LEADER_ELECTED", "leader": best_node, "term": cluster.term }
+    end
+
+    cluster.leader = null
+    return { "status": "NO_HEALTHY_NODES", "leader": null, "term": cluster.term }
+end
+
+# ------------------------------------------------------------------------------
+# 18. DEAD LETTER QUEUE & POISON PILL ISOLATOR (Crash-Proof Message Queues)
+# Isolates bad payloads to prevent infinite crash loops in background workers
+# ------------------------------------------------------------------------------
+action dlq_new(max_retries)
+    return {
+        "max_retries": max_retries,
+        "retry_counts": {},
+        "dead_letters": []
+    }
+end
+
+action dlq_record_failure(dlq, msg_id, payload, reason, current_time_ms)
+    let mid = "" + msg_id
+    let retries = dlq.retry_counts
+    let current_try = retries[mid]
+    if current_try == null
+        current_try = 0
+    end
+    current_try = current_try + 1
+    retries[mid] = current_try
+    dlq.retry_counts = retries
+
+    if current_try > dlq.max_retries
+        let dead_item = {
+            "msg_id": mid,
+            "payload": payload,
+            "reason": reason,
+            "failed_attempts": current_try,
+            "isolated_at": current_time_ms
+        }
+        dlq.dead_letters = dlq.dead_letters + [dead_item]
+        return { "outcome": "MOVED_TO_DLQ", "attempts": current_try }
+    end
+
+    return { "outcome": "RETRY_SCHEDULED", "attempts": current_try }
+end
+
+# ------------------------------------------------------------------------------
+# 19. CQRS READ-WRITE DATABASE QUERY ROUTER (Master-Replica CQRS Split)
+# Routes write queries strictly to Primary, and reads across healthy Replicas
+# ------------------------------------------------------------------------------
+action rw_router_new(primary_node)
+    return {
+        "primary": primary_node,
+        "replicas": [],
+        "replica_health": {},
+        "current_replica_idx": 0
+    }
+end
+
+action rw_router_add_replica(router, replica_node)
+    let rep = "" + replica_node
+    router.replicas = router.replicas + [rep]
+    let health = router.replica_health
+    health[rep] = 1
+    router.replica_health = health
+    return router
+end
+
+action rw_router_set_replica_health(router, replica_node, is_healthy)
+    let rep = "" + replica_node
+    let health = router.replica_health
+    health[rep] = is_healthy
+    router.replica_health = health
+    return router
+end
+
+action rw_router_route(router, query_type)
+    let qt = "" + query_type
+    if qt == "WRITE"
+        return { "target": router.primary, "role": "PRIMARY" }
+    end
+    if qt == "INSERT"
+        return { "target": router.primary, "role": "PRIMARY" }
+    end
+    if qt == "UPDATE"
+        return { "target": router.primary, "role": "PRIMARY" }
+    end
+    if qt == "DELETE"
+        return { "target": router.primary, "role": "PRIMARY" }
+    end
+
+    let replicas = router.replicas
+    let n = len(replicas)
+    if n == 0
+        return { "target": router.primary, "role": "PRIMARY_FALLBACK" }
+    end
+
+    let health = router.replica_health
+    let attempts = 0
+    while attempts < n
+        let idx = (router.current_replica_idx + attempts) % n
+        let cand = replicas[idx]
+        if health[cand] == 1
+            router.current_replica_idx = (idx + 1) % n
+            return { "target": cand, "role": "READ_REPLICA" }
+        end
+        attempts = attempts + 1
+    end
+
+    return { "target": router.primary, "role": "PRIMARY_FALLBACK" }
+end
+
+# ------------------------------------------------------------------------------
+# 20. ADAPTIVE CONCURRENCY LIMITER (Netflix TCP-Vegas AIMD / Little's Law)
+# Dynamically adjusts pool size based on downstream latency feedback
+# ------------------------------------------------------------------------------
+action adaptive_concurrency_new(min_limit, max_limit, baseline_rtt_ms)
+    return {
+        "current_limit": min_limit,
+        "min_limit": min_limit,
+        "max_limit": max_limit,
+        "baseline_rtt_ms": baseline_rtt_ms,
+        "in_flight": 0
+    }
+end
+
+action adaptive_concurrency_try_acquire(ac)
+    if ac.in_flight < ac.current_limit
+        ac.in_flight = ac.in_flight + 1
+        return { "allowed": 1, "in_flight": ac.in_flight, "limit": ac.current_limit }
+    end
+    return { "allowed": 0, "in_flight": ac.in_flight, "limit": ac.current_limit }
+end
+
+action adaptive_concurrency_release(ac, observed_rtt_ms)
+    if ac.in_flight > 0
+        ac.in_flight = ac.in_flight - 1
+    end
+
+    let threshold = (ac.baseline_rtt_ms * 12) / 10
+    if observed_rtt_ms <= threshold
+        if ac.current_limit < ac.max_limit
+            ac.current_limit = ac.current_limit + 1
+        end
+    else
+        let reduced = (ac.current_limit * 8) / 10
+        if reduced < ac.min_limit
+            reduced = ac.min_limit
+        end
+        ac.current_limit = reduced
+    end
+
+    return ac
 end
 

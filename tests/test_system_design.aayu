@@ -1,7 +1,7 @@
 # ==============================================================================
 # AAYU Master Test Suite: System Design Architecture Primitives
 # 100% Pure Self-Hosted AAYU - Zero Python, Zero C, Zero External Dependencies
-# Comprehensive Verification of 13 Industrial System Design Primitives:
+# Comprehensive Verification of 20 Industrial System Design Primitives:
 #   1. O(1) LRU Cache (Doubly-Linked Node Map with Sub-Microsecond Promotion)
 #   2. Token Bucket Rate Limiter (High-Frequency Burst Guard)
 #   3. Circuit Breaker (Cascading Failure Protection & Trial Recovery)
@@ -15,12 +15,19 @@
 #  11. Distributed Mutex & Lease Lock (Monotonic Fencing Tokens & TTL)
 #  12. Bulkhead Concurrency Guard (Downstream Failure Isolation & Load Shedding)
 #  13. Least-Connections Load Balancer (Real-Time Workload Distributor)
+#  14. Singleflight (Request Coalescing to Eliminate Cache Stampedes)
+#  15. XFetch (Probabilistic Early Cache Expiration - Vitter VLDB Standard)
+#  16. Distributed Saga Orchestrator (Multi-Service Compensating Rollbacks)
+#  17. Cluster Leader Election (Heartbeat Liveness & Automated Failover)
+#  18. Dead Letter Queue & Poison Pill Isolator (Crash-Proof Message Queues)
+#  19. CQRS Read-Write Database Query Router (Master-Replica Split)
+#  20. Adaptive Concurrency Limiter (Netflix TCP-Vegas AIMD / Little's Law)
 # ==============================================================================
 import "std/test.aayu"
 import "std/system.aayu"
 
 action main()
-    test_begin_suite("AAYU Native System Design Architecture Suite")
+    test_begin_suite("AAYU Native System Design Architecture Master Suite")
 
     # --------------------------------------------------------------------------
     # 1. O(1) LRU CACHE (Capacity 3)
@@ -35,8 +42,7 @@ action main()
     assert_eq(lru_cache_size(cache), 3, "Cache is full at capacity 3")
     assert_eq(lru_cache_get(cache, "k1"), "val_1", "k1 retrieved successfully")
 
-    # Access k1 makes k2 the least recently used (k1 -> k3 -> k2)
-    # Inserting k4 must evict k2 in strict O(1) time
+    # Access k1 makes k2 LRU (k1 -> k3 -> k2). Inserting k4 evicts k2.
     lru_cache_put(cache, "k4", "val_4")
     assert_eq(lru_cache_size(cache), 3, "Size stays at 3 after eviction")
     assert_true(lru_cache_get(cache, "k2") == null, "k2 was evicted as least recently used")
@@ -46,7 +52,6 @@ action main()
 
     # --------------------------------------------------------------------------
     # 2. TOKEN BUCKET RATE LIMITER
-    # Capacity 3 tokens, refill 1 token/sec
     # --------------------------------------------------------------------------
     print("\n[Phase 2] Testing Token Bucket Rate Limiter...")
     let limiter = rate_limiter_new(3, 1)
@@ -60,40 +65,31 @@ action main()
     let req3 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
     assert_eq(req3.allowed, 1, "Request 3 allowed")
 
-    # 4th burst request at same millisecond must be THROTTLED
     let req4 = rate_limiter_acquire(limiter, "client_ip_1", 1000)
     assert_eq(req4.allowed, 0, "Request 4 throttled (bucket empty)")
 
-    # After 2000ms (2 seconds), 2 tokens refilled!
     let req5 = rate_limiter_acquire(limiter, "client_ip_1", 3000)
     assert_eq(req5.allowed, 1, "Request 5 allowed after token replenishment")
 
     # --------------------------------------------------------------------------
     # 3. CIRCUIT BREAKER
-    # Threshold 3 failures, Recovery timeout 5000ms
     # --------------------------------------------------------------------------
     print("\n[Phase 3] Testing Circuit Breaker Failure Protection...")
     let cb = circuit_breaker_new(3, 5000)
     assert_eq(cb.status, "CLOSED", "Initial circuit state is CLOSED")
     assert_eq(circuit_breaker_allow_request(cb, 1000), 1, "Requests allowed in CLOSED state")
 
-    # Record 2 failures (under threshold 3)
     circuit_breaker_record_failure(cb, 1100)
     circuit_breaker_record_failure(cb, 1200)
     assert_eq(cb.status, "CLOSED", "State remains CLOSED under threshold")
 
-    # 3rd failure TRIPS the circuit to OPEN!
     circuit_breaker_record_failure(cb, 1300)
     assert_eq(cb.status, "OPEN", "Circuit tripped to OPEN after 3 failures")
-
-    # During cooldown, requests must be BLOCKED immediately
     assert_eq(circuit_breaker_allow_request(cb, 2000), 0, "Requests blocked while circuit is OPEN")
 
-    # After 5000ms cooldown (at t = 6500ms), circuit enters HALF_OPEN trial
     assert_eq(circuit_breaker_allow_request(cb, 6500), 1, "Trial request permitted in HALF_OPEN")
     assert_eq(cb.status, "HALF_OPEN", "Circuit transitioned to HALF_OPEN")
 
-    # 2 consecutive successful trials heal the circuit back to CLOSED
     circuit_breaker_record_success(cb)
     circuit_breaker_record_success(cb)
     assert_eq(cb.status, "CLOSED", "Circuit fully healed back to CLOSED state")
@@ -114,8 +110,6 @@ action main()
     assert_true(node1 != null, "Key 101 mapped to a storage node")
     assert_true(node2 != null, "Key 202 mapped to a storage node")
     assert_true(node3 != null, "Key 303 mapped to a storage node")
-
-    # Deterministic mapping: Same key must always map to same node
     assert_eq(consistent_hash_get_node(ch, "user_account_101"), node1, "Consistent hash is deterministic")
 
     # --------------------------------------------------------------------------
@@ -180,7 +174,6 @@ action main()
     assert_eq(backoff_ceiling(3, 100, 5000), 800, "Attempt 3 ceiling is 800ms")
     assert_eq(backoff_ceiling(10, 100, 5000), 5000, "Attempt 10 clamped to 5000ms max")
 
-    # Jitter values must be within [0, ceiling]
     let j_rand = backoff_with_jitter(2, 100, 5000, null)
     assert_true(j_rand >= 0, "Entropy jitter >= 0")
     assert_true(j_rand <= 400, "Entropy jitter <= 400")
@@ -198,7 +191,6 @@ action main()
     bloom_filter_add(bf, "txn_record_002")
     bloom_filter_add(bf, "txn_record_003")
 
-    # Invariants: All inserted keys MUST check positive (Zero False Negatives)
     assert_eq(bloom_filter_check(bf, "txn_record_001"), 1, "txn_record_001 is present")
     assert_eq(bloom_filter_check(bf, "txn_record_002"), 1, "txn_record_002 is present")
     assert_eq(bloom_filter_check(bf, "txn_record_003"), 1, "txn_record_003 is present")
@@ -216,8 +208,6 @@ action main()
     assert_eq(sw_r2.allowed, 1, "Sliding req 2 allowed")
     assert_eq(sw_r3.allowed, 0, "Sliding req 3 throttled (limit 2)")
 
-    # At t=1500ms (next window, half elapsed), previous window weighted at 50%
-    # Estimated load = 2 * (1000 - 500) / 1000 = 1. New request (1 + 1 <= 2) is permitted!
     let sw_r4 = sliding_window_acquire(sw, "user_mobile_99", 1500)
     assert_eq(sw_r4.allowed, 1, "Sliding req 4 allowed smoothly in next window")
 
@@ -230,19 +220,15 @@ action main()
     assert_eq(lock_a.acquired, 1, "Worker A acquired distributed lease lock")
     assert_eq(lock_a.fencing_token, 1, "Initial fencing token is 1")
 
-    # Worker B tries to acquire same resource
     let lock_b = dist_lock_acquire(lm, "db_partition_asia", "worker_B", 5000, 1200)
     assert_eq(lock_b.acquired, 0, "Worker B rejected while lock is active")
 
-    # Worker A renews lease
     let renew_a = dist_lock_renew(lm, "db_partition_asia", "worker_A", 1, 2000, 1300)
     assert_eq(renew_a.renewed, 1, "Worker A successfully renewed lease")
 
-    # Worker A releases lock cleanly
     let rel_a = dist_lock_release(lm, "db_partition_asia", "worker_A", 1)
     assert_eq(rel_a.released, 1, "Worker A released distributed lock")
 
-    # Now Worker B can acquire; monotonic fencing token increments
     let lock_b2 = dist_lock_acquire(lm, "db_partition_asia", "worker_B", 5000, 1400)
     assert_eq(lock_b2.acquired, 1, "Worker B acquired lock after release")
     assert_eq(lock_b2.fencing_token, 2, "Monotonic fencing token incremented to 2")
@@ -263,7 +249,6 @@ action main()
     assert_eq(bh_t3.queued, 1, "Slot 3 has queued flag")
     assert_eq(bh_t4.allowed, 0, "Slot 4 shed/rejected (concurrency and queue saturated)")
 
-    # Complete Slot 1: queued Slot 3 is promoted
     bulkhead_release(bh)
     assert_eq(bh.queue_count, 0, "Waiting queue drained")
     assert_eq(bh.active_count, 2, "Active worker count preserved at 2")
@@ -285,14 +270,146 @@ action main()
     let req_w3 = weighted_lb_acquire_least_conns(w_lb)
     assert_eq(req_w3, "srv_east_1", "Request 3 balanced back to srv_east_1")
 
-    # Release connection on srv_east_2
     weighted_lb_release(w_lb, "srv_east_2")
     let req_w4 = weighted_lb_acquire_least_conns(w_lb)
     assert_eq(req_w4, "srv_east_2", "Request 4 dynamically routed to freed srv_east_2")
 
+    # --------------------------------------------------------------------------
+    # 14. SINGLEFLIGHT (Cache Stampede Defense)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 14] Testing Singleflight (Request Coalescing / Anti-Stampede)...")
+    let sf = singleflight_new()
+    let sf_call1 = singleflight_enter(sf, "trending_topic_india")
+    let sf_call2 = singleflight_enter(sf, "trending_topic_india")
+    let sf_call3 = singleflight_enter(sf, "trending_topic_india")
+
+    assert_eq(sf_call1.execute, 1, "Leader request executes database fetch")
+    assert_eq(sf_call2.execute, 0, "Follower 1 request coalesced into leader")
+    assert_eq(sf_call3.execute, 0, "Follower 2 request coalesced into leader")
+
+    let sf_finish = singleflight_complete(sf, "trending_topic_india", { "views": 1500000 })
+    assert_eq(sf_finish.waiters_served, 2, "Served 2 waiting coalesced callers with single DB call")
+    assert_eq(sf_finish.broadcast_result.views, 1500000, "Coalesced data broadcasted cleanly")
+
+    # --------------------------------------------------------------------------
+    # 15. XFETCH (Probabilistic Early Cache Expiration)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 15] Testing XFetch Probabilistic Early Cache Refresh...")
+    assert_eq(xfetch_should_refresh(0, 100, 100, null), 1, "Expired key immediately triggers refresh")
+    assert_eq(xfetch_should_refresh(60, 100, 100, null), 1, "Near-expiry key (TTL 60ms <= 100ms) proactively refreshes")
+    assert_eq(xfetch_should_refresh(60000, 100, 100, null), 0, "Warm key (TTL 60s) avoids unnecessary refresh")
+
+    # --------------------------------------------------------------------------
+    # 16. DISTRIBUTED SAGA ORCHESTRATOR
+    # --------------------------------------------------------------------------
+    print("\n[Phase 16] Testing Distributed Saga Multi-Service Orchestrator...")
+    let saga = saga_new("SAGA_FLIGHT_HOTEL_BOOKING")
+    saga_add_step(saga, "FLIGHT_RESERVED", "book_flight", "refund_flight")
+    saga_add_step(saga, "HOTEL_RESERVED", "book_hotel", "cancel_hotel")
+    saga_add_step(saga, "CAR_RENTAL", "book_car", "cancel_car")
+
+    saga_record_step_success(saga, "FLIGHT_RESERVED")
+    saga_record_step_success(saga, "HOTEL_RESERVED")
+
+    # Car rental fails -> Must compensate Hotel then Flight in reverse order!
+    let saga_rollback = saga_abort_and_compensate(saga, "CAR_RENTAL", "FLEET_DEPLETED")
+    assert_eq(saga_rollback.status, "COMPENSATED", "Saga transitioned to COMPENSATED state")
+    assert_eq(saga_rollback.failed_step, "CAR_RENTAL", "Failed step identified as CAR_RENTAL")
+    assert_eq(len(saga_rollback.compensated_steps), 2, "2 steps rolled back")
+    assert_eq(saga_rollback.compensated_steps[0], "HOTEL_RESERVED", "Compensated Hotel first (reverse order)")
+    assert_eq(saga_rollback.compensated_steps[1], "FLIGHT_RESERVED", "Compensated Flight second")
+
+    # --------------------------------------------------------------------------
+    # 17. CLUSTER LEADER ELECTION
+    # --------------------------------------------------------------------------
+    print("\n[Phase 17] Testing Cluster Leader Election with Automated Failover...")
+    let cluster = cluster_election_new(2000)
+    cluster_register_node(cluster, "node_zeta")
+    cluster_register_node(cluster, "node_alpha")
+    cluster_register_node(cluster, "node_kappa")
+
+    # Only node_alpha and node_kappa send heartbeats
+    cluster_heartbeat(cluster, "node_alpha", 1000)
+    cluster_heartbeat(cluster, "node_kappa", 1000)
+
+    let elect1 = cluster_elect_leader(cluster, 1000)
+    assert_eq(elect1.status, "NEW_LEADER_ELECTED", "New leader elected")
+    assert_eq(elect1.leader, "node_alpha", "Alphabetically lowest healthy node is leader")
+    assert_eq(elect1.term, 1, "Cluster term is 1")
+
+    # While healthy, term and leader remain stable
+    let elect2 = cluster_elect_leader(cluster, 1500)
+    assert_eq(elect2.status, "LEADER_HEALTHY", "Leader remains healthy within timeout")
+
+    # node_alpha crashes (stops heartbeating). At t=4000ms (timeout passed), node_kappa takes over!
+    cluster_heartbeat(cluster, "node_kappa", 4000)
+    let elect3 = cluster_elect_leader(cluster, 4000)
+    assert_eq(elect3.status, "NEW_LEADER_ELECTED", "Automated failover triggered")
+    assert_eq(elect3.leader, "node_kappa", "node_kappa elected as new leader")
+    assert_eq(elect3.term, 2, "Cluster term incremented to 2")
+
+    # --------------------------------------------------------------------------
+    # 18. DEAD LETTER QUEUE (DLQ) & POISON PILL ISOLATION
+    # --------------------------------------------------------------------------
+    print("\n[Phase 18] Testing Dead Letter Queue (DLQ) Poison Pill Isolation...")
+    let dlq = dlq_new(2)
+    let fail1 = dlq_record_failure(dlq, "msg_toxic_99", { "malicious_sql": "1; DROP TABLE users;" }, "SYNTAX_VIOLATION", 1000)
+    assert_eq(fail1.outcome, "RETRY_SCHEDULED", "First failure schedules retry")
+    assert_eq(fail1.attempts, 1, "Attempt count is 1")
+
+    let fail2 = dlq_record_failure(dlq, "msg_toxic_99", { "malicious_sql": "1; DROP TABLE users;" }, "SYNTAX_VIOLATION", 1100)
+    assert_eq(fail2.outcome, "RETRY_SCHEDULED", "Second failure schedules retry")
+
+    # 3rd failure exceeds max_retries (2) -> Automatically isolated into DLQ!
+    let fail3 = dlq_record_failure(dlq, "msg_toxic_99", { "malicious_sql": "1; DROP TABLE users;" }, "SYNTAX_VIOLATION", 1200)
+    assert_eq(fail3.outcome, "MOVED_TO_DLQ", "Poison pill isolated into Dead Letter Queue")
+    assert_eq(len(dlq.dead_letters), 1, "DLQ contains 1 isolated message")
+    assert_eq(dlq.dead_letters[0].msg_id, "msg_toxic_99", "DLQ record contains toxic message ID")
+
+    # --------------------------------------------------------------------------
+    # 19. CQRS READ-WRITE DATABASE QUERY ROUTER
+    # --------------------------------------------------------------------------
+    print("\n[Phase 19] Testing CQRS Read-Write Query Router...")
+    let router = rw_router_new("aurora_primary_master")
+    rw_router_add_replica(router, "read_replica_mumbai")
+    rw_router_add_replica(router, "read_replica_delhi")
+
+    let route_write = rw_router_route(router, "WRITE")
+    assert_eq(route_write.target, "aurora_primary_master", "Mutation routes to Primary Master")
+    assert_eq(route_write.role, "PRIMARY", "Primary role verified")
+
+    let route_read1 = rw_router_route(router, "SELECT")
+    assert_eq(route_read1.target, "read_replica_mumbai", "Read 1 routes to mumbai replica")
+
+    let route_read2 = rw_router_route(router, "SELECT")
+    assert_eq(route_read2.target, "read_replica_delhi", "Read 2 routes to delhi replica")
+
+    # Replica mumbai goes down for maintenance
+    rw_router_set_replica_health(router, "read_replica_mumbai", 0)
+    let route_read3 = rw_router_route(router, "SELECT")
+    assert_eq(route_read3.target, "read_replica_delhi", "Traffic automatically diverted from unhealthy replica")
+
+    # --------------------------------------------------------------------------
+    # 20. ADAPTIVE CONCURRENCY LIMITER (AIMD / Little's Law)
+    # --------------------------------------------------------------------------
+    print("\n[Phase 20] Testing Adaptive Concurrency Limiter (AIMD)...")
+    let ac = adaptive_concurrency_new(4, 16, 50)
+    assert_eq(ac.current_limit, 4, "Initial concurrency floor is 4")
+
+    # Fast response (RTT 25ms <= 50ms) -> Additive Increase (Limit + 1)
+    adaptive_concurrency_release(ac, 25)
+    assert_eq(ac.current_limit, 5, "Limit additive increased to 5")
+
+    adaptive_concurrency_release(ac, 30)
+    assert_eq(ac.current_limit, 6, "Limit additive increased to 6")
+
+    # Latency spike (RTT 180ms >> 50ms baseline) -> Multiplicative Decrease (Limit * 0.8)
+    adaptive_concurrency_release(ac, 180)
+    assert_eq(ac.current_limit, 4, "Congestion detected: Limit multiplicative decreased back to floor")
+
     test_end_suite()
     print("\n==================================================================")
-    print("   ALL 13 NATIVE SYSTEM DESIGN ARCHITECTURE TESTS PASSED!         ")
+    print("   ALL 20 NATIVE SYSTEM DESIGN ARCHITECTURE TESTS PASSED!         ")
     print("==================================================================")
 end
 
