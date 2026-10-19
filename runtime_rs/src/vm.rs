@@ -242,6 +242,16 @@ impl AayuVM {
             }
         } else if a.is_float() && b.is_float() {
             a.as_float() == b.as_float()
+        } else if a.is_float() && (b.is_int() || b.is_bigint()) {
+            match self.get_int128(b) {
+                Some(ib) => a.as_float() == (ib as f64),
+                None => false,
+            }
+        } else if (a.is_int() || a.is_bigint()) && b.is_float() {
+            match self.get_int128(a) {
+                Some(ia) => (ia as f64) == b.as_float(),
+                None => false,
+            }
         } else if a.is_string() && b.is_string() {
             self.string_heap.get(a.as_string_idx()) == self.string_heap.get(b.as_string_idx())
         } else if a.is_bool() && b.is_bool() {

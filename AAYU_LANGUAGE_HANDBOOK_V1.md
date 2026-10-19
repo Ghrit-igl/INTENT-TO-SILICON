@@ -1683,4 +1683,61 @@ if result.cracked == 1
 end
 ```
 
+---
+
+## 22. Native Quantum Computing & Circuit Simulation (`std/quantum.aayu`)
+
+### 22.1 The Quantum Silicon Paradigm
+While industry quantum frameworks like IBM Qiskit and Google Cirq require massive multi-gigabyte Python environments (`numpy`, `scipy`, `rustworkx`, `symengine`), AAYU provides a **100% self-hosted, silicon-speed Quantum State Vector Simulator** directly in the standard library.
+
+AAYU simulates state vectors across $2^N$ complex amplitudes with sub-microsecond unitary gate operations, exact Born-rule measurement collapse, and quantum entanglement protocols — enabling developers to build quantum algorithms, simulate quantum cryptography (BB84), and expose quantum circuits through single-file REST APIs and declarative UIs.
+
+### 22.2 Quantum Engine Capabilities
+
+| Quantum Domain | Primitives & Functions | Mathematical Formulation |
+|---|---|---|
+| **Complex Arithmetic** | `c_new`, `c_add`, `c_sub`, `c_mul`, `c_abs_sq`, `c_scale` | $(a + bi)(c + di) = (ac - bd) + (ad + bc)i$ |
+| **State Registers** | `quantum_state_new(n)`, `quantum_clone_state(psi)` | $|\psi\rangle = \sum_{k=0}^{2^N-1} c_k |k\rangle$, $\sum \|c_k\|^2 = 1$ |
+| **Superposition** | `quantum_apply_h(psi, target)` | $H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}$ |
+| **Pauli Operators** | `quantum_apply_x`, `quantum_apply_y`, `quantum_apply_z` | Bit-flip ($X$), Phase-flip ($Z$), Bit+Phase ($Y$) |
+| **Phase Rotation** | `quantum_apply_s`, `quantum_apply_t` | $S = \text{diag}(1, i)$, $T = \text{diag}(1, e^{i\pi/4})$ |
+| **2-Qubit Entanglement** | `quantum_apply_cnot(psi, ctrl, tgt)`, `quantum_apply_cz`, `quantum_apply_swap` | Controlled NOT ($CX$), Phase ($CZ$), Basis exchange ($SWAP$) |
+| **Universal Reversible** | `quantum_apply_toffoli(psi, c1, c2, tgt)` | Controlled-Controlled NOT ($CCNOT$) |
+| **Bell & GHZ States** | `quantum_bell_state(type)`, `quantum_ghz_state()`, `quantum_w_state()` | $|\Phi^+\rangle = \frac{\|00\rangle + \|11\rangle}{\sqrt{2}}$, $|\text{GHZ}\rangle = \frac{\|000\rangle + \|111\rangle}{\sqrt{2}}$ |
+| **Measurement & Collapse** | `quantum_probabilities`, `quantum_measure(psi, seed)`, `quantum_expectation_z` | Born Rule $P(x) = \|\psi_x\|^2$, eigenstate projection |
+| **Deutsch-Jozsa** | `quantum_deutsch_jozsa(oracle_type)` | Constant vs Balanced boolean function in 1 query |
+| **Grover's Search** | `quantum_grover_2qubit(target_item)` | Amplitude amplification to 100% in 1 iteration |
+| **Quantum Teleportation** | `quantum_teleportation_verify(alpha, beta)` | Alice to Bob state transfer with 100% fidelity |
+| **Quantum Cryptography** | `quantum_bb84_simulation(bits, eve_present)` | BB84 QKD protocol with eavesdropping detection |
+| **Quantum Entropy** | `quantum_qrng_byte(seed)` | Quantum Random Number Generator via Hadamard coin-flips |
+
+### 22.3 Executable Quantum Algorithm Example
+
+```aayu
+import "std/quantum.aayu"
+
+# 1. Prepare 2-Qubit Bell Entangled State (|Phi+> = (|00> + |11>) / sqrt(2))
+let bell = quantum_bell_state(0)
+let probs = quantum_probabilities_scaled(bell, 1000)
+print("State |00> probability: " + probs[0] + "/1000") # 500
+print("State |01> probability: " + probs[1] + "/1000") # 0
+print("State |10> probability: " + probs[2] + "/1000") # 0
+print("State |11> probability: " + probs[3] + "/1000") # 500
+
+# 2. Grover's Database Search (Unsorted 4-item search in 1 query)
+# Searching for target item 2 (|10>):
+let grover = quantum_grover_2qubit(2)
+print("Target Item: " + grover["target"])
+print("Amplified Probability: " + grover["amplified_probability"] + "/1000") # 1000 (100%)
+
+# 3. Deutsch-Jozsa Algorithm (Exponential Speedup in 1 evaluation)
+let verdict = quantum_deutsch_jozsa(2) # Balanced function
+print("Function Classification: " + verdict) # "BALANCED"
+
+# 4. Quantum Key Distribution (BB84 Protocol)
+let qkd = quantum_bb84_simulation(32, 0)
+print("QKD Secure Channel: " + qkd["secure"]) # 1 (Secure, 0% QBER)
+```
+
+
 

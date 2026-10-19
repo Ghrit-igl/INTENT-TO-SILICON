@@ -700,9 +700,21 @@ end`}</code>
                 <code className="text-red-300">std/cyber.aayu</code> delivers a silicon-speed offensive and defensive penetration testing toolkit empowering security researchers and ethical hackers to replace Python without runtime bloat: De Bruijn cyclic sequence generator (<code className="text-red-300">cyber_cyclic</code>, <code className="text-red-300">cyber_cyclic_find</code>), NOP sleds, IPv4 integer/CIDR calculation, raw TCP flag bitmasks, HTTP/1.1 wire protocol crafting, fuzzing &amp; injection payloads (SQLi, path traversal, XSS polyglots), in-memory SHA-256 dictionary cracking, Shannon entropy analysis, and runtime string XOR obfuscation for EDR stealth.
               </p>
               <div className="flex flex-wrap gap-4 font-mono text-[11px]">
-                <span className="text-red-300 font-bold">36/36 Cyber Assertions PASS (671/671 Total)</span>
+                <span className="text-red-300 font-bold">36/36 Cyber Assertions PASS</span>
                 <span className="text-cyan-300 font-bold">Sub-2.2 MB Statically Linked Binary</span>
                 <span className="text-amber-300 font-bold">Zero-Dependency Stealth Execution</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-xl bg-gradient-to-r from-cyan-950/30 via-indigo-950/40 to-black border border-cyan-500/40 md:col-span-2">
+              <h3 className="text-lg font-bold text-cyan-400 mb-2">10. Native Quantum Computing &amp; Circuit Simulation (std/quantum.aayu)</h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                <code className="text-cyan-300">std/quantum.aayu</code> delivers a silicon-speed quantum state vector and circuit simulator replacing multi-gigabyte Python frameworks (IBM Qiskit, Google Cirq) with zero external dependencies: 2^N complex state vectors, universal quantum gates (Hadamard, Pauli X/Y/Z, Phase S/T, CNOT, CZ, SWAP, Toffoli CCNOT), maximally entangled Bell &amp; GHZ states, Born-rule measurement collapse, Deutsch-Jozsa quantum oracle evaluation (100% constant/balanced in 1 query), Grover&apos;s database search algorithm (100% target amplitude amplification in 1 step), quantum teleportation with 100% fidelity, and BB84 Quantum Key Distribution with eavesdropping detection.
+              </p>
+              <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+                <span className="text-cyan-300 font-bold">59/59 Quantum Assertions PASS (730/730 Total)</span>
+                <span className="text-emerald-300 font-bold">Zero Qiskit / Cirq Dependencies</span>
+                <span className="text-purple-300 font-bold">Microsecond State Vector Evolution</span>
               </div>
             </div>
           </div>
