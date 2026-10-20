@@ -91,6 +91,26 @@ To demonstrate the full industrial capacity of AAYU, the repository includes a c
 
 ---
 
+## 🏛️ The 5 Sovereign Showcase Applications (Silicon Power Demonstration)
+
+To demonstrate the full breadth and industrial depth of AAYU across Distributed Systems, Cybersecurity, Autonomous Robotics, and High-Frequency FinTech, the repository features **5 pure self-hosted `.aayu` applications**:
+
+| # | Application | Source File | Core Technologies Proven | Run Command |
+|---|---|---|---|---|
+| **1** | **Decentralized P2P Cloud & Streaming Vault** | [`examples/p2p_cloud_vault.aayu`](examples/p2p_cloud_vault.aayu) | Kademlia DHT XOR Distance, BitTorrent Magnet URIs, LZW/RLE Stream Compression, Bit-Exact Replication | `aayu run examples/p2p_cloud_vault.aayu` |
+| **2** | **Autonomous Cyber Sentinel & SIEM Engine** | [`examples/cyber_sentinel_siem.aayu`](examples/cyber_sentinel_siem.aayu) | Linear ReDoS-Immune DPI, CIDR Subnet Policy, De Bruijn Cyclic Offset Canary, Shannon Entropy | `aayu run examples/cyber_sentinel_siem.aayu` |
+| **3** | **Autonomous Swarm Robotics & Physics Engine** | [`examples/swarm_physics_engine.aayu`](examples/swarm_physics_engine.aayu) | Rigid-Body Momentum Conservation Invariant, 2D/3D Vector Normals, LiDAR Raycasting, A* Grid Navigation, DSU Fleet Mesh | `aayu run examples/swarm_physics_engine.aayu` |
+| **4** | **High-Frequency In-Memory Trading Core** | [`examples/hft_trading_core.aayu`](examples/hft_trading_core.aayu) | Content-Addressable Storage (CAS) Value Interning, Columnar FoR Compression, Value Conservation Invariant, Sybil Overdraft Protection | `aayu run examples/hft_trading_core.aayu` |
+| **5** | **The Unified Silicon Apex Citadel** | [`examples/aayu_apex_citadel.aayu`](examples/aayu_apex_citadel.aayu) | **5-in-1 Master Platform** integrating P2P DHT, Cyber DPI, Swarm Robotics, and Liquid FinTech Ledger into a single chained Merkle root | `aayu run examples/aayu_apex_citadel.aayu` |
+
+> **Automated Master Test Verification:**
+> ```powershell
+> aayu test tests/test_master_5_projects.aayu
+> # -> TEST SUITE PASSED: 33/33 assertions verified cleanly with ZERO errors.
+> ```
+
+---
+
 ## 🌊 Liquid Data 2.0: The Molecular DAG Breakthrough
 
 Inspired by the internal computer science principles of **Linus Torvalds' Git** and columnar analytical engines (Apache Arrow, Parquet), **Liquid Data 2.0 (`std/liquid2.aayu`)** moves data storage from bloated raw text into a fluid molecular Directed Acyclic Graph.
@@ -263,8 +283,8 @@ print("Bob Balance:   " + ledger["balances"]["0xBob"])   # 40000 ASC
 
 ## 📊 Production Benchmarks & Empirical Proofs
 
-### The 30 Native Silicon Test Suites (1,002/1,002 Pass)
-AAYU's reliability is proven by **1,002 passing assertions across 30 distinct test suites** executed directly on native `aayu.exe`:
+### The 31 Native Silicon Test Suites (1,035/1,035 Pass)
+AAYU's reliability is proven by **1,035 passing assertions across 31 distinct test suites** executed directly on native `aayu.exe`:
 
 | # | Test Suite File | Test Objective | Result | Assertions |
 |---|---|---|---|---|
@@ -298,7 +318,8 @@ AAYU's reliability is proven by **1,002 passing assertions across 30 distinct te
 | 28 | `tests/test_agent_consensus_stream.aayu` | **Autonomous AI Agent Swarms, Raft Distributed Consensus & Real-Time Stream CEP Analytics** | ✅ PASS | **66 / 66** |
 | 29 | `tests/test_physics_graph_geo.aayu` | **Rigid 2D/3D Physics, Momentum Conservation, Raycasting, Dijkstra, A*, Kahn DAG & QuadTree** | ✅ PASS | **67 / 67** |
 | 30 | `tests/test_regex_p2p_compression.aayu` | **Linear ReDoS-Immune Regex Engine, Kademlia P2P DHT Routing & Lossless LZW/RLE Codec** | ✅ PASS | **75 / 75** |
-| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **1,002 / 1,002** |
+| 31 | `tests/test_master_5_projects.aayu` | **5 Master Projects Integration Suite (P2P Vault, Cyber SIEM, Swarm Robotics, HFT Core, Apex Citadel)** | ✅ PASS | **33 / 33** |
+| **TOTAL** | **Comprehensive Silicon Verification** | **Zero Failures, 100% Ground Truth Verified** | ✅ **100% PASS** | **1,035 / 1,035** |
 
 
 ### ⚡ Ground-Truth Execution Speed & Benchmark Reality

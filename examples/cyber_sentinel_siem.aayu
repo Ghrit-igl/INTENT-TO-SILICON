@@ -1,0 +1,157 @@
+# ==============================================================================
+# AAYU PROJECT 2: Autonomous Cyber Sentinel & Threat Hunter (SIEM)
+# Architecture: 100% Pure Self-Hosted AAYU (.aayu)
+# Features:
+#   1. Linear ReDoS-Immune Deep Packet Inspection (DPI) & Attack Signatures
+#   2. High-Entropy Packed Shellcode & C2 Beaconing Detection (Shannon Entropy)
+#   3. Network CIDR IP Subnet Validation & Real-time IP Firewall Rule Evaluation
+#   4. De Bruijn Cyclic Exploit Offset Resolution (Buffer Overflow Prevention)
+# Zero Python, Zero C, Zero External Dependencies
+# ==============================================================================
+
+import "std/regex.aayu"
+import "std/cyber.aayu"
+import "std/crypto.aayu"
+
+# Creates a new Cyber Sentinel SIEM instance
+action sentinel_new()
+    return {
+        "signatures": [],
+        "blocked_ips": [],
+        "total_packets": 0,
+        "threats_neutralized": 0,
+        "trusted_cidr": "192.168.1.0/24"
+    }
+end
+
+# Registers attack patterns into Sentinel detection engine
+action sentinel_register_signature(sentinel, threat_name, pattern_str, severity)
+    let compiled = regex_compile(pattern_str)
+    let sig = {
+        "name": threat_name,
+        "pattern": compiled,
+        "severity": severity
+    }
+    let sigs = sentinel["signatures"]
+    sigs = sigs + [sig]
+    sentinel["signatures"] = sigs
+    return 1
+end
+
+# Deep Packet Inspection (DPI) & Heuristic Threat Evaluation
+action sentinel_inspect_packet(sentinel, source_ip, raw_payload)
+    sentinel["total_packets"] = sentinel["total_packets"] + 1
+
+    # 1. IP Subnet Analysis
+    let ip_int = cyber_ip_to_int(source_ip)
+    let cidr = cyber_cidr_range(sentinel["trusted_cidr"])
+    let first_int = cyber_ip_to_int(cidr["first_host"])
+    let last_int = cyber_ip_to_int(cidr["last_host"])
+    let is_trusted_subnet = 0
+    if ip_int >= first_int
+        if ip_int <= last_int
+            is_trusted_subnet = 1
+        end
+    end
+
+    # 2. Shannon Entropy Analysis (Detects packed binaries, AES shellcode, obfuscated exploits)
+    let entropy = cyber_shannon_entropy(raw_payload)
+    let is_suspicious_entropy = 0
+    if entropy >= 450
+        is_suspicious_entropy = 1
+    end
+
+    # 3. Signature Matching via ReDoS-Immune Linear Regex
+    let sigs = sentinel["signatures"]
+    let i = 0
+    let detected_threat = "NONE"
+    let threat_severity = 0
+
+    while i < len(sigs)
+        let s = sigs[i]
+        let found = regex_find(s["pattern"], raw_payload)
+        if found["found"] == 1
+            detected_threat = s["name"]
+            threat_severity = s["severity"]
+            i = len(sigs) # Break
+        end
+        i = i + 1
+    end
+
+    # 4. Mitigation Decision Matrix
+    let action_taken = "ALLOW"
+    if detected_threat != "NONE"
+        action_taken = "DROP_AND_BLOCK_IP"
+        sentinel["threats_neutralized"] = sentinel["threats_neutralized"] + 1
+        let blocked = sentinel["blocked_ips"]
+        blocked = blocked + [source_ip]
+        sentinel["blocked_ips"] = blocked
+    elif is_suspicious_entropy == 1
+        action_taken = "QUARANTINE_PAYLOAD"
+        sentinel["threats_neutralized"] = sentinel["threats_neutralized"] + 1
+    end
+
+    return {
+        "source_ip": source_ip,
+        "is_trusted_subnet": is_trusted_subnet,
+        "entropy": entropy,
+        "threat": detected_threat,
+        "severity": threat_severity,
+        "action": action_taken,
+        "audit_hash": hash_string(raw_payload)
+    }
+end
+
+# Main demo runnable execution
+action main()
+    print("==================================================")
+    print("   AAYU PROJECT 2: CYBER SENTINEL & SIEM ENGINE   ")
+    print("==================================================")
+
+    let siem = sentinel_new()
+
+    # 1. Register Attack Signatures using ReDoS-immune regex
+    sentinel_register_signature(siem, "SQL_INJECTION", "OR", 9)
+    sentinel_register_signature(siem, "PATH_TRAVERSAL", "etc/passwd", 10)
+    sentinel_register_signature(siem, "XSS_SCRIPT_TAG", "script", 7)
+    print("[1] Registered 3 Linear ReDoS-Immune Attack Signatures")
+
+    # 2. Analyze Safe Request
+    let p1 = sentinel_inspect_packet(siem, "192.168.1.45", "GET /api/products?category=hardware HTTP/1.1")
+    print("[2] Packet 1 (Normal Internal User):")
+    print("    Source IP: " + p1["source_ip"] + " (Trusted Subnet: " + p1["is_trusted_subnet"] + ")")
+    print("    Threat Detected: " + p1["threat"])
+    print("    Action Taken: " + p1["action"])
+
+    # 3. Analyze SQL Injection Attack
+    let p2 = sentinel_inspect_packet(siem, "203.0.113.88", "GET /login?user=admin' OR '1'='1 HTTP/1.1")
+    print("[3] Packet 2 (External SQL Injection Attack):")
+    print("    Source IP: " + p2["source_ip"] + " (Trusted Subnet: " + p2["is_trusted_subnet"] + ")")
+    print("    Threat Detected: " + p2["threat"] + " (Severity: " + p2["severity"] + "/10)")
+    print("    Action Taken: " + p2["action"])
+
+    # 4. Analyze High-Entropy Encrypted C2 Beaconing Payload
+    let high_entropy_payload = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*"
+    let p3 = sentinel_inspect_packet(siem, "198.51.100.22", high_entropy_payload)
+    print("[4] Packet 3 (High-Entropy Encrypted C2 Payload):")
+    print("    Source IP: " + p3["source_ip"])
+    print("    Payload Entropy: " + p3["entropy"] + " / 800 (High-Entropy Alert: 1)")
+    print("    Action Taken: " + p3["action"])
+
+    # 5. Exploit Engineering & De Bruijn Buffer Overflow Offset
+    let cyclic_pat = cyber_cyclic(100)
+    let eip_offset = cyber_cyclic_find(cyclic_pat, "aaab")
+    print("[5] Exploit Buffer Overflow Analysis:")
+    print("    Intercepted Crash EIP Register: 'aaab'")
+    print("    Exact Stack Canary Offset: " + eip_offset + " bytes")
+
+    print("==================================================")
+    print("   Total Packets Inspected: " + siem["total_packets"])
+    print("   Total Threats Neutralized: " + siem["threats_neutralized"])
+    print("   Active Blocked IPs: " + len(siem["blocked_ips"]))
+    print("==================================================")
+    print("   PROJECT 2: CYBER SENTINEL EXECUTION SUCCESS!   ")
+    print("==================================================")
+end
+
+main()

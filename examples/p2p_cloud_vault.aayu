@@ -1,0 +1,149 @@
+# ==============================================================================
+# AAYU PROJECT 1: Decentralized P2P Cloud & Streaming Vault
+# Architecture: 100% Pure Self-Hosted AAYU (.aayu)
+# Features:
+#   1. Kademlia DHT Node Clustering with 32-Bit Bitwise XOR Distance Metric
+#   2. BitTorrent Magnet URI Content Addressing & Tracker Registry
+#   3. Lossless Stream Compression (LZW & RLE) with 100% Bit-Exact Verification
+#   4. Dynamic Peer Replication & Fault-Tolerant Chunk Distribution
+# Zero Python, Zero C, Zero External Dependencies
+# ==============================================================================
+
+import "std/p2p.aayu"
+import "std/compression.aayu"
+import "std/crypto.aayu"
+
+# Initializes a decentralized storage peer node with routing table and DHT
+action vault_init_node(node_id, ip_str, port)
+    let node = p2p_node_new(node_id, ip_str, port)
+    let dht = p2p_dht_new(node)
+    let routing = p2p_routing_table_new(node, 20)
+    return {
+        "node": node,
+        "dht": dht,
+        "routing": routing,
+        "files_count": 0
+    }
+end
+
+# Ingests, compresses, hashes, and registers a payload into the decentralized vault
+action vault_store_payload(peer_vault, filename, raw_content)
+    # 1. Cryptographic Content-Addressing via FIPS SHA-256
+    let content_hash = hash_string(raw_content)
+
+    # 2. Lossless LZW Compression Engine
+    let lzw_result = lzw_compress(raw_content)
+    let compressed_codes = lzw_result["codes"]
+    let comp_ratio = compression_ratio(lzw_result["original_len"], lzw_result["compressed_len"])
+
+    # 3. Bit-Exact Integrity Pre-Flight Check
+    let restored_check = lzw_decompress(compressed_codes)
+    let is_lossless = compression_verify_lossless(raw_content, restored_check)
+
+    # 4. Standard Magnet URI Protocol Generation
+    let magnet = p2p_magnet_uri(content_hash, filename, ["udp://tracker.aayu.io:6969", "udp://node2.aayu.net:1337"])
+
+    # 5. Pack Distributed Chunk Envelope
+    let chunk_payload = {
+        "filename": filename,
+        "hash": content_hash,
+        "raw_bytes": lzw_result["original_len"],
+        "compressed_bytes": lzw_result["compressed_len"],
+        "compression_ratio": comp_ratio,
+        "is_lossless": is_lossless,
+        "lzw_codes": compressed_codes,
+        "magnet": magnet,
+        "publisher_id": peer_vault["node"]["id"]
+    }
+
+    # 6. Insert Into Local DHT Store
+    p2p_dht_store(peer_vault["dht"], content_hash, chunk_payload)
+    peer_vault["files_count"] = peer_vault["files_count"] + 1
+
+    return chunk_payload
+end
+
+# Replicates payload to a target peer in the Kademlia swarm
+action vault_replicate_to_peer(src_vault, dst_vault, content_hash)
+    # Register peer nodes in each other's routing table
+    p2p_routing_table_insert(src_vault["routing"], dst_vault["node"])
+    p2p_routing_table_insert(dst_vault["routing"], src_vault["node"])
+
+    # Calculate XOR Distance Metric between nodes
+    let dist = p2p_xor_distance(src_vault["node"]["id"], dst_vault["node"]["id"])
+
+    # Replicate DHT Record
+    let rep_res = p2p_dht_replicate(src_vault["dht"], dst_vault["dht"], content_hash)
+
+    return {
+        "status": rep_res,
+        "xor_distance": dist,
+        "source_id": src_vault["node"]["id"],
+        "target_id": dst_vault["node"]["id"]
+    }
+end
+
+# Retrieves, verifies, and decompresses payload from DHT
+action vault_fetch_and_restore(peer_vault, content_hash)
+    let record = p2p_dht_get(peer_vault["dht"], content_hash)
+    if record["found"] == 0
+        return { "success": 0, "error": "NOT_FOUND_IN_DHT" }
+    end
+
+    let envelope = record["value"]
+    let restored_content = lzw_decompress(envelope["lzw_codes"])
+    let verify_hash = hash_string(restored_content)
+
+    let is_valid = 0
+    if verify_hash == content_hash
+        is_valid = 1
+    end
+
+    return {
+        "success": 1,
+        "filename": envelope["filename"],
+        "restored_content": restored_content,
+        "is_hash_valid": is_valid,
+        "magnet": envelope["magnet"],
+        "storage_saved": envelope["compression_ratio"]
+    }
+end
+
+# Main demo runnable execution
+action main()
+    print("==================================================")
+    print("   AAYU PROJECT 1: P2P CLOUD & STREAMING VAULT    ")
+    print("==================================================")
+
+    # 1. Initialize 2 Swarm Nodes
+    let node_a = vault_init_node(10, "127.0.0.1", 4001)
+    let node_b = vault_init_node(18, "127.0.0.1", 4002)
+    print("[1] Initialized Peer Node A (ID: 10) & Peer Node B (ID: 18)")
+
+    # 2. Store Payload on Node A
+    let test_doc = "AAYU_INTENT_TO_SILICON_HIGH_SPEED_P2P_DECENTRALIZED_STORAGE_NETWORK_2026"
+    let stored = vault_store_payload(node_a, "silicon_manifest.aayu", test_doc)
+    print("[2] Stored & Compressed Payload: " + stored["filename"])
+    print("    Original Size: " + stored["raw_bytes"] + " bytes -> Compressed: " + stored["compressed_bytes"] + " bytes")
+    print("    Lossless Verified: " + stored["is_lossless"])
+    print("    Magnet URI: " + stored["magnet"])
+
+    # 3. Replicate Across Swarm using Kademlia XOR Metric
+    let rep = vault_replicate_to_peer(node_a, node_b, stored["hash"])
+    print("[3] Swarm Replication Complete:")
+    print("    XOR Metric Distance (10 ^ 18): " + rep["xor_distance"])
+    print("    Replication Status: " + rep["status"])
+
+    # 4. Fetch & Decompress from Node B (Proving decentralized availability)
+    let restored = vault_fetch_and_restore(node_b, stored["hash"])
+    print("[4] Fetched from Peer Node B:")
+    print("    Filename: " + restored["filename"])
+    print("    Restored Payload: " + restored["restored_content"])
+    print("    Hash Verification Seal: " + restored["is_hash_valid"])
+    print("==================================================")
+    print("   PROJECT 1: P2P VAULT EXECUTION SUCCESSFUL!     ")
+    print("==================================================")
+end
+
+main()
+

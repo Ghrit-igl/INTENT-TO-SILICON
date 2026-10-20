@@ -1,0 +1,128 @@
+# ==============================================================================
+# AAYU SHOWCASE PROJECT 3: AUTONOMOUS SWARM NAVIGATION & RIGID BODY PHYSICS
+# 100% Pure Self-Hosted AAYU (.aayu) on Silicon Virtual Machine
+# Features:
+#   - 2D/3D Vector Mathematics & Cross Products
+#   - LiDAR Raycasting & Dynamic Obstacle Intersections
+#   - A* Heuristic Grid Pathfinding around Obstacles
+#   - Rigid Body Elastic Collision with Momentum Conservation Invariant
+#   - Mesh Topology & Disjoint-Set Connected Components
+# ==============================================================================
+
+import "std/physics.aayu"
+import "std/graph.aayu"
+import "std/math.aayu"
+
+action main()
+    print("==================================================")
+    print("   AAYU PROJECT 3: SWARM NAVIGATION & PHYSICS     ")
+    print("==================================================")
+
+    # --------------------------------------------------------------------------
+    # 1. Swarm Mesh Topology via Disjoint-Set Union (DSU)
+    # --------------------------------------------------------------------------
+    print("[1] Initializing Autonomous Swarm Fleet Mesh:")
+    let drone_ids = ["Drone_Alpha", "Drone_Beta", "Drone_Gamma", "Drone_Delta"]
+    let fleet_mesh = dsu_new(drone_ids)
+
+    # Link Alpha <-> Beta, and Gamma <-> Delta into mesh pairs
+    dsu_union(fleet_mesh, "Drone_Alpha", "Drone_Beta")
+    dsu_union(fleet_mesh, "Drone_Gamma", "Drone_Delta")
+    print("    Initial Connected Components: " + fleet_mesh["components"])
+
+    # Bridge Beta <-> Gamma to form a unified 4-node swarm mesh
+    dsu_union(fleet_mesh, "Drone_Beta", "Drone_Gamma")
+    print("    Bridging Mesh Subnets...")
+    print("    Unified Swarm Components: " + fleet_mesh["components"])
+    print("    Alpha <-> Delta Connected: " + dsu_connected(fleet_mesh, "Drone_Alpha", "Drone_Delta"))
+
+    # --------------------------------------------------------------------------
+    # 2. LiDAR Raycasting & Obstacle Detection
+    # --------------------------------------------------------------------------
+    print("[2] Drone LiDAR Obstacle Detection:")
+    # Forward LiDAR ray fired from Drone Alpha at (0, 10) pointing Right (dx=1, dy=0)
+    let lidar_ray = ray_new(0, 10, 1, 0)
+    # Target asteroid/obstacle positioned at (50, 10) with radius 12
+    let obstacle_zone = circle_new(50, 10, 12)
+
+    let lidar_hit = ray_intersects_circle(lidar_ray, obstacle_zone)
+    if lidar_hit["hit"] == 1
+        print("    LiDAR Ping: Obstacle Detected!")
+        print("    Distance to Impact: " + lidar_hit["t"] + " meters")
+        print("    Point of Impact: (" + lidar_hit["hit_x"] + ", " + lidar_hit["hit_y"] + ")")
+    else
+        print("    LiDAR Ping: Sector Clear.")
+    end
+
+    # --------------------------------------------------------------------------
+    # 3. A* Grid Pathfinder for Swarm Route Clearance
+    # --------------------------------------------------------------------------
+    print("[3] A* Heuristic Grid Navigation:")
+    # 6x6 arena grid: 0 = clear, 1 = asteroid obstacle
+    let arena_grid = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 1, 1, 1, 0, 0],
+        [0, 0, 0, 1, 0, 0],
+        [0, 1, 0, 1, 0, 0],
+        [0, 1, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0]
+    ]
+
+    let nav_result = astar_grid_path(arena_grid, 6, 6, 0, 0, 5, 5)
+    print("    Path Found: " + nav_result["found"])
+    print("    Optimal Waypoints Count: " + len(nav_result["path"]))
+    print("    Total Navigation Steps: " + nav_result["cost"])
+
+    let p_start = nav_result["path"][0]
+    let p_end = nav_result["path"][len(nav_result["path"]) - 1]
+    print("    Departure Waypoint: (" + p_start["x"] + ", " + p_start["y"] + ")")
+    print("    Destination Waypoint: (" + p_end["x"] + ", " + p_end["y"] + ")")
+
+    # --------------------------------------------------------------------------
+    # 4. Rigid Body Dynamics & Momentum Conservation Proof
+    # --------------------------------------------------------------------------
+    print("[4] Rigid Body Physics & Momentum Conservation:")
+    # Bot Beta (mass 10 kg, velocity +20 m/s) heading East
+    # Bot Gamma (mass 30 kg, velocity -10 m/s) heading West
+    let bot_beta = body_new(10, 0, 0, 20, 0)
+    let bot_gamma = body_new(30, 100, 0, -10, 0)
+
+    let init_momentum = (bot_beta["mass"] * bot_beta["vx"]) + (bot_gamma["mass"] * bot_gamma["vx"])
+    print("    Pre-Impact Beta Velocity: " + bot_beta["vx"] + " m/s (Mass: 10 kg)")
+    print("    Pre-Impact Gamma Velocity: " + bot_gamma["vx"] + " m/s (Mass: 30 kg)")
+    print("    System Initial Momentum: " + init_momentum + " kg*m/s")
+
+    # Resolve elastic impact
+    let impact_stats = body_resolve_1d_elastic_collision(bot_beta, bot_gamma)
+    let final_momentum = (bot_beta["mass"] * bot_beta["vx"]) + (bot_gamma["mass"] * bot_gamma["vx"])
+
+    print("    Post-Impact Beta Velocity: " + bot_beta["vx"] + " m/s")
+    print("    Post-Impact Gamma Velocity: " + bot_gamma["vx"] + " m/s")
+    print("    System Final Momentum: " + final_momentum + " kg*m/s")
+    
+    if init_momentum == final_momentum
+        print("    Momentum Conservation Proof: 100% VERIFIED (Invariant Holds)")
+    else
+        print("    Momentum Conservation ERROR: Invariant Broken")
+    end
+
+    # --------------------------------------------------------------------------
+    # 5. 3D Spatial Geometry & Normal Vector Synthesis
+    # --------------------------------------------------------------------------
+    print("[5] 3D Vector Geometry & Angular Normals:")
+    let u3 = vec3_new(3, 0, 0)
+    let v3 = vec3_new(0, 4, 0)
+    let normal_vec = vec3_cross(u3, v3)
+    let dot_prod = vec3_dot(u3, v3)
+
+    print("    Orthogonal Vector U: (3, 0, 0)")
+    print("    Orthogonal Vector V: (0, 4, 0)")
+    print("    Dot Product U . V: " + dot_prod + " (Zero indicates pure orthogonality)")
+    print("    Cross Product Normal U x V: (" + normal_vec["x"] + ", " + normal_vec["y"] + ", " + normal_vec["z"] + ")")
+
+    print("==================================================")
+    print("   PROJECT 3: SWARM PHYSICS EXECUTION SUCCESS!    ")
+    print("==================================================")
+end
+
+main()

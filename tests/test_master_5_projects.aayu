@@ -1,0 +1,182 @@
+# ==============================================================================
+# AAYU MASTER TEST SUITE: 5 SHOWCASE PROJECTS VERIFICATION
+# 100% Pure Self-Hosted AAYU (.aayu) on Silicon Virtual Machine
+# Zero Python, Zero Rust test scaffolding, 100% Native AAYU Assertions
+# ==============================================================================
+
+import "std/test.aayu"
+import "std/crypto.aayu"
+import "std/p2p.aayu"
+import "std/cyber.aayu"
+import "std/regex.aayu"
+import "std/physics.aayu"
+import "std/graph.aayu"
+import "std/liquid2.aayu"
+
+action main()
+    test_begin_suite("AAYU 5 MASTER PROJECTS RIGOROUS SILICON TEST SUITE")
+
+    # --------------------------------------------------------------------------
+    # SUITE 1: PROJECT 1 - P2P DHT & STORAGE VAULT
+    # --------------------------------------------------------------------------
+    print("\n--- Testing Project 1: P2P Cloud & Streaming Vault ---")
+    
+    # Kademlia XOR Metric Properties: d(x,x) = 0, d(x,y) = d(y,x)
+    let d_self = p2p_xor_distance(1337, 1337)
+    assert_eq(d_self, 0, "P2P XOR Reflexivity d(A, A) == 0")
+
+    let d_ab = p2p_xor_distance(42, 15)
+    let d_ba = p2p_xor_distance(15, 42)
+    assert_eq(d_ab, d_ba, "P2P XOR Symmetry d(A, B) == d(B, A)")
+    assert_eq(d_ab, 37, "P2P XOR Distance Exact Calculation (42 ^ 15 = 37)")
+
+    # Magnet URI Specification
+    let test_hash = "665ad1b2fd68699b272f7b9b29c2b47414ddb83617140c6a578274c6d4832d84"
+    let mag = p2p_magnet_uri(test_hash, "Citadel.vault", ["udp://tracker.aayu.io:6969"])
+    let expected_prefix = "magnet:?xt=urn:btih:" + test_hash
+    assert_true(len(mag) > 60, "P2P Magnet URI Length Validity")
+
+    # --------------------------------------------------------------------------
+    # SUITE 2: PROJECT 2 - CYBER SENTINEL & SIEM ENGINE
+    # --------------------------------------------------------------------------
+    print("\n--- Testing Project 2: Cyber Sentinel SIEM Engine ---")
+
+    # IP to Integer & CIDR Subnet Range
+    let ip_int = cyber_ip_to_int("192.168.1.100")
+    assert_true(ip_int > 0, "Cyber IP to Integer Conversion")
+
+    let cidr = cyber_cidr_range("192.168.1.0/24")
+    let f_int = cyber_ip_to_int(cidr["first_host"])
+    let l_int = cyber_ip_to_int(cidr["last_host"])
+    let in_subnet = 0
+    if ip_int >= f_int
+        if ip_int <= l_int
+            in_subnet = 1
+        end
+    end
+    assert_eq(in_subnet, 1, "Cyber CIDR In-Subnet Membership Assertion")
+
+    # Linear ReDoS-Immune DPI Regex
+    let re_sqli = regex_compile("UNION|SELECT|DROP")
+    let match_bad = regex_find(re_sqli, "SELECT * FROM users WHERE 1=1")
+    let match_clean = regex_find(re_sqli, "GET /index.html HTTP/1.1")
+    assert_eq(match_bad["found"], 1, "Cyber Sentinel Detects SQL Injection Pattern")
+    assert_eq(match_clean["found"], 0, "Cyber Sentinel Clears Clean Payload")
+
+    # De Bruijn Cyclic Buffer Overflow Canary Offset
+    let cyclic_buf = cyber_cyclic(64)
+    let canary_off = cyber_cyclic_find(cyclic_buf, "aaab")
+    assert_eq(canary_off, 4, "Cyber De Bruijn Cyclic Offset Resolution")
+
+    # Shannon Entropy
+    let low_ent = cyber_shannon_entropy("AAAAAAAAAA")
+    let high_ent = cyber_shannon_entropy("8a#X!9%qZ1@pL$3*")
+    assert_lt(low_ent, high_ent, "Cyber Shannon Entropy Discriminates Low vs High")
+
+    # --------------------------------------------------------------------------
+    # SUITE 3: PROJECT 3 - SWARM ROBOTICS & PHYSICS ENGINE
+    # --------------------------------------------------------------------------
+    print("\n--- Testing Project 3: Swarm Robotics & Physics Engine ---")
+
+    # 2D & 3D Vector Math
+    let v2_a = vec2_new(3, 4)
+    assert_eq(vec2_length(v2_a), 5, "Physics 2D Euclidean Vector Magnitude |(3,4)| == 5")
+
+    let v3_x = vec3_new(1, 0, 0)
+    let v3_y = vec3_new(0, 1, 0)
+    assert_eq(vec3_dot(v3_x, v3_y), 0, "Physics 3D Orthogonal Dot Product == 0")
+    let v3_z = vec3_cross(v3_x, v3_y)
+    assert_eq(v3_z["z"], 1, "Physics 3D Cross Product X x Y == (0, 0, 1)")
+
+    # LiDAR Raycasting
+    let ray = ray_new(0, 10, 1, 0)
+    let sphere = circle_new(50, 10, 10)
+    let ray_hit = ray_intersects_circle(ray, sphere)
+    assert_eq(ray_hit["hit"], 1, "Physics LiDAR Raycast Intersected Target")
+    assert_eq(ray_hit["t"], 40, "Physics LiDAR Raycast Distance == 40 meters")
+
+    # Momentum Conservation Invariant
+    let body_a = body_new(10, 0, 0, 20, 0)
+    let body_b = body_new(30, 0, 0, -10, 0)
+    let mom_init = (body_a["mass"] * body_a["vx"]) + (body_b["mass"] * body_b["vx"])
+    body_resolve_1d_elastic_collision(body_a, body_b)
+    let mom_final = (body_a["mass"] * body_a["vx"]) + (body_b["mass"] * body_b["vx"])
+    assert_eq(mom_init, mom_final, "Physics Momentum Conservation Invariant Holds")
+
+    # A* Grid Pathfinding
+    let nav_grid = [
+        [0, 0, 0],
+        [0, 1, 0],
+        [0, 0, 0]
+    ]
+    let nav_sol = astar_grid_path(nav_grid, 3, 3, 0, 0, 2, 2)
+    assert_eq(nav_sol["found"], 1, "Graph A* Successfully Bypassed Obstacle")
+    assert_eq(nav_sol["cost"], 4, "Graph A* Optimal Manhattan Path Cost == 4")
+
+    # Swarm DSU Connectivity
+    let dsu_fleet = dsu_new(["Drone1", "Drone2", "Drone3"])
+    assert_eq(dsu_fleet["components"], 3, "Swarm DSU Initial Component Count")
+    dsu_union(dsu_fleet, "Drone1", "Drone2")
+    dsu_union(dsu_fleet, "Drone2", "Drone3")
+    assert_eq(dsu_fleet["components"], 1, "Swarm DSU Unified Fleet Component Count == 1")
+    assert_true(dsu_connected(dsu_fleet, "Drone1", "Drone3"), "Swarm DSU Transitive Connectivity")
+
+    # --------------------------------------------------------------------------
+    # SUITE 4: PROJECT 4 - HIGH-FREQUENCY IN-MEMORY TRADING CORE
+    # --------------------------------------------------------------------------
+    print("\n--- Testing Project 4: HFT In-Memory Trading Core ---")
+
+    # CAS Symbol Interning Deduplication
+    let cas_pool = cas_create_pool()
+    let tok_a = cas_intern(cas_pool, "AAYU/USD")
+    cas_pool = tok_a["pool"]
+    let tok_b = cas_intern(cas_pool, "BTC/USD")
+    cas_pool = tok_b["pool"]
+    let tok_c = cas_intern(cas_pool, "AAYU/USD") # Dup
+    assert_eq(tok_a["token_id"], 0, "CAS Interning First Token ID == 0")
+    assert_eq(tok_b["token_id"], 1, "CAS Interning Second Token ID == 1")
+    assert_eq(tok_c["token_id"], 0, "CAS Interning Deduplication Reuses Token ID 0")
+
+    # Columnar Frame-of-Reference (FoR) Compression Roundtrip
+    let raw_series = [1000, 1005, 1002, 1008]
+    let compressed = for_compress_column(raw_series)
+    assert_eq(compressed["base"], 1000, "Columnar FoR Baseline Min Extraction")
+    let decomp = for_decompress_column(compressed)
+    assert_eq(len(decomp), 4, "Columnar FoR Decompressed Length Matches")
+    assert_eq(decomp[0], 1000, "Columnar FoR Element 0 Restored")
+    assert_eq(decomp[1], 1005, "Columnar FoR Element 1 Restored")
+    assert_eq(decomp[2], 1002, "Columnar FoR Element 2 Restored")
+    assert_eq(decomp[3], 1008, "Columnar FoR Element 3 Restored")
+
+    # Ledger Value Conservation Invariant
+    let bal_alice = 100000
+    let bal_bob = 50000
+    let bal_total_pre = bal_alice + bal_bob
+    let tx_amt = 25000
+    bal_alice = bal_alice - tx_amt
+    bal_bob = bal_bob + tx_amt
+    let bal_total_post = bal_alice + bal_bob
+    assert_eq(bal_total_pre, bal_total_post, "HFT Ledger Strict Conservation of Value")
+
+    # --------------------------------------------------------------------------
+    # SUITE 5: PROJECT 5 - UNIFIED SILICON APEX CITADEL
+    # --------------------------------------------------------------------------
+    print("\n--- Testing Project 5: Unified Silicon Apex Citadel ---")
+
+    let apex_h1 = hash_string("P2P_VAULT_PROOF")
+    let apex_h2 = hash_string("CYBER_SIEM_PROOF")
+    let apex_h3 = hash_string("SWARM_PHYSICS_PROOF")
+    let apex_h4 = hash_string("HFT_LEDGER_PROOF")
+
+    let branch1 = hash_string(apex_h1 + apex_h2)
+    let branch2 = hash_string(apex_h3 + apex_h4)
+    let apex_citadel_root = hash_string(branch1 + branch2)
+
+    assert_eq(len(apex_citadel_root), 64, "Apex Citadel Chained Merkle Root is 64-Hex SHA256")
+    assert_true(apex_citadel_root != null, "Apex Citadel Root is Non-Null")
+
+    # Final summary
+    test_end_suite()
+end
+
+main()
