@@ -139,7 +139,7 @@ Run \`aayu test tests/test_liquid_sharding.aayu\` on your terminal to verify all
 Modern enterprise applications require 50+ files across React, Node, Redis, PostgreSQL, and Docker. AAYU condenses the entire stack into a single, self-contained \`.aayu\` file: [examples/enterprise_auth_portal.aayu](https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu).
 
 ### 🌐 Live Production Demo
-- **Live Public URL:** [https://palestinian-privileges-leads-anonymous.trycloudflare.com/](https://palestinian-privileges-leads-anonymous.trycloudflare.com/)
+- **Live Public URL:** [https://intent-to-silicon.vercel.app/](https://intent-to-silicon.vercel.app/)
 - **Direct GitHub Source:** [examples/enterprise_auth_portal.aayu](https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu)
 - **Local Runner:** \`aayu run examples/enterprise_auth_portal.aayu --web --port 8080\`
 

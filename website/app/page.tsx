@@ -202,7 +202,7 @@ export default function Home() {
 
             <div className="flex flex-wrap items-center gap-3 shrink-0">
               <a
-                href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"
+                href="https://intent-to-silicon.vercel.app/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-black font-extrabold text-sm shadow-xl shadow-emerald-500/20 hover:scale-105 transition-transform"
@@ -294,12 +294,12 @@ export default function Home() {
                   <div className="p-3 bg-black/60 rounded-xl border border-white/5">
                     <span className="text-zinc-500 block mb-1"># Live Public URL:</span>
                     <a
-                      href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"
+                      href="https://intent-to-silicon.vercel.app/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-cyan-300 hover:text-cyan-200 underline break-all flex items-center gap-1.5"
                     >
-                      <span>https://palestinian-privileges-leads-anonymous.trycloudflare.com/</span>
+                      <span>https://intent-to-silicon.vercel.app/</span>
                       <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                     </a>
                   </div>

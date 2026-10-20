@@ -96,10 +96,10 @@ run AgentHUD`
       title: "AAYU Silicon Enterprise Portal (Live Production & Cloudflare Verified)",
       desc: "The world's first single-file full-stack enterprise platform in pure AAYU (.aayu). Features real 2FA + OTP Zero-Knowledge authentication, crash-proof in-memory Write-Ahead Log (WAL) persistence (aayudb_wal.json), Ant-Man vector media engine (99.85% image storage reduction with dynamic SVG synthesis), and Ayush's 7-layer molecular data sharding (std/liquid.aayu) with tamper-freeze security checkpoints.",
       tags: ["Full-Stack Flagship", "Liquid Data (7-Layer)", "Ant-Man Media (99.85%)", "Live Cloudflare"],
-      liveUrl: "https://palestinian-privileges-leads-anonymous.trycloudflare.com/",
+      liveUrl: "https://intent-to-silicon.vercel.app/",
       githubUrl: "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu",
       code: `# Run locally: aayu run examples/enterprise_auth_portal.aayu --web --port 8080
-# Live Cloudflare: https://palestinian-privileges-leads-anonymous.trycloudflare.com/
+# Live Cloudflare: https://intent-to-silicon.vercel.app/
 # Direct GitHub: https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu
 
 app EnterpriseAuthPortal

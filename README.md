@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases"><img src="https://img.shields.io/badge/version-v1.5.0-purple?style=for-the-badge" alt="Version"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Open%20Standard-blue?style=for-the-badge" alt="License"/></a>
-  <a href="https://palestinian-privileges-leads-anonymous.trycloudflare.com/"><img src="https://img.shields.io/badge/live%20portal-active-emerald?style=for-the-badge" alt="Live Portal"/></a>
+  <a href="https://intent-to-silicon.vercel.app/"><img src="https://img.shields.io/badge/live%20portal-active-emerald?style=for-the-badge" alt="Live Portal"/></a>
   <a href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/actions"><img src="https://img.shields.io/badge/silicon%20tests-1%2C002%20%2F%201%2C002%20pass-brightgreen?style=for-the-badge" alt="Tests"/></a>
 
   <a href="https://aayulang.com"><img src="https://img.shields.io/badge/website-aayulang.com-0284c7?style=for-the-badge" alt="Website"/></a>
@@ -75,7 +75,7 @@ One single `.aayu` file holds your:
 
 To demonstrate the full industrial capacity of AAYU, the repository includes a complete, fully functioning production showcase: the **AAYU Silicon Enterprise Portal** (`examples/enterprise_auth_portal.aayu`).
 
-* 🚀 **Live Interactive Public Portal:** [https://palestinian-privileges-leads-anonymous.trycloudflare.com/](https://palestinian-privileges-leads-anonymous.trycloudflare.com/) *(Verified running live via Cloudflare Tunnel)*
+* 🚀 **Live Interactive Public Portal:** [https://intent-to-silicon.vercel.app/](https://intent-to-silicon.vercel.app/) *(Verified running live via Cloudflare Tunnel)*
 * 📄 **Direct Single-File Source Code:** [examples/enterprise_auth_portal.aayu](https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu)
 * 💻 **Run Locally in 1 Command:**
   ```powershell
@@ -439,6 +439,6 @@ This legally shields startups, open-source engineers, and independent developers
 *Creator & Lead Architect of AAYU (Intent-to-Silicon 2026)*  
 GitHub: [@Minato95-ayu](https://github.com/Minato95-ayu)  
 Official Website: [https://aayulang.com](https://aayulang.com)  
-Live Enterprise Flagship: [https://palestinian-privileges-leads-anonymous.trycloudflare.com/](https://palestinian-privileges-leads-anonymous.trycloudflare.com/)
+Live Enterprise Flagship: [https://intent-to-silicon.vercel.app/](https://intent-to-silicon.vercel.app/)
 
 > *"Modern software is bloated. AAYU is the reset button — the world's first language designed for AI Agents to construct silicon-ready empires."*
