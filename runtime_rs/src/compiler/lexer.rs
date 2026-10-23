@@ -52,6 +52,9 @@ pub enum Token {
     NotEqual,
     LessEqual,
     GreaterEqual,
+    DoubleAmpersand,
+    DoublePipe,
+    Bang,
     LeftParen,
     RightParen,
     LeftBracket,
@@ -218,6 +221,9 @@ impl<'a> Lexer<'a> {
                     "false" => tokens.push(Token::False),
                     "null" => tokens.push(Token::Null),
                     "as" => tokens.push(Token::As),
+                    "and" => tokens.push(Token::DoubleAmpersand),
+                    "or" => tokens.push(Token::DoublePipe),
+                    "not" => tokens.push(Token::Bang),
                     _ => tokens.push(Token::Identifier(word.to_string())),
                 }
             } else if ch.is_ascii_digit() {
@@ -275,7 +281,23 @@ impl<'a> Lexer<'a> {
                             self.pos += 1;
                             tokens.push(Token::NotEqual);
                         } else {
-                            tokens.push(Token::Invalid("unexpected character '!'".to_string()));
+                            tokens.push(Token::Bang);
+                        }
+                    }
+                    '&' => {
+                        if self.peek_char() == '&' {
+                            self.pos += 1;
+                            tokens.push(Token::DoubleAmpersand);
+                        } else {
+                            tokens.push(Token::Invalid("unexpected character '&'".to_string()));
+                        }
+                    }
+                    '|' => {
+                        if self.peek_char() == '|' {
+                            self.pos += 1;
+                            tokens.push(Token::DoublePipe);
+                        } else {
+                            tokens.push(Token::Invalid("unexpected character '|'".to_string()));
                         }
                     }
                     '<' => {

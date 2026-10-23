@@ -518,7 +518,7 @@ impl AayuVM {
                     }
                 }
                 35 | 98 => {} // RET / ReturnValue
-                38 | 39 | 41 | 42 | 43 | 44 => {} // CMP operators
+                38 | 39 | 41 | 42 | 43 | 44 | 58 | 59 | 60 => {} // CMP & Logical operators
                 48 => { // STORE_STATE (2 bytes)
                     if pc + 2 > len {
                         return Err(format!("Truncated operand for STORE_STATE at offset {}", op_pc));
@@ -737,9 +737,10 @@ impl AayuVM {
                     35 | 98 => { // RET
                         break; // Return terminates the path
                     }
-                    38 | 39 | 41 | 42 | 43 | 44 => { // CMP operators (pop 2, push 1)
+                    38 | 39 | 41 | 42 | 43 | 44 | 58 | 59 => { // CMP & Logical Binary (pop 2, push 1)
                         depth -= 1;
                     }
+                    60 => {} // LogicalNot (pop 1, push 1 -> net 0)
                     48 => { // STORE_STATE (2 bytes)
                         pc += 2;
                         depth -= 1;
@@ -1432,7 +1433,7 @@ impl AayuVM {
                             let arr_idx = self.allocate_heap(crate::memory::HeapObject::AArray(key_vec));
                             self.stack[self.sp] = NanVal::array(arr_idx);
                             self.sp += 1;
-                        } else if func_name == "str_contains" {
+                        } else if func_name == "str_contains" || func_name == "contains" {
                             let needle = if argc > 1 {
                                 let n = self.stack[self.sp - 1];
                                 if n.is_string() && n.as_string_idx() < self.string_heap.len() {
@@ -1447,6 +1448,149 @@ impl AayuVM {
                             } else { String::new() };
                             self.sp -= argc + 1;
                             self.stack[self.sp] = NanVal::bool(haystack.contains(&needle));
+                            self.sp += 1;
+                        } else if func_name == "str_starts_with" || func_name == "starts_with" {
+                            let prefix = if argc > 1 {
+                                let n = self.stack[self.sp - 1];
+                                if n.is_string() && n.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[n.as_string_idx()].clone()
+                                } else { format!("{}", n) }
+                            } else { String::new() };
+                            let s = if argc > 0 {
+                                let h = self.stack[self.sp - argc];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::bool(s.starts_with(&prefix));
+                            self.sp += 1;
+                        } else if func_name == "str_ends_with" || func_name == "ends_with" {
+                            let suffix = if argc > 1 {
+                                let n = self.stack[self.sp - 1];
+                                if n.is_string() && n.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[n.as_string_idx()].clone()
+                                } else { format!("{}", n) }
+                            } else { String::new() };
+                            let s = if argc > 0 {
+                                let h = self.stack[self.sp - argc];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            self.stack[self.sp] = NanVal::bool(s.ends_with(&suffix));
+                            self.sp += 1;
+                        } else if func_name == "str_find" || func_name == "str_index_of" || func_name == "index_of" {
+                            let needle = if argc > 1 {
+                                let n = self.stack[self.sp - 1];
+                                if n.is_string() && n.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[n.as_string_idx()].clone()
+                                } else { format!("{}", n) }
+                            } else { String::new() };
+                            let s = if argc > 0 {
+                                let h = self.stack[self.sp - argc];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let idx = s.find(&needle).map(|i| i as i64).unwrap_or(-1);
+                            self.stack[self.sp] = NanVal::int(idx);
+                            self.sp += 1;
+                        } else if func_name == "str_split" || func_name == "split" {
+                            let delim = if argc > 1 {
+                                let n = self.stack[self.sp - 1];
+                                if n.is_string() && n.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[n.as_string_idx()].clone()
+                                } else { format!("{}", n) }
+                            } else { " ".to_string() };
+                            let s = if argc > 0 {
+                                let h = self.stack[self.sp - argc];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let parts: Vec<NanVal> = s.split(&delim).map(|p| {
+                                let str_idx = self.string_heap.len();
+                                self.string_heap.push(p.to_string());
+                                NanVal::string(str_idx)
+                            }).collect();
+                            let arr_idx = self.allocate_heap(crate::memory::HeapObject::AArray(parts));
+                            self.stack[self.sp] = NanVal::array(arr_idx);
+                            self.sp += 1;
+                        } else if func_name == "str_trim" || func_name == "trim" {
+                            let s = if argc > 0 {
+                                let h = self.stack[self.sp - 1];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(s.trim().to_string());
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "str_lower" || func_name == "to_lower" {
+                            let s = if argc > 0 {
+                                let h = self.stack[self.sp - 1];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(s.to_lowercase());
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "str_upper" || func_name == "to_upper" {
+                            let s = if argc > 0 {
+                                let h = self.stack[self.sp - 1];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(s.to_uppercase());
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "str_replace" || func_name == "replace" {
+                            let to = if argc > 2 {
+                                let n = self.stack[self.sp - 1];
+                                if n.is_string() && n.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[n.as_string_idx()].clone()
+                                } else { format!("{}", n) }
+                            } else { String::new() };
+                            let from = if argc > 1 {
+                                let n = self.stack[self.sp - 2];
+                                if n.is_string() && n.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[n.as_string_idx()].clone()
+                                } else { format!("{}", n) }
+                            } else { String::new() };
+                            let s = if argc > 0 {
+                                let h = self.stack[self.sp - argc];
+                                if h.is_string() && h.as_string_idx() < self.string_heap.len() {
+                                    self.string_heap[h.as_string_idx()].clone()
+                                } else { format!("{}", h) }
+                            } else { String::new() };
+                            self.sp -= argc + 1;
+                            let idx = self.string_heap.len();
+                            self.string_heap.push(s.replace(&from, &to));
+                            self.stack[self.sp] = NanVal::string(idx);
+                            self.sp += 1;
+                        } else if func_name == "cli_args" || func_name == "args" {
+                            self.sp -= argc + 1;
+                            let raw_args: Vec<String> = std::env::args().skip(3).collect();
+                            let mut val_args = Vec::with_capacity(raw_args.len());
+                            for a in raw_args {
+                                let idx = self.string_heap.len();
+                                self.string_heap.push(a);
+                                val_args.push(NanVal::string(idx));
+                            }
+                            let arr_idx = self.allocate_heap(crate::memory::HeapObject::AArray(val_args));
+                            self.stack[self.sp] = NanVal::array(arr_idx);
                             self.sp += 1;
                         } else if func_name == "type" || func_name == "typeof" {
                             let a = if argc > 0 { self.stack[self.sp - 1] } else { NanVal::null() };
@@ -2705,6 +2849,25 @@ impl AayuVM {
                     let a = self.stack[self.sp - 2].as_int();
                     self.stack[self.sp - 2] = NanVal::bool(a >= b);
                     self.sp -= 1;
+                }
+                58 => { // LogicalAnd
+                    let b = self.stack[self.sp - 1];
+                    let a = self.stack[self.sp - 2];
+                    self.stack[self.sp - 2] = NanVal::bool(a.as_bool() && b.as_bool());
+                    self.sp -= 1;
+                    continue;
+                }
+                59 => { // LogicalOr
+                    let b = self.stack[self.sp - 1];
+                    let a = self.stack[self.sp - 2];
+                    self.stack[self.sp - 2] = NanVal::bool(a.as_bool() || b.as_bool());
+                    self.sp -= 1;
+                    continue;
+                }
+                60 => { // LogicalNot
+                    let a = self.stack[self.sp - 1];
+                    self.stack[self.sp - 1] = NanVal::bool(!a.as_bool());
+                    continue;
                 }
                 0x03 => { // DUP
                     self.stack[self.sp] = self.stack[self.sp - 1];

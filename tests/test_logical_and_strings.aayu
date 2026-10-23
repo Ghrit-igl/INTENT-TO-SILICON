@@ -1,0 +1,132 @@
+# ==============================================================================
+# AAYU UPGRADE SUITE: LOGICAL OPERATORS & NATIVE STRING BUILT-INS
+# 100% Pure Self-Hosted AAYU (.aayu) on Silicon Virtual Machine
+# ==============================================================================
+
+import "std/test.aayu"
+
+action test_logical_operators()
+    print("\n--- Testing Logical Operators (&&, ||, !, and, or, not) ---")
+
+    let t = 1
+    let f = 0
+
+    # 1. Logical AND (&& and 'and')
+    assert_eq(t && t, 1, "True && True == 1")
+    assert_eq(t && f, 0, "True && False == 0")
+    assert_eq(f && t, 0, "False && True == 0")
+    assert_eq(f && f, 0, "False && False == 0")
+
+    assert_eq(t and t, 1, "True and True == 1")
+    assert_eq(t and f, 0, "True and False == 0")
+    assert_eq(f and t, 0, "False and True == 0")
+    assert_eq(f and f, 0, "False and False == 0")
+
+    # 2. Logical OR (|| and 'or')
+    assert_eq(t || t, 1, "True || True == 1")
+    assert_eq(t || f, 1, "True || False == 1")
+    assert_eq(f || t, 1, "False || True == 1")
+    assert_eq(f || f, 0, "False || False == 0")
+
+    assert_eq(t or t, 1, "True or True == 1")
+    assert_eq(t or f, 1, "True or False == 1")
+    assert_eq(f or t, 1, "False or True == 1")
+    assert_eq(f or f, 0, "False or False == 0")
+
+    # 3. Logical NOT (! and 'not')
+    assert_eq(!f, 1, "!False == 1")
+    assert_eq(!t, 0, "!True == 0")
+    assert_eq(not f, 1, "not False == 1")
+    assert_eq(not t, 0, "not True == 0")
+
+    # 4. In conditional if statements
+    let x = 10
+    let y = 20
+    let matched = 0
+    if x > 5 && y > 15
+        matched = 1
+    end
+    assert_eq(matched, 1, "if condition with && passed")
+
+    let or_matched = 0
+    if x == 99 || y == 20
+        or_matched = 1
+    end
+    assert_eq(or_matched, 1, "if condition with || passed")
+
+    let english_matched = 0
+    if x >= 10 and y <= 20
+        english_matched = 1
+    end
+    assert_eq(english_matched, 1, "if condition with 'and' passed")
+end
+
+action test_string_builtins()
+    print("\n--- Testing Native String Built-ins ---")
+
+    let text = "Hello AAYU Intent Computing"
+
+    # contains
+    assert_eq(contains(text, "AAYU"), 1, "contains('AAYU') == 1")
+    assert_eq(contains(text, "Python"), 0, "contains('Python') == 0")
+    assert_eq(str_contains(text, "Intent"), 1, "str_contains('Intent') == 1")
+
+    # starts_with & ends_with
+    assert_eq(starts_with(text, "Hello"), 1, "starts_with('Hello') == 1")
+    assert_eq(starts_with(text, "AAYU"), 0, "starts_with('AAYU') == 0")
+    assert_eq(ends_with(text, "Computing"), 1, "ends_with('Computing') == 1")
+    assert_eq(ends_with(text, "Intent"), 0, "ends_with('Intent') == 0")
+
+    # index_of
+    assert_eq(index_of(text, "AAYU"), 6, "index_of('AAYU') == 6")
+    assert_eq(index_of(text, "NonExistent"), -1, "index_of('NonExistent') == -1")
+
+    # trim
+    let padded = "   clean me   "
+    assert_eq(trim(padded), "clean me", "trim removes leading & trailing whitespace")
+
+    # to_lower & to_upper
+    assert_eq(to_lower("AAYU System"), "aayu system", "to_lower converts correctly")
+    assert_eq(to_upper("aayu rocks"), "AAYU ROCKS", "to_upper converts correctly")
+
+    # replace
+    let replaced = replace("hello world", "world", "silicon")
+    assert_eq(replaced, "hello silicon", "replace replaces target substring")
+
+    # split
+    let csv = "apple,banana,orange"
+    let parts = split(csv, ",")
+    assert_eq(len(parts), 3, "split gives 3 elements")
+    assert_eq(parts[0], "apple", "parts[0] == apple")
+    assert_eq(parts[1], "banana", "parts[1] == banana")
+    assert_eq(parts[2], "orange", "parts[2] == orange")
+end
+
+action test_concatenation_polymorphism()
+    print("\n--- Testing String & Number Concatenation ---")
+
+    let count = 42
+    let msg1 = "Total Items: " + count
+    assert_eq(msg1, "Total Items: 42", "String + Number concatenation")
+
+    let msg2 = count + " items processed"
+    assert_eq(msg2, "42 items processed", "Number + String concatenation")
+
+    # CLI arguments
+    let arguments = cli_args()
+    if len(arguments) > 0
+        assert_eq(arguments[0], "arg1", "cli_args()[0] == arg1 when passed")
+    else
+        assert_eq(len(arguments), 0, "cli_args() returns empty array without extra args")
+    end
+end
+
+action main()
+    test_begin_suite("AAYU UPGRADE: LOGICAL OPS & STRING BUILTINS")
+    test_logical_operators()
+    test_string_builtins()
+    test_concatenation_polymorphism()
+    test_end_suite()
+end
+
+main()

@@ -588,7 +588,13 @@ impl Emitter {
                     BinaryOp::Gt => self.bytecode.push(42),
                     BinaryOp::Lte => self.bytecode.push(43),
                     BinaryOp::Gte => self.bytecode.push(44),
+                    BinaryOp::And => self.bytecode.push(58),
+                    BinaryOp::Or => self.bytecode.push(59),
                 }
+            }
+            Expr::Unary { op: UnaryOp::Not, expr } => {
+                self.emit_expression(expr);
+                self.bytecode.push(60); // LogicalNot
             }
             Expr::Unary { op: UnaryOp::Negate, expr } => {
                 let zero = self.add_constant_int(0);
@@ -629,7 +635,7 @@ impl Emitter {
                     "len" | "type" | "typeof" | "platform" | "arch" | "env_get" |
                     "read_file" | "write_file" | "time_micros" | "time_us" | "time_ms" |
                     "file_mtime" | "file_size" | "sleep_ms" | "os_exec" | "sys_command" |
-                    "dict_keys" | "keys" | "str_contains" |
+                    "dict_keys" | "keys" | "str_contains" | "contains" | "str_starts_with" | "starts_with" | "str_ends_with" | "ends_with" | "str_find" | "str_index_of" | "index_of" | "str_split" | "split" | "str_trim" | "trim" | "str_lower" | "to_lower" | "str_upper" | "to_upper" | "str_replace" | "replace" | "cli_args" | "args" |
                     "tensor" | "tensor_create" | "tensor_zeros" | "tensor_ones" | "tensor_randn" |
                     "tensor_matmul" | "tensor_add" | "tensor_sub" | "tensor_mul" | "tensor_div" |
                     "tensor_scale" | "tensor_relu" | "tensor_gelu" | "tensor_sigmoid" |

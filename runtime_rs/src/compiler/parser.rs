@@ -13,10 +13,12 @@ pub enum BinaryOp {
     NotEq,
     Lte,
     Gte,
+    And,
+    Or,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum UnaryOp { Negate }
+pub enum UnaryOp { Negate, Not }
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -619,7 +621,27 @@ impl Parser {
     }
 
     pub fn parse_expression(&mut self) -> Expr {
-        self.parse_comparison()
+        self.parse_logical_or()
+    }
+
+    fn parse_logical_or(&mut self) -> Expr {
+        let mut left = self.parse_logical_and();
+        while matches!(self.current(), Token::DoublePipe) {
+            self.pos += 1;
+            let right = self.parse_logical_and();
+            left = Expr::Binary { left: Box::new(left), op: BinaryOp::Or, right: Box::new(right) };
+        }
+        left
+    }
+
+    fn parse_logical_and(&mut self) -> Expr {
+        let mut left = self.parse_comparison();
+        while matches!(self.current(), Token::DoubleAmpersand) {
+            self.pos += 1;
+            let right = self.parse_comparison();
+            left = Expr::Binary { left: Box::new(left), op: BinaryOp::And, right: Box::new(right) };
+        }
+        left
     }
 
     fn parse_comparison(&mut self) -> Expr {
@@ -673,6 +695,10 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> Expr {
+        if self.current() == &Token::Bang {
+            self.pos += 1;
+            return Expr::Unary { op: UnaryOp::Not, expr: Box::new(self.parse_unary()) };
+        }
         if self.current() == &Token::Minus {
             self.pos += 1;
             return match self.current() {

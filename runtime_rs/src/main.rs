@@ -463,6 +463,9 @@ fn run_disasm(input_file: &str) {
             42 => { println!("  {:04X}: GT", op_pc); }
             43 => { println!("  {:04X}: LTE", op_pc); }
             44 => { println!("  {:04X}: GTE", op_pc); }
+            58 => { println!("  {:04X}: AND", op_pc); }
+            59 => { println!("  {:04X}: OR", op_pc); }
+            60 => { println!("  {:04X}: NOT", op_pc); }
             45 => {
                 if pc + 3 <= len {
                     let slot = bytecode[pc];
