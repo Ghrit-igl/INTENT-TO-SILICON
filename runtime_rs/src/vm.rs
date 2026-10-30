@@ -5,7 +5,7 @@ use crate::net::HttpServer;
 use crate::ui::{UiNode, Style};
 
 #[derive(Clone, Copy, Debug)]
-pub struct NanVal(u64);
+pub struct NanVal(pub u64);
 
 const TAG_INT: u64 = 0x7FF8_0000_0000_0000;
 const TAG_TENSOR: u64 = 0x7FF9_0000_0000_0000;
@@ -1582,7 +1582,23 @@ impl AayuVM {
                             self.sp += 1;
                         } else if func_name == "cli_args" || func_name == "args" {
                             self.sp -= argc + 1;
-                            let raw_args: Vec<String> = std::env::args().skip(3).collect();
+                            let all_args: Vec<String> = std::env::args().collect();
+                            let mut script_idx = None;
+                            for (i, a) in all_args.iter().enumerate() {
+                                if a.ends_with(".aayu") || a.ends_with(".ayc") {
+                                    script_idx = Some(i);
+                                    break;
+                                }
+                            }
+                            let raw_args: Vec<String> = if let Some(idx) = script_idx {
+                                if idx + 1 < all_args.len() {
+                                    all_args[idx + 1..].to_vec()
+                                } else {
+                                    Vec::new()
+                                }
+                            } else {
+                                all_args.into_iter().skip(1).collect()
+                            };
                             let mut val_args = Vec::with_capacity(raw_args.len());
                             for a in raw_args {
                                 let idx = self.string_heap.len();

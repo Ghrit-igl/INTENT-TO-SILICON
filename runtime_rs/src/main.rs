@@ -689,8 +689,8 @@ fn execute_bytecode(filename: &str, use_jit: bool) {
     }
 
     if use_jit {
-        if jit::can_compile(&bytecode) {
-            if !jit::compile_and_run(&bytecode, &constants) {
+        if jit::can_compile(&bytecode, &constants) {
+            if !jit::compile_and_run(&bytecode, &constants, &strings) {
                 eprintln!("[AAYU JIT] Native C compiler unavailable or build failed. Safely executing via Silicon VM...");
                 if let Err(e) = vm.run() {
                     eprintln!("[AAYU Runtime Error] Execution halted: {}", e);
@@ -1045,10 +1045,59 @@ fn main() {
 
     if cmd == "build" {
         if args.len() < 3 {
-            eprintln!("[AAYU Error] Usage: aayu build <file.aayu> [-o <out.ayc>]");
+            eprintln!("[AAYU Error] Usage: aayu build <file.aayu> [-o <output>] [--native]");
             std::process::exit(2);
         }
         let input_file = &args[2];
+        let is_native = args.contains(&"--native".to_string());
+        if is_native {
+            let mut output_file = if cfg!(windows) { "output.exe".to_string() } else { "output".to_string() };
+            if let Some(pos) = args.iter().position(|a| a == "-o") {
+                if pos + 1 < args.len() {
+                    output_file = args[pos + 1].clone();
+                }
+            } else {
+                let stem = Path::new(input_file).file_stem().and_then(|s| s.to_str()).unwrap_or("app");
+                output_file = if cfg!(windows) { format!("{}.exe", stem) } else { stem.to_string() };
+            }
+
+            let temp_ayc = format!("{}.tmp_build.ayc", input_file);
+            if !compile_aayu_file(input_file, &temp_ayc) {
+                std::process::exit(1);
+            }
+            let data = match std::fs::read(&temp_ayc) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("[AAYU Error] Failed to read temporary bytecode: {}", e);
+                    std::process::exit(1);
+                }
+            };
+            let _ = std::fs::remove_file(&temp_ayc);
+            let (strings, constants, bytecode) = match parse_bytecode_data(&data) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("[AAYU Security Error] Malformed Bytecode: {}", e);
+                    std::process::exit(1);
+                }
+            };
+
+            if !jit::can_compile(&bytecode, &constants) {
+                eprintln!("[AAYU Error] Program contains dynamic features not supported in pure AOT native compilation.");
+                std::process::exit(1);
+            }
+
+            match jit::build_native_binary(&bytecode, &constants, &strings, &output_file) {
+                Ok(()) => {
+                    println!("[AAYU Native] Standalone native binary successfully built: {}", output_file);
+                }
+                Err(e) => {
+                    eprintln!("[AAYU Error] Native compilation failed: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            return;
+        }
+
         let mut output_file = "output.ayc".to_string();
         if let Some(pos) = args.iter().position(|a| a == "-o") {
             if pos + 1 < args.len() {
@@ -2073,7 +2122,7 @@ fn run_sum(n: i64, use_jit: bool) {
     bc.extend([0x05,0, 81, 0x00]);         // print(sum); halt -> Print opcode is 81
     
     if use_jit {
-        jit::compile_and_run(&bc, &constants);
+        jit::compile_and_run_bench(&bc, &constants);
     } else {
         let mut vm = AayuVM::new(bc, constants, vec![]);
         let t = std::time::Instant::now();
