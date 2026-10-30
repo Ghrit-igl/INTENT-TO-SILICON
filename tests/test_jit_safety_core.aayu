@@ -1,0 +1,44 @@
+# ==============================================================================
+# RIGOROUS JIT & SAFETY TEST 1: MATH, CONDITIONALS, AND LOGIC
+# ==============================================================================
+
+# 1. Arithmetic & Precedence
+let a = 100
+let b = 25
+let c = a + b * 2 - (a / 4)
+print("Arithmetic result (expected 125):")
+print(c)
+
+# 2. Loops & Accumulation
+let sum = 0
+let i = 0
+while i < 1000
+    sum = sum + i
+    i = i + 1
+end
+print("Sum 0..999 (expected 499500):")
+print(sum)
+
+# 3. Complex Conditionals & Logic
+let x = 42
+let status = 0
+if x > 40 && x < 50
+    status = 1
+end
+print("Status (expected 1):")
+print(status)
+
+# 4. Floats & Comparisons
+let f1 = 3.5
+let f2 = 2.0
+let f_res = f1 * f2 + 1.0
+print("Float result (expected 8):")
+print(f_res)
+
+# 5. Countdown Loop
+let count = 50
+while count > 0
+    count = count - 1
+end
+print("Countdown end (expected 0):")
+print(count)

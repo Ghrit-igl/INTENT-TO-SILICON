@@ -1592,7 +1592,10 @@ impl AayuVM {
                             }
                             let raw_args: Vec<String> = if let Some(idx) = script_idx {
                                 if idx + 1 < all_args.len() {
-                                    all_args[idx + 1..].to_vec()
+                                    all_args[idx + 1..].iter()
+                                        .filter(|a| !a.starts_with("--jit") && !a.starts_with("--sandbox") && !a.starts_with("--web"))
+                                        .cloned()
+                                        .collect()
                                 } else {
                                     Vec::new()
                                 }
