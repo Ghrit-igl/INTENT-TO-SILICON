@@ -1,8 +1,8 @@
-import { ChapterData } from "./tutorial-types";
+﻿import { ChapterData } from "./tutorial-types";
 
 // Every program used in this course is a checked-in regression example. The
 // test harness verifies both successful execution and its expected output.
-const testPath = "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/tests/";
+const testPath = "https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/tests/";
 
 export const chapters: ChapterData[] = [
   {
@@ -136,11 +136,11 @@ Run \`aayu test tests/test_liquid_sharding.aayu\` on your terminal to verify all
     ],
     content: `## Flagship Showcase: AAYU Silicon Enterprise Portal
 
-Modern enterprise applications require 50+ files across React, Node, Redis, PostgreSQL, and Docker. AAYU condenses the entire stack into a single, self-contained \`.aayu\` file: [examples/enterprise_auth_portal.aayu](https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu).
+Modern enterprise applications require 50+ files across React, Node, Redis, PostgreSQL, and Docker. AAYU condenses the entire stack into a single, self-contained \`.aayu\` file: [examples/enterprise_auth_portal.aayu](https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu).
 
 ### 🌐 Live Production Demo
 - **Live Public URL:** [https://intent-to-silicon.vercel.app/](https://intent-to-silicon.vercel.app/)
-- **Direct GitHub Source:** [examples/enterprise_auth_portal.aayu](https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu)
+- **Direct GitHub Source:** [examples/enterprise_auth_portal.aayu](https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu)
 - **Local Runner:** \`aayu run examples/enterprise_auth_portal.aayu --web --port 8080\`
 
 ### Core Architectural Innovations

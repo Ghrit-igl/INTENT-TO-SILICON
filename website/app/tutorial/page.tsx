@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { BookOpen, Download, FileText, Sparkles, ExternalLink } from 'lucide-react';
 import { chapters } from '@/lib/tutorial-data';
 
@@ -52,7 +52,7 @@ export default function TutorialPage() {
         </div>
 
         <div className="mb-10 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 text-sm leading-6 text-amber-100">
-          This course covers the verified core subset. HTTP/SQL apps, functions, async, AI/ML, UI interaction, and package publishing are not taught as working AAYU features here. See <Link className="underline" href="/docs/1-getting-started/1-installation">installation</Link> and the repository <Link className="underline" href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/KNOWN_LIMITATIONS.md">known limitations</Link>.
+          This course covers the verified core subset. HTTP/SQL apps, functions, async, AI/ML, UI interaction, and package publishing are not taught as working AAYU features here. See <Link className="underline" href="/docs/1-getting-started/1-installation">installation</Link> and the repository <Link className="underline" href="https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/KNOWN_LIMITATIONS.md">known limitations</Link>.
         </div>
 
         <section aria-label="Course lessons" className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">

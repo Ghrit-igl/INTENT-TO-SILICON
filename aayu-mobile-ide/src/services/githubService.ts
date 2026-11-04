@@ -1,9 +1,9 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
  * GitHub Live Synchronization & Auto-Update Service
- * Connects directly to https://github.com/Minato95-ayu/INTENT-TO-SILICON
+ * Connects directly to https://github.com/Ghrit-igl/INTENT-TO-SILICON
  * Checks latest commits, releases, and documentation updates.
  */
 
@@ -16,7 +16,7 @@ export interface GitHubSyncState {
   status: 'synced' | 'update_available' | 'checking' | 'offline';
 }
 
-const GITHUB_REPO = 'Minato95-ayu/INTENT-TO-SILICON';
+const GITHUB_REPO = 'Ghrit-igl/INTENT-TO-SILICON';
 const STORAGE_KEY = 'aayu_github_sync_state';
 
 export class GitHubService {

@@ -1,4 +1,4 @@
-app AyushPortfolio
+﻿app AyushPortfolio
 
 Page Home
     Column width="100vw" height="100vh" overflow="hidden" backgroundColor="#0b0f19"
@@ -25,7 +25,7 @@ Page Home
                     Text "Self-taught systems and full-stack engineer from Delhi. Creator of the AAYU programming language, Intent-to-Silicon research, and 23+ production systems." fontSize="16px" color="#9ca3af" textAlign="center" maxWidth="660px"
                     Row gap="14px" marginTop="14px"
                     Button "Explore 23+ Projects" onClick=scroll_work backgroundColor="#6366f1" color="#ffffff" fontSize="15px" padding="14px 28px" borderRadius="10px" fontWeight="bold"
-                        Button "GitHub Repo" href="https://github.com/Minato95-ayu/INTENT-TO-SILICON" backgroundColor="#1f2937" color="#ffffff" fontSize="15px" padding="14px 28px" borderRadius="10px"
+                        Button "GitHub Repo" href="https://github.com/Ghrit-igl/INTENT-TO-SILICON" backgroundColor="#1f2937" color="#ffffff" fontSize="15px" padding="14px 28px" borderRadius="10px"
                         Button "Get in touch" onClick=scroll_contact backgroundColor="#111827" color="#e5e7eb" fontSize="15px" padding="14px 28px" borderRadius="10px" border="1px solid #374151"
                     end
                 end
@@ -394,7 +394,7 @@ Page Home
                     Grid gridTemplateColumns="repeat(auto-fit, minmax(260px, 1fr))" gap="16px" width="100%" marginTop="10px"
                         Card backgroundColor="#111827" borderRadius="12px" padding="20px" border="1px solid #1f2937" flexDirection="column" gap="6px"
                             Text "GitHub" fontSize="12px" color="#9ca3af"
-                            Button "github.com/Minato95-ayu" href="https://github.com/Minato95-ayu" color="#22d3ee" fontSize="16px" fontWeight="bold"
+                            Button "github.com/Ghrit-igl" href="https://github.com/Ghrit-igl" color="#22d3ee" fontSize="16px" fontWeight="bold"
                         end
                         Card backgroundColor="#111827" borderRadius="12px" padding="20px" border="1px solid #1f2937" flexDirection="column" gap="6px"
                             Text "YouTube" fontSize="12px" color="#9ca3af"

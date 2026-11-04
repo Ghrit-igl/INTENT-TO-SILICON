@@ -1,7 +1,7 @@
-# ==============================================================================
+﻿# ==============================================================================
 # CodeRabbit Configuration (.coderabbit.yaml)
 # Purpose: Teach CodeRabbit AI to properly understand the AAYU Language Ecosystem
-# Repository: https://github.com/Minato95-ayu/INTENT-TO-SILICON
+# Repository: https://github.com/Ghrit-igl/INTENT-TO-SILICON
 # ==============================================================================
 language: "en-US"
 early_access: false

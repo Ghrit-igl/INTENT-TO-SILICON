@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+﻿#!/data/data/com.termux/files/usr/bin/bash
 set -euo pipefail
 
 if [[ -z "${PREFIX:-}" || ! -d "$PREFIX/bin" ]]; then
@@ -16,7 +16,7 @@ if [[ -e "$source_dir" ]]; then
 fi
 
 mkdir -p "$(dirname "$source_dir")"
-git clone https://github.com/Minato95-ayu/INTENT-TO-SILICON.git "$source_dir"
+git clone https://github.com/Ghrit-igl/INTENT-TO-SILICON.git "$source_dir"
 cd "$source_dir"
 
 cargo build --release --manifest-path runtime_rs/Cargo.toml

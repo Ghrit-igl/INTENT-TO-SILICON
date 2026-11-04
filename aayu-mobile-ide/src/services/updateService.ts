@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
@@ -55,7 +55,7 @@ export const SAMPLE_RELEASE_MANIFEST: ReleaseManifest = {
   app: {
     version: '1.1.0',
     minAndroidSdk: 26,
-    downloadUrl: 'https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases/download/v1.1.0/aayu-ide-release.apk',
+    downloadUrl: 'https://github.com/Ghrit-igl/INTENT-TO-SILICON/releases/download/v1.1.0/aayu-ide-release.apk',
     sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
     changelog: [
       'Added landscape tablet layout optimization',
@@ -71,14 +71,14 @@ export const SAMPLE_RELEASE_MANIFEST: ReleaseManifest = {
       {
         abi: 'arm64-v8a',
         filename: 'libaayu_engine-arm64-v8a.so',
-        downloadUrl: 'https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases/download/v0.4.3-beta/libaayu_engine-arm64-v8a.so',
+        downloadUrl: 'https://github.com/Ghrit-igl/INTENT-TO-SILICON/releases/download/v0.4.3-beta/libaayu_engine-arm64-v8a.so',
         sha256: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
         sizeBytes: 4218000,
       },
       {
         abi: 'x86_64',
         filename: 'libaayu_engine-x86_64.so',
-        downloadUrl: 'https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases/download/v0.4.3-beta/libaayu_engine-x86_64.so',
+        downloadUrl: 'https://github.com/Ghrit-igl/INTENT-TO-SILICON/releases/download/v0.4.3-beta/libaayu_engine-x86_64.so',
         sha256: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a',
         sizeBytes: 4620000,
       },
@@ -93,7 +93,7 @@ export const SAMPLE_RELEASE_MANIFEST: ReleaseManifest = {
     version: '1.2.0',
     lessonCount: 14,
     sha256: 'ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d',
-    downloadUrl: 'https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases/download/v1.2.0/tutorials-pack.json',
+    downloadUrl: 'https://github.com/Ghrit-igl/INTENT-TO-SILICON/releases/download/v1.2.0/tutorials-pack.json',
     changelog: [
       'Added Chapter 13: High-throughput ASGI Server tuning',
       'Added Chapter 14: On-device Edge AI Intent with quantization',

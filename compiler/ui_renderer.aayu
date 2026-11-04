@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # AAYU Native Self-Hosted UI Renderer (v1.2.0)
 # Intent-to-Silicon Declarative UI Transpiler
 # 100% Pure AAYU -- Zero Python, Zero External Dependencies
@@ -215,7 +215,7 @@ let sample_page = {
                 },
                 {
                     "type": "Button",
-                    "props": {"href": "https://github.com/Minato95-ayu/INTENT-TO-SILICON"},
+                    "props": {"href": "https://github.com/Ghrit-igl/INTENT-TO-SILICON"},
                     "children": ["GitHub Repo"]
                 }
             ]

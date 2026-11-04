@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -50,7 +50,7 @@ export const NativeExportModal: React.FC<NativeExportModalProps> = ({ isOpen, on
       const readmeContent = `# AAYU Mobile IDE for Android (Kotlin + Jetpack Compose + Rust NDK)
 
 Built for Intent-to-Silicon: https://intent-to-silicon.vercel.app/docs
-Repository: https://github.com/Minato95-ayu/INTENT-TO-SILICON
+Repository: https://github.com/Ghrit-igl/INTENT-TO-SILICON
 
 ## Quick Start in Android Studio
 

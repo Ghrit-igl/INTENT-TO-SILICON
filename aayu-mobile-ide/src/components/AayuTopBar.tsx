@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
@@ -125,7 +125,7 @@ export const AayuTopBar: React.FC<AayuTopBarProps> = ({
           <button
             onClick={onCheckGitHub}
             className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1e2029] hover:bg-[#282b37] text-[11px] font-mono text-slate-300 border border-[#2b2e3c] transition-colors"
-            title="Live GitHub Sync (Minato95-ayu/INTENT-TO-SILICON) - Click to check"
+            title="Live GitHub Sync (Ghrit-igl/INTENT-TO-SILICON) - Click to check"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>{githubStatusText}</span>

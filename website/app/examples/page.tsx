@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { ArrowRight, Code2, Database, Layout, ShieldAlert, Play, ExternalLink, FolderGit2 } from 'lucide-react';
 
 export default function ExamplesPage() {
@@ -7,7 +7,7 @@ export default function ExamplesPage() {
       title: "1. Decentralized P2P Cloud & Streaming Vault",
       desc: "Replaces 40+ npm/pip packages (webtorrent, bittorrent-dht, lz-string, crypto) with a single lightweight .aayu file. Implements Kademlia DHT bitwise XOR distance routing d(x,y)=x^y, BitTorrent Magnet URI protocol formulation, streaming LZW/RLE dictionary compression, and bit-exact peer replication.",
       tags: ["Kademlia DHT", "XOR Metric", "Magnet URIs", "LZW Codec", "Zero Central Server"],
-      githubUrl: "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/p2p_cloud_vault.aayu",
+      githubUrl: "https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/p2p_cloud_vault.aayu",
       code: `# Run locally: aayu run examples/p2p_cloud_vault.aayu
 import "std/crypto.aayu"
 import "std/p2p.aayu"
@@ -31,7 +31,7 @@ main()`
       title: "2. Autonomous Cyber Sentinel & Threat Hunter (Single-File SIEM)",
       desc: "Replaces heavy Python IDS tools (Snort/Suricata/Scapy) with pure silicon speed. Features linear DFA/NFA regular expressions that are 100% ReDoS-immune, CIDR IPv4 subnet security range verification, Shannon entropy calculation for encrypted C2 payloads, and De Bruijn buffer overflow canary offset resolution.",
       tags: ["ReDoS-Immune DPI", "CIDR Subnet Policy", "Shannon Entropy", "De Bruijn Canary", "Zero Python"],
-      githubUrl: "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/cyber_sentinel_siem.aayu",
+      githubUrl: "https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/cyber_sentinel_siem.aayu",
       code: `# Run locally: aayu run examples/cyber_sentinel_siem.aayu
 import "std/regex.aayu"
 import "std/cyber.aayu"
@@ -54,7 +54,7 @@ main()`
       title: "3. Autonomous Swarm Robotics & 2D/3D Physics Engine",
       desc: "Replaces heavy physics and game engines (Matter.js, Box2D, Pygame) with zero-dependency flat-stack math. Features strict rigid-body momentum conservation invariants ((m1*v1 + m2*v2) == (m1*v1' + m2*v2')), forward LiDAR raycasting, A* grid heuristic pathfinding around obstacle belts, and Disjoint-Set Union (DSU) fleet mesh connectivity.",
       tags: ["Momentum Conservation", "A* Grid Navigation", "LiDAR Raycast", "3D Cross Products", "DSU Fleet Mesh"],
-      githubUrl: "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/swarm_physics_engine.aayu",
+      githubUrl: "https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/swarm_physics_engine.aayu",
       code: `# Run locally: aayu run examples/swarm_physics_engine.aayu
 import "std/physics.aayu"
 import "std/graph.aayu"
@@ -80,7 +80,7 @@ main()`
       title: "4. High-Frequency In-Memory Trading & Fraud Core (FinTech)",
       desc: "Replaces complex Redis + Kafka + PostgreSQL banking architectures with a sub-microsecond in-memory ledger. Features Content-Addressable Storage (CAS) zero-allocation string interning, Columnar Frame-of-Reference (FoR) price delta compression, Sybil overdraft protection, and strict mathematical value conservation invariants.",
       tags: ["Liquid Data 2.0", "CAS Interning", "Columnar FoR", "Solvency Invariant", "Double-Spend Guard"],
-      githubUrl: "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/hft_trading_core.aayu",
+      githubUrl: "https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/hft_trading_core.aayu",
       code: `# Run locally: aayu run examples/hft_trading_core.aayu
 import "std/liquid2.aayu"
 import "std/crypto.aayu"
@@ -103,7 +103,7 @@ main()`
       title: "5. The Unified Silicon Apex Citadel (Master 5-in-1 Integration)",
       desc: "Orchestrates all 4 revolutionary disciplines into a single sovereign full-stack architecture running directly on localhost:8080. Connects Kademlia P2P, Cyber Sentinel DPI, Swarm Robotics, and Liquid Trading Ledger into a single chained 64-character SHA-256 Merkle Apex Root.",
       tags: ["Master 5-in-1", "Full-Stack Single-File", "Chained Merkle Root", "Localhost:8080 Live"],
-      githubUrl: "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/sovereign_apex_portal.aayu",
+      githubUrl: "https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/sovereign_apex_portal.aayu",
       liveUrl: "http://localhost:8080/",
       code: `# Run on localhost: aayu run examples/sovereign_apex_portal.aayu --web --port 8080
 # Direct Browser UI: http://localhost:8080/
@@ -121,7 +121,7 @@ run main`
       title: "AAYU Silicon AI Agent — Laptop Automation & Voice Control",
       desc: "100% Pure AAYU Language (.aayu) with Zero Python Dependencies. A native autonomous AI assistant that listens to voice commands via speech synthesis & recognition (wake-word 'AAYU PROGRAMMING' or 'AAYU'), executes real laptop automation (launches VS Code, Notepad, Browser, Calculator, locks workstation), inspects system hardware diagnostics in 1,166 µs latency, and renders a live Cybernetic HUD dashboard.",
       tags: ["Autonomous AI Agent", "Voice Control (Wake-Word)", "OS Automation", "Zero Python", "Hardware Diagnostics"],
-      githubUrl: "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/aayu_ai_agent.aayu",
+      githubUrl: "https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/aayu_ai_agent.aayu",
       code: `# Run locally: aayu run examples/aayu_ai_agent.aayu --web --port 8080
 # 1-Click: run_aayu_agent.bat
 # Wake-word: "AAYU PROGRAMMING" or "AAYU"
@@ -211,10 +211,10 @@ run AgentHUD`
       desc: "The world's first single-file full-stack enterprise platform in pure AAYU (.aayu). Features real 2FA + OTP Zero-Knowledge authentication, crash-proof in-memory Write-Ahead Log (WAL) persistence (aayudb_wal.json), Ant-Man vector media engine (99.85% image storage reduction with dynamic SVG synthesis), and Ayush's 7-layer molecular data sharding (std/liquid.aayu) with tamper-freeze security checkpoints.",
       tags: ["Full-Stack Flagship", "Liquid Data (7-Layer)", "Ant-Man Media (99.85%)", "Live Cloudflare"],
       liveUrl: "https://intent-to-silicon.vercel.app/",
-      githubUrl: "https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu",
+      githubUrl: "https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu",
       code: `# Run locally: aayu run examples/enterprise_auth_portal.aayu --web --port 8080
 # Live Cloudflare: https://intent-to-silicon.vercel.app/
-# Direct GitHub: https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu
+# Direct GitHub: https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu
 
 app EnterpriseAuthPortal
 

@@ -1,4 +1,4 @@
-app NeuroLedger
+﻿app NeuroLedger
 
 # ==============================================================================
 # AAYU NEURO-LEDGER (NEXUS-CHAIN) v1.0.0
@@ -165,7 +165,7 @@ Page Dashboard
                     Text "Neural Consensus:" fontSize="13px" color="#94a3b8"
                     Text "99.8% Passed" fontSize="15px" fontWeight="bold" color="#10b981"
                 end
-                Button "GitHub Repo" href="https://github.com/Minato95-ayu/INTENT-TO-SILICON" backgroundColor="#1e293b" color="#ffffff" fontSize="14px" padding="8px 16px" borderRadius="8px"
+                Button "GitHub Repo" href="https://github.com/Ghrit-igl/INTENT-TO-SILICON" backgroundColor="#1e293b" color="#ffffff" fontSize="14px" padding="8px 16px" borderRadius="8px"
             end
         end
 

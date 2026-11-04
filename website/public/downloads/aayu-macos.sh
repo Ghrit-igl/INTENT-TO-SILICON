@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
-repo="https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases/latest/download"
+repo="https://github.com/Ghrit-igl/INTENT-TO-SILICON/releases/latest/download"
 temp_root="$(mktemp -d)"
 temp_dir="$temp_root"
 trap 'rm -rf "$temp_root"' EXIT

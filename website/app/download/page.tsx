@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from 'react';
 import Link from 'next/link';
 import { Terminal, Copy, Download, Cpu, Check, Smartphone, BookOpen, ExternalLink, Sparkles, ShieldCheck, Play, ArrowRight } from 'lucide-react';
@@ -81,7 +81,7 @@ export default function DownloadPage() {
       icon: <Cpu className="w-8 h-8 text-orange-400" />, 
       desc: 'Precompiled ELF binary for Ubuntu, Debian, Arch, and Alpine servers. Zero libc issues.', 
       file: 'aayu-linux.tar.gz', 
-      localUrl: 'https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases/latest/download/aayu-linux.tar.gz', 
+      localUrl: 'https://github.com/Ghrit-igl/INTENT-TO-SILICON/releases/latest/download/aayu-linux.tar.gz', 
       color: 'hover:border-orange-500/50 border-white/5 bg-[#0a0a0a]',
       badge: 'Linux ELF'
     },
@@ -90,7 +90,7 @@ export default function DownloadPage() {
       icon: <Cpu className="w-8 h-8 text-zinc-300" />, 
       desc: 'Universal binary for Apple Silicon (M1/M2/M3/M4) and Intel Macs.', 
       file: 'aayu-macos.zip', 
-      localUrl: 'https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases/latest/download/aayu-macos.zip', 
+      localUrl: 'https://github.com/Ghrit-igl/INTENT-TO-SILICON/releases/latest/download/aayu-macos.zip', 
       color: 'hover:border-zinc-500/50 border-white/5 bg-[#0a0a0a]',
       badge: 'macOS Universal'
     },

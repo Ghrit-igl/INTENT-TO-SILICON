@@ -1,10 +1,10 @@
-{
+﻿{
   "name": "aayu",
   "displayName": "AAYU",
   "description": "AAYU syntax highlighting and run command for the Rust VM",
   "version": "1.5.0",
   "publisher": "AyushGhritKaushik",
-  "author": "Ayush Ghrit Kaushik <https://github.com/Minato95-ayu>",
+  "author": "Ayush Ghrit Kaushik <https://github.com/Ghrit-igl>",
   "engines": {
     "vscode": "^1.125.0"
   },
@@ -14,9 +14,9 @@
     "url": "https://github.com/AAYU-Lang/vscode-aayu.git"
   },
   "bugs": {
-    "url": "https://github.com/Minato95-ayu/INTENT-TO-SILICON/issues"
+    "url": "https://github.com/Ghrit-igl/INTENT-TO-SILICON/issues"
   },
-  "homepage": "https://github.com/Minato95-ayu/INTENT-TO-SILICON#readme",
+  "homepage": "https://github.com/Ghrit-igl/INTENT-TO-SILICON#readme",
   "categories": [
     "Programming Languages",
     "Snippets"

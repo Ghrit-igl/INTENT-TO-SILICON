@@ -1,4 +1,4 @@
-/* eslint-disable */
+﻿/* eslint-disable */
 
 import Link from "next/link";
 import Image from "next/image";
@@ -17,7 +17,7 @@ export function Footer() {
               The Application Language. Write apps, not configurations.
             </p>
             <div className="flex gap-4">
-              <Link href="https://github.com/Minato95-ayu/INTENT-TO-SILICON" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors">GitHub</Link>
+              <Link href="https://github.com/Ghrit-igl/INTENT-TO-SILICON" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors">GitHub</Link>
               
               
             </div>
@@ -46,7 +46,7 @@ export function Footer() {
             <h3 className="mb-4 text-sm font-semibold text-white tracking-wider uppercase">Company</h3>
             <ul className="space-y-3 text-sm text-zinc-400">
               <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
-              <li><Link href="https://github.com/Minato95-ayu/INTENT-TO-SILICON" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</Link></li>
+              <li><Link href="https://github.com/Ghrit-igl/INTENT-TO-SILICON" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</Link></li>
               <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
             </ul>

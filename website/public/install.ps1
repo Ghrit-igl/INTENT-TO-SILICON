@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $aayuRoot = Join-Path $env:USERPROFILE '.aayu'
 $installBin = Join-Path $aayuRoot 'bin'
@@ -15,7 +15,7 @@ try {
         $packageDir = Join-Path $repoRoot 'bin'
     } else {
         $archive = Join-Path $tempRoot 'aayu-windows.zip'
-        $url = 'https://github.com/Minato95-ayu/INTENT-TO-SILICON/releases/latest/download/aayu-windows.zip'
+        $url = 'https://github.com/Ghrit-igl/INTENT-TO-SILICON/releases/latest/download/aayu-windows.zip'
         Invoke-WebRequest -Uri $url -OutFile $archive
         Expand-Archive -LiteralPath $archive -DestinationPath $tempRoot -Force
         $packageDir = $tempRoot

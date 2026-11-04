@@ -1,4 +1,4 @@
- 
+﻿ 
 import type { Metadata } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
@@ -8,8 +8,8 @@ import { GlobalSearch } from "@/components/global-search";
 export const metadata: Metadata = {
   title: "AAYU Programming Language | By Ayush Ghrit Kaushik",
   description: "AAYU is a modern, simple, fast, offline-first, and AI-native programming language designed by Ayush Ghrit Kaushik. Build production apps by defining human intent instead of boilerplate.",
-  keywords: ["AAYU", "AAYU Programming Language", "Ayush Ghrit Kaushik", "Intent to Silicon", "AI Programming", "AGI", "Compiler", "Minato95-ayu", "Web Development", "Database CRUD", "No-code alternative"],
-  authors: [{ name: "Ayush Ghrit Kaushik", url: "https://github.com/Minato95-ayu" }],
+  keywords: ["AAYU", "AAYU Programming Language", "Ayush Ghrit Kaushik", "Intent to Silicon", "AI Programming", "AGI", "Compiler", "Ghrit-igl", "Web Development", "Database CRUD", "No-code alternative"],
+  authors: [{ name: "Ayush Ghrit Kaushik", url: "https://github.com/Ghrit-igl" }],
   creator: "Ayush Ghrit Kaushik",
   publisher: "Ayush Ghrit Kaushik",
   robots: "index, follow",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "AAYU Programming Language",
     description: "The AI-native programming language created by Ayush Ghrit Kaushik.",
-    creator: "@Minato95-ayu",
+    creator: "@Ghrit-igl",
   }
 };
 
@@ -54,7 +54,7 @@ export default function RootLayout({
                 "author": {
                   "@type": "Person",
                   "name": "Ayush Ghrit Kaushik",
-                  "url": "https://github.com/Minato95-ayu"
+                  "url": "https://github.com/Ghrit-igl"
                 },
                 "description": "A modern, AI-native programming language compiling human intent to scalable architecture.",
                 "offers": {

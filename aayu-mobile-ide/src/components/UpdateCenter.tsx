@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -251,7 +251,7 @@ export const UpdateCenter: React.FC = () => {
           <span>Automated GitHub Actions Verification Pipeline</span>
         </h3>
         <p className="text-xs text-slate-400">
-          When code is pushed to <code className="text-cyan-400">Minato95-ayu/INTENT-TO-SILICON</code>, the CI workflow triggers:
+          When code is pushed to <code className="text-cyan-400">Ghrit-igl/INTENT-TO-SILICON</code>, the CI workflow triggers:
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs font-mono">
           <div className="p-2.5 rounded bg-slate-950 border border-slate-800">

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 
 const priorities = [
   'Align the language specification with parser behavior and tested examples.',
@@ -18,7 +18,7 @@ export default function RoadmapPage() {
           {priorities.map((item) => <li key={item}>{item}</li>)}
         </ol>
         <p className="mt-10 text-zinc-400">
-          See the <Link className="text-cyan-400 underline" href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/ROADMAP.md">repository roadmap</Link> for the full status and later work.
+          See the <Link className="text-cyan-400 underline" href="https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/ROADMAP.md">repository roadmap</Link> for the full status and later work.
         </p>
       </div>
     </main>

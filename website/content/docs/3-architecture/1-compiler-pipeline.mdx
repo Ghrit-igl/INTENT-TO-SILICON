@@ -1,4 +1,4 @@
----
+﻿---
 title: "Compiler Pipeline"
 description: "How the current AAYU compiler and VM fit together."
 ---
@@ -11,7 +11,7 @@ The current command-line path uses the Rust bootstrap compiler and Rust VM:
 .aayu source -> aayuc -> .ayc bytecode -> bytecode verifier -> AAYU VM
 ```
 
-The repository also contains a compiler pipeline written in AAYU under `compiler/`. That source pipeline and the bootstrap executable are distinct. A reproducible, byte-for-byte self-hosting bootstrap check is still unfinished in the [confidence report](https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/COMPILER_CONFIDENCE_REPORT.md).
+The repository also contains a compiler pipeline written in AAYU under `compiler/`. That source pipeline and the bootstrap executable are distinct. A reproducible, byte-for-byte self-hosting bootstrap check is still unfinished in the [confidence report](https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/COMPILER_CONFIDENCE_REPORT.md).
 
 The CLI currently routes `--jit` to the Rust VM because the experimental C emitter loses value types and has incorrect results. The benchmark-only `--sum` C-kernel measurement is not a VM JIT claim. AAYU does not currently compile through LLVM.
 

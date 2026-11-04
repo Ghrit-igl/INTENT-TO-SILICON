@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { chapters } from "@/lib/tutorial-data";
@@ -205,7 +205,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ slug: 
         </div>
 
         <div className="mb-10 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5 text-sm text-emerald-100">
-          This lesson uses the verified core subset and links to a checked-in regression program. Its output is covered by the repository test harness. This does not imply support for features outside the lesson; see <Link href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/KNOWN_LIMITATIONS.md" className="underline">known limitations</Link>.
+          This lesson uses the verified core subset and links to a checked-in regression program. Its output is covered by the repository test harness. This does not imply support for features outside the lesson; see <Link href="https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/KNOWN_LIMITATIONS.md" className="underline">known limitations</Link>.
         </div>
 
         {/* What you'll learn */}

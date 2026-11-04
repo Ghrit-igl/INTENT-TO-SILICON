@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
@@ -240,7 +240,7 @@ export const AayuDrawer: React.FC<AayuDrawerProps> = ({
         {/* Footer with GitHub and Official Docs Links */}
         <div className="p-4 bg-[#121318] border-t border-[#262833] text-xs text-slate-400 flex items-center justify-between">
           <a
-            href="https://github.com/Minato95-ayu/INTENT-TO-SILICON"
+            href="https://github.com/Ghrit-igl/INTENT-TO-SILICON"
             target="_blank"
             rel="noreferrer"
             className="hover:text-emerald-400 flex items-center gap-1 transition-colors"

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,7 @@ export default function Home() {
   }, []);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText("curl -fsSL https://raw.githubusercontent.com/Minato95-ayu/INTENT-TO-SILICON/main/install.sh | bash");
+    navigator.clipboard.writeText("curl -fsSL https://raw.githubusercontent.com/Ghrit-igl/INTENT-TO-SILICON/main/install.sh | bash");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -223,7 +223,7 @@ export default function Home() {
               </a>
 
               <a
-                href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu"
+                href="https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-purple-500/40 text-purple-200 font-bold text-sm transition hover:scale-105"
@@ -307,7 +307,7 @@ export default function Home() {
                   <div className="p-3 bg-black/60 rounded-xl border border-white/5">
                     <span className="text-zinc-500 block mb-1"># Direct GitHub Source:</span>
                     <a
-                      href="https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu"
+                      href="https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-purple-300 hover:text-purple-200 underline break-all flex items-center gap-1.5"
@@ -625,7 +625,7 @@ export default function Home() {
                 <div className="mt-4 pt-3 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono text-zinc-400">
                   <span className="text-zinc-500">Termux Quick-Install:</span>
                   <code className="bg-black/60 px-3 py-1.5 rounded-lg border border-white/10 text-emerald-300 text-[11px] select-all overflow-x-auto">
-                    curl -fsSL https://raw.githubusercontent.com/Minato95-ayu/INTENT-TO-SILICON/main/website/public/downloads/aayu-termux-install.sh | bash
+                    curl -fsSL https://raw.githubusercontent.com/Ghrit-igl/INTENT-TO-SILICON/main/website/public/downloads/aayu-termux-install.sh | bash
                   </code>
                 </div>
               </div>
@@ -1352,12 +1352,12 @@ TOTAL VERIFICATION: 365/365 assertions verified cleanly on 64-bit Silicon VM (10
           </div>
           <div>
             <h2 className="text-3xl font-bold mb-2">Created by <span className="text-purple-400">Ayush Ghrit Kaushik</span></h2>
-            <p className="text-zinc-500 font-mono text-sm mb-6">@Minato95-ayu • Creator & Lead Architect</p>
+            <p className="text-zinc-500 font-mono text-sm mb-6">@Ghrit-igl • Creator & Lead Architect</p>
             <p className="text-zinc-300 text-lg leading-relaxed mb-6">
               &ldquo;I built AAYU because modern programming has become bloated. We spend more time configuring Docker and fixing pip dependencies than actually building products. AAYU is the reset button. It is the first programming language designed from the ground up for Vibe Coders and AI Agents to build Silicon-ready empires.&rdquo;
             </p>
             <div className="flex gap-4">
-              <a href="https://github.com/Minato95-ayu" target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-semibold transition-colors">
+              <a href="https://github.com/Ghrit-igl" target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-semibold transition-colors">
                 GitHub Profile
               </a>
             </div>

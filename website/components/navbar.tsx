@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -43,13 +43,13 @@ export function Navbar() {
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="https://github.com/Minato95-ayu/INTENT-TO-SILICON" target="_blank" rel="noreferrer" className="hidden sm:flex">
+          <Link href="https://github.com/Ghrit-igl/INTENT-TO-SILICON" target="_blank" rel="noreferrer" className="hidden sm:flex">
             <div className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 hover:bg-white/10 transition-colors">
               <GitBranch className="h-4 w-4 text-white" />
               <span className="sr-only">GitHub</span>
             </div>
           </Link>
-          <Link href="https://github.com/Minato95-ayu/INTENT-TO-SILICON" target="_blank" className="hidden sm:flex">
+          <Link href="https://github.com/Ghrit-igl/INTENT-TO-SILICON" target="_blank" className="hidden sm:flex">
             <Button className="bg-white text-black hover:bg-zinc-200 font-semibold shadow-[0_0_15px_rgba(255,255,255,0.3)]">
               View on GitHub
             </Button>
@@ -81,7 +81,7 @@ export function Navbar() {
             Download (Android APK &amp; Native CLI)
           </Link>
           <div className="pt-4 border-t border-zinc-800 flex flex-col gap-4">
-            <Link href="https://github.com/Minato95-ayu/INTENT-TO-SILICON" target="_blank" className="flex items-center gap-2 text-zinc-400 hover:text-white">
+            <Link href="https://github.com/Ghrit-igl/INTENT-TO-SILICON" target="_blank" className="flex items-center gap-2 text-zinc-400 hover:text-white">
               <GitBranch className="h-5 w-5" />
               GitHub Repository
             </Link>

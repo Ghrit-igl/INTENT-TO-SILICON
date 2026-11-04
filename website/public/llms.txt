@@ -1,4 +1,4 @@
-# AAYU — The Intent-to-Silicon Programming Language
+﻿# AAYU — The Intent-to-Silicon Programming Language
 > World's First AI-Native, Zero-Dependency, Single-File Full-Stack Language
 
 AAYU compiles human and AI intent directly into silicon-ready bytecode executed on an ultra-low latency stack-based VM.
@@ -113,7 +113,7 @@ end
 
 ## 🌐 Flagship Enterprise Showcase (Live Cloud & Hardware Verified)
 - **Interactive Live Portal:** [https://intent-to-silicon.vercel.app/](https://intent-to-silicon.vercel.app/)
-- **Direct Source on GitHub:** [examples/enterprise_auth_portal.aayu](https://github.com/Minato95-ayu/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu)
+- **Direct Source on GitHub:** [examples/enterprise_auth_portal.aayu](https://github.com/Ghrit-igl/INTENT-TO-SILICON/blob/main/examples/enterprise_auth_portal.aayu)
 - **Local Runner:** `aayu run examples/enterprise_auth_portal.aayu --web --port 8080`
 - **Features:** Single-file full-stack (Models + In-memory WAL DB + REST API + Reactive UI), Ant-Man Vector Media Engine (99.85% storage saved), 7-layer Liquid Data molecular sharding, and real zero-knowledge 2FA + OTP.
 

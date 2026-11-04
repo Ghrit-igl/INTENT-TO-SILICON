@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
@@ -37,7 +37,7 @@ export const TUTORIAL_LESSONS: TutorialLesson[] = [
     concept: 'Introduction to AAYU philosophy, Zero-Dependency stack, and Hello World.',
     prerequisites: ['Basic understanding of programming logic'],
     explanation:
-      'AAYU is an enterprise-grade programming language created by Ayush Kaushik (@Minato95-ayu). Its mission is "Intent to Silicon" — compiling high-level developer intent directly into native HTTP servers, relational databases, and user interfaces without external dependencies like npm, pip, or bulky runtime engines. Programs are stored in `.aayu` files.',
+      'AAYU is an enterprise-grade programming language created by Ayush Kaushik (@Ghrit-igl). Its mission is "Intent to Silicon" — compiling high-level developer intent directly into native HTTP servers, relational databases, and user interfaces without external dependencies like npm, pip, or bulky runtime engines. Programs are stored in `.aayu` files.',
     code: `// Lesson 1: Hello World in AAYU
 let greeting = "Hello from AAYU!"
 println(greeting)

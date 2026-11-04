@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # Script to compile the Official Ultimate AAYU Master Handbook HTML & PDF
 # Author: Ayush Ghrit Kaushik - Creator & Lead Architect of AAYU
 # ==============================================================================
@@ -374,7 +374,7 @@ $html = @"
     <div class="author-box">
       <h3>Ayush Ghrit Kaushik</h3>
       <p>Creator & Lead Systems Architect of AAYU</p>
-      <p style="color: #64748b; font-size: 11px; margin-top: 4px;">Project: github.com/Minato95-ayu/INTENT-TO-SILICON</p>
+      <p style="color: #64748b; font-size: 11px; margin-top: 4px;">Project: github.com/Ghrit-igl/INTENT-TO-SILICON</p>
     </div>
     <div class="edition-tag">
       <strong>2026 Master Edition</strong><br>
